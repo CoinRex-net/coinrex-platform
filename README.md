@@ -94,7 +94,7 @@ CoinRex combines several product areas in one platform:
 
 3. Create the database and import schema:
    - `database/migrations/recreate_db.sql` for the main schema
-   - `database/migrations/admin_seed.sql` for optional admin seed data
+   - `database/migrations/admin_seed.sql` for **optional admin bootstrap**, after replacing its placeholder values with your own secure admin details
 
 4. Apply newer migrations from `database/migrations/` if needed.
 
@@ -103,7 +103,9 @@ CoinRex combines several product areas in one platform:
    - app secrets
    - SMTP settings
 
-6. Ensure writable runtime directories exist:
+6. If you need an initial admin account, generate your own bcrypt password hash and customize `database/migrations/admin_seed.sql` before running it.
+
+7. Ensure writable runtime directories exist:
    - `uploads/`
    - `devhub/logs/`
 

@@ -103,6 +103,7 @@
 
 ## Production Hardening Checklist
 
+- [x] Remove default admin credentials from repository seed files.
 - [ ] Remove hardcoded secrets from repository.
 - [ ] Rotate SMTP/admin credentials already exposed.
 - [ ] Introduce `.env` + strict config loader.

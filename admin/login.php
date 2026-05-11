@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 <div class="form-group">
                     <label>Email Address</label>
-                    <input type="email" name="email" placeholder="admin@coinrex.local" required>
+                    <input type="email" name="email" placeholder="admin@example.com" required>
                 </div>
                 
                 <div class="form-group">

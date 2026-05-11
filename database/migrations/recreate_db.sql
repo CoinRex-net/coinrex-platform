@@ -101,17 +101,11 @@ CREATE TABLE admins (
     KEY idx_admins_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO admins (id, email, username, name, password_hash, status, created_at, updated_at)
-VALUES (
-    1,
-    'admin@coinrex.local',
-    'admin',
-    'CoinRex Admin',
-    '$2y$12$rOhqL4N4AVgEZ8D2wHM.s.TJC420udsRSaFjJZuqg/lMdaevy7OQ.',
-    'active',
-    NOW(),
-    NOW()
-);
+-- SECURITY NOTE:
+-- No default admin account is inserted by this schema rebuild.
+-- Create your own admin explicitly after import using a unique email,
+-- a unique username, and a freshly generated bcrypt password hash.
+-- See database/migrations/admin_seed.sql for a safe bootstrap template.
 
 CREATE TABLE projects (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -401,9 +395,5 @@ CREATE TABLE messages (
     CONSTRAINT fk_messages_recipient_admin
         FOREIGN KEY (recipient_admin_id) REFERENCES admins(id)
         ON DELETE SET NULL
-        ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Default Admin Login
--- Email: admin@coinrex.local
--- Password: Admin@12345
+)
+ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
