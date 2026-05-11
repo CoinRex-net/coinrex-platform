@@ -1,0 +1,95 @@
+.forgot-main {
+    padding-top: 22px;
+}
+
+.forgot-container {
+    max-width: 760px;
+}
+
+.forgot-card {
+    padding: 34px 34px 28px;
+}
+
+.forgot-heading {
+    margin-bottom: 20px;
+}
+
+.forgot-guide {
+    margin-bottom: 22px;
+}
+
+.forgot-section {
+    padding: 24px;
+    border-radius: 24px;
+    background: rgba(16, 35, 73, 0.42);
+    border: 1px solid rgba(212, 175, 55, 0.10);
+}
+
+.forgot-section + .forgot-section {
+    margin-top: 18px;
+}
+
+.section-head {
+    margin-bottom: 18px;
+}
+
+.section-head h2 {
+    margin: 0 0 8px;
+    color: var(--color-text-primary);
+    font-size: 24px;
+}
+
+.section-head p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.forgot-lookup-form .auth-submit,
+.forgot-reset-form .auth-submit {
+    margin-bottom: 0;
+}
+
+.forgot-email-card {
+    margin-bottom: 18px;
+}
+
+.forgot-actions {
+    margin-top: 18px;
+}
+
+.reset-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    margin-bottom: 18px;
+}
+
+.reset-grid .input-group:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+    .forgot-card {
+        padding: 28px 22px 24px;
+    }
+
+    .forgot-section {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 568px) {
+    .forgot-main {
+        padding-top: 18px;
+    }
+
+    .forgot-card {
+        padding: 24px 20px 20px;
+    }
+
+    .section-head h2 {
+        font-size: 22px;
+    }
+}

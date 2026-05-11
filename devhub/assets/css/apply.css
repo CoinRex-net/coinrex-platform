@@ -1,0 +1,612 @@
+/* ========================================
+   Developer Verification Application Styles
+   ======================================== */
+
+.apply-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header */
+.apply-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.apply-header h1 {
+    font-size: 28px;
+    color: white;
+    margin-bottom: 10px;
+}
+
+.apply-header h1 i {
+    color: #1D4ED8;
+    margin-right: 10px;
+}
+
+.apply-header p {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+/* Steps Indicator */
+.steps-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    position: relative;
+}
+
+.steps-indicator::before {
+    content: '';
+    position: absolute;
+    top: 30px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #1e293b;
+    z-index: 0;
+}
+
+.step {
+    text-align: center;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.step-number {
+    width: 60px;
+    height: 60px;
+    background: #1e293b;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #64748b;
+    border: 2px solid #334155;
+}
+
+.step.active .step-number {
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: white;
+    border-color: #1D4ED8;
+    box-shadow: 0 0 20px rgba(29,78,216,0.30);
+}
+
+.step.completed .step-number {
+    background: #1D4ED8;
+    color: white;
+    border-color: #1D4ED8;
+}
+
+.step.rejected .step-number {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #ffffff;
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.step.rejected .step-number i {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.step.rejected .step-label {
+    color: #fca5a5;
+}
+
+.step.completed .step-number::after {
+    content: '✓';
+    font-size: 28px;
+}
+
+.step-label {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.step.active .step-label {
+    color: #1D4ED8;
+    font-weight: 600;
+}
+
+/* Form Cards */
+.apply-card {
+    background: #0f172a;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.05);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.apply-card.submitted {
+    border-left: 3px solid #1D4ED8;
+    opacity: 0.8;
+}
+
+.card-header {
+    padding: 20px 30px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    background: rgba(29,78,216,0.08);
+}
+
+.card-header h2 {
+    color: white;
+    font-size: 18px;
+    margin: 0;
+}
+
+.card-header h2 i {
+    color: #1D4ED8;
+    margin-right: 10px;
+}
+
+.card-header p {
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+.card-body {
+    padding: 30px;
+}
+
+/* Form Groups */
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    color: #cbd5e1;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.form-group label i {
+    margin-right: 8px;
+    color: #1D4ED8;
+    width: 20px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 12px 16px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    color: white;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #1D4ED8;
+    box-shadow: 0 0 0 3px rgba(29,78,216,0.12);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #64748b;
+}
+
+.form-group input:disabled,
+.form-group textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Help Text */
+.help-text {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 5px;
+}
+
+/* Status Badge */
+.status-badge {
+    float: right;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.submitted {
+    background: rgba(29,78,216,0.12);
+    color: #1D4ED8;
+}
+
+/* Buttons */
+.btn-submit {
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 40px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 10px;
+    transition: all 0.2s;
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(29,78,216,0.30);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: white;
+    padding: 12px 28px;
+    border-radius: 40px;
+    text-decoration: none;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(29,78,216,0.30);
+}
+
+.btn-secondary {
+    background: #1e293b;
+    color: #cbd5e1;
+    padding: 12px 28px;
+    border-radius: 40px;
+    text-decoration: none;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #334155;
+}
+
+.btn-large {
+    padding: 14px 32px;
+    font-size: 16px;
+}
+
+.btn-copy {
+    margin-top: 10px;
+    background: #334155;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-copy:hover {
+    background: #1D4ED8;
+}
+
+.btn-submit i,
+.btn-primary i,
+.btn-secondary i,
+.btn-copy i,
+.toast-content i,
+.submitted-info i,
+.alert i {
+    color: inherit;
+}
+
+.btn-disabled,
+.btn-secondary:disabled {
+    background: #111827;
+    color: #64748b;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.btn-disabled:hover,
+.btn-secondary:disabled:hover {
+    background: #111827;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Submitted Info */
+.submitted-info {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(29,78,216,0.08);
+    border-radius: 8px;
+    color: #1D4ED8;
+    font-size: 14px;
+}
+
+/* Review & Pending Cards */
+.review-card,
+.pending-card {
+    background: linear-gradient(135deg, rgba(29,78,216,0.08), rgba(22,163,74,0.02));
+    border: 1px solid rgba(29,78,216,0.22);
+    text-align: center;
+}
+
+.review-card h3,
+.pending-card h3 {
+    color: white;
+    margin-bottom: 10px;
+}
+
+.review-card p,
+.pending-card p {
+    color: #94a3b8;
+    margin-bottom: 20px;
+}
+
+.review-icon,
+.pending-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.review-icon {
+    color: #fbbf24;
+}
+
+.pending-icon {
+    color: #facc15;
+}
+
+/* Meta Tag Display */
+.meta-tag-display {
+    background: #1e293b;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #1D4ED8;
+    word-break: break-all;
+}
+
+/* Method Form */
+.method-form {
+    width: 100%;
+}
+
+/* Toast Notifications */
+.toast-notification {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    min-width: 320px;
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    z-index: 9999;
+    border-left: 4px solid;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast-success {
+    border-left-color: #1D4ED8;
+}
+
+.toast-error {
+    border-left-color: #ef4444;
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: white;
+}
+
+/* Alert Messages */
+.alert {
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.alert-success {
+    background: rgba(29,78,216,0.12);
+    border: 1px solid #1D4ED8;
+    color: #1D4ED8;
+}
+
+.alert-error {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid #ef4444;
+    color: #ef4444;
+}
+
+.alert-info {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid #3b82f6;
+    color: #3b82f6;
+}
+
+.alert-warning {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid #f59e0b;
+    color: #f59e0b;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .apply-wrapper {
+        padding: 15px;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+    
+    .step-label {
+        font-size: 10px;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .toast-notification {
+        min-width: 280px;
+        bottom: 20px;
+        right: 20px;
+    }
+}
+/* ========================================
+   Success Card for Verified Users
+   ======================================== */
+
+.success-card {
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.12), rgba(22, 163, 74, 0.05));
+    border: 2px solid #1D4ED8;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.success-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    color: #60A5FA;
+}
+
+.success-card h3 {
+    color: #1D4ED8 !important;
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.success-card p {
+    color: #94a3b8 !important;
+    margin-bottom: 25px;
+}
+
+.success-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.28);
+    color: #93C5FD;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.success-card .btn-primary {
+    display: inline-block;
+    margin-top: 10px;
+}
+
+.action-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.inline-action-form {
+    margin: 0;
+}
+
+.rejected-card {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(248, 113, 113, 0.03));
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    text-align: center;
+}
+
+.rejected-card h3 {
+    color: white;
+    margin-bottom: 10px;
+}
+
+.rejected-card p {
+    color: #94a3b8;
+    margin-bottom: 20px;
+}
+
+.cooldown-note {
+    color: #fecaca !important;
+    font-weight: 600;
+}
+
+.rejected-card .pending-icon {
+    color: #f87171;
+}
+
+.change-window-note {
+    margin-top: 18px;
+    margin-bottom: 0 !important;
+    color: #cbd5e1 !important;
+    font-size: 13px;
+}
+
+.step.completed .step-number::after {
+    content: "\2713";
+}

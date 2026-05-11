@@ -1,0 +1,217 @@
+/* ========================================
+   DevHub Sidebar - Complete Version
+   ======================================== */
+
+/* Sidebar Container */
+.devhub-sidebar {
+    width: 280px;
+    background: #0a0f1a;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 1200;
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+}
+
+/* Logo */
+.dh-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 28px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dh-logo img {
+    width: 38px;
+    height: 38px;
+}
+
+.dh-logo div span {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1.2;
+}
+
+.dh-logo div small {
+    font-size: 0.7rem;
+    color: #64748b;
+    display: block;
+    margin-top: 2px;
+}
+
+/* Navigation */
+.dh-nav {
+    flex: 1;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dh-menu {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.dh-menu i {
+    width: 22px;
+}
+
+.dh-menu:hover {
+    background: rgba(29, 78, 216, 0.12);
+    color: #1D4ED8;
+}
+
+.dh-menu.active {
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: white;
+}
+
+/* Bottom Section */
+.dh-bottom {
+    padding: 20px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Social Icons */
+.dh-social {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.dh-social a {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.dh-social a:hover {
+    transform: translateY(-3px);
+}
+
+.dh-social a:nth-child(1):hover { background: #1DA1F2; color: white; }
+.dh-social a:nth-child(2):hover { background: #1877F2; color: white; }
+.dh-social a:nth-child(3):hover { background: #0088cc; color: white; }
+
+/* Main Content */
+.devhub-main-content {
+    margin-left: 280px;
+    padding: 0;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+/* ========================================
+   Mobile Menu Button - Slides with Sidebar
+   ======================================== */
+
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 1201;
+    width: 45px;
+    height: 45px;
+    background: #1D4ED8;
+    border: 0;
+    border-radius: 12px;
+    color: white;
+    font-size: 20px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: left 0.3s ease;
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.30);
+}
+
+/* Sidebar Overlay */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.7);
+    z-index: 1199;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.sidebar-overlay.show {
+    display: block;
+    opacity: 1;
+}
+
+/* ========================================
+   Mobile Styles
+   ======================================== */
+
+@media (max-width: 992px) {
+    /* Sidebar hidden by default */
+    .devhub-sidebar {
+        transform: translateX(-100%);
+        max-width: 85vw;
+        box-shadow: none;
+    }
+    
+    /* Sidebar open state */
+    .devhub-sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    }
+    
+    /* Main content full width */
+    .devhub-main-content {
+        margin-left: 0;
+        width: 100%;
+        padding-top: 0;
+    }
+    
+    /* Show mobile menu button */
+    .mobile-menu-btn {
+        display: inline-flex;
+    }
+    
+    /* When sidebar is open, button slides right */
+    .devhub-sidebar.open ~ .mobile-menu-btn,
+    .mobile-menu-btn.slide {
+        left: min(300px, calc(100vw - 58px));
+    }
+}
+
+/* ========================================
+   Desktop Styles
+   ======================================== */
+
+@media (min-width: 993px) {
+    .mobile-menu-btn {
+        display: none;
+    }
+    
+    .sidebar-overlay {
+        display: none !important;
+    }
+}

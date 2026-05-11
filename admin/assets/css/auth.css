@@ -1,0 +1,256 @@
+/* ========================================
+   CoinRex AdminHub Auth Pages (Login)
+   ======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 500px;
+}
+
+/* Header with Logo */
+.auth-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.logo-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.logo-img {
+    width: 55px;
+    height: 55px;
+    object-fit: contain;
+}
+
+.logo-text {
+    text-align: center;
+    flex: 0;
+}
+
+.logo-text h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.logo-text span {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.55) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.auth-header p {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+/* Auth Card */
+.auth-card {
+    background: #0f172a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 40px;
+}
+
+/* Messages */
+.error-message {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.2);
+    color: #f87171;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.success-message {
+    background: rgba(29,78,216,0.12);
+    border: 1px solid rgba(29,78,216,0.22);
+    color: #60A5FA;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Form Groups */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #cbd5f5;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 14px 16px;
+    background: #1e293b;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    color: white;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #1D4ED8;
+    box-shadow: 0 0 0 3px rgba(29,78,216,0.12);
+}
+
+.form-group input::placeholder {
+    color: #64748b;
+}
+
+/* Password Field with Toggle */
+.password-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-wrapper input {
+    padding-right: 45px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 18px;
+    transition: color 0.2s;
+}
+
+.password-toggle:hover {
+    color: #1D4ED8;
+}
+
+/* Login Button */
+.auth-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    border: none;
+    border-radius: 40px;
+    color: #000000;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.auth-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(29,78,216,0.30);
+}
+
+/* Links */
+.auth-links {
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.auth-links a {
+    color: #1D4ED8;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-links a:hover {
+    text-decoration: underline;
+}
+
+.back-link {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.back-link a {
+    color: #64748b;
+    text-decoration: none;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+}
+
+.back-link a:hover {
+    color: #1D4ED8;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .auth-card {
+        padding: 28px 24px;
+    }
+    
+    .logo-img {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .logo-text h1 {
+        font-size: 24px;
+    }
+    
+    .auth-btn {
+        padding: 12px;
+        font-size: 14px;
+    }
+}

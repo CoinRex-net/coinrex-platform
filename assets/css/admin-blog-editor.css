@@ -1,0 +1,81 @@
+.blog-admin-shell{display:grid;gap:18px}
+.blog-admin-hero{background:linear-gradient(120deg,#111827,#1e1b4b 45%,#0f766e);border:1px solid rgba(99,102,241,.35);border-radius:18px;padding:20px}
+.blog-admin-hero h2{margin:0 0 8px;color:#e0e7ff}
+.blog-admin-hero p{margin:0;color:#c7d2fe}
+.blog-admin-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.blog-admin-card{background:linear-gradient(180deg,#0f172a,#111827);border:1px solid #243244;border-radius:16px;padding:16px}
+.blog-admin-card h4{margin:0 0 10px;color:#a5b4fc}
+.helper-list{margin:0;padding-left:18px;color:#93c5fd;line-height:1.7}
+.field-label{display:block;font-weight:600;color:#c4b5fd;margin:10px 0 6px}
+.input-pro{width:100%;padding:11px 12px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#e5e7eb}
+.split-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.split-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.ql-toolbar.ql-snow,.ql-container.ql-snow{border-color:#334155!important}
+.ql-toolbar.ql-snow{background:linear-gradient(90deg,#111827,#1f2937)}
+.ql-container{min-height:280px;background:#0b1220;color:#e5e7eb;border-radius:0 0 10px 10px}
+.pill-note{display:inline-block;padding:6px 10px;border-radius:999px;background:#1d4ed8;color:#dbeafe;font-size:.78rem}
+.color-note{background:linear-gradient(135deg,#312e81,#1E3A8A,#0f766e);padding:10px;border-radius:10px;color:#ede9fe;font-size:.9rem}
+@media (max-width:1000px){.blog-admin-grid,.split-2,.split-3{grid-template-columns:1fr}}
+
+/* SunEditor dark theme overrides */
+.sun-editor{border:1px solid #334155!important;background:#0b1220!important;border-radius:12px!important}
+.sun-editor .se-toolbar{background:linear-gradient(90deg,#111827,#1f2937)!important;border-bottom:1px solid #334155!important}
+.sun-editor .se-btn{color:#cbd5e1!important}
+.sun-editor .se-btn:hover,.sun-editor .se-btn:focus{background:#312e81!important;color:#e9d5ff!important}
+.sun-editor .se-btn:enabled.on{background:#1d4ed8!important;color:#dbeafe!important}
+.sun-editor .se-wrapper{background:#0b1220!important;color:#e5e7eb!important}
+.sun-editor .se-wrapper .se-wrapper-inner{background:#0b1220!important;color:#e5e7eb!important}
+.sun-editor .se-placeholder{color:#64748b!important}
+.sun-editor-editable{background:#0b1220!important;color:#e5e7eb!important;font-size:15px}
+.sun-editor .se-list-layer,
+.sun-editor .se-dialog,
+.sun-editor .se-dialog .se-dialog-content,
+.sun-editor .se-controller,
+.sun-editor .se-submenu{background:#111827!important;color:#e5e7eb!important;border:1px solid #334155!important}
+.sun-editor .se-dialog .se-input-form,
+.sun-editor .se-dialog input,
+.sun-editor .se-dialog textarea,
+.sun-editor .se-dialog select{background:#0b1220!important;color:#e5e7eb!important;border:1px solid #334155!important}
+.sun-editor .se-dialog .se-btn-primary{background:#2563eb!important;border-color:#2563eb!important;color:#fff!important}
+.sun-editor .se-dialog .se-btn-primary:hover{background:#1d4ed8!important}
+.sun-editor .se-dialog .se-btn{color:#cbd5e1!important}
+.sun-editor .se-resizing-bar{background:#0f172a!important;border-top:1px solid #334155!important;color:#94a3b8!important}
+.sun-editor .se-menu-list li button{color:#d1d5db!important}
+.sun-editor .se-menu-list li button:hover{background:#312e81!important;color:#e9d5ff!important}
+.sun-editor .se-btn-module-border{border-color:#334155!important}
+.sun-editor .se-dialog.se-dialog-open{z-index:4000!important}
+
+/* Small-screen polish */
+@media (max-width:768px){
+  .blog-admin-shell{gap:12px}
+  .blog-admin-hero{padding:14px;border-radius:14px}
+  .blog-admin-hero h2{font-size:1.2rem}
+  .blog-admin-card{padding:12px;border-radius:12px}
+  .field-label{margin:8px 0 5px;font-size:.92rem}
+  .input-pro{padding:10px;font-size:14px}
+  .pill-note{font-size:.72rem}
+  .helper-list{font-size:.9rem;line-height:1.55}
+
+  .sun-editor{border-radius:10px!important}
+  .sun-editor .se-toolbar{padding:4px 2px!important}
+  .sun-editor .se-btn{min-width:26px!important;height:26px!important}
+  .sun-editor .se-wrapper{min-height:240px!important}
+  .sun-editor-editable{font-size:14px!important;line-height:1.6!important}
+
+  .sun-editor .se-dialog{
+    width:calc(100vw - 24px)!important;
+    max-width:calc(100vw - 24px)!important;
+    left:12px!important;
+    right:12px!important;
+    margin:0 auto!important;
+  }
+  .sun-editor .se-dialog .se-dialog-content{padding:10px!important}
+}
+
+@media (max-width:480px){
+  .blog-admin-hero h2{font-size:1.05rem}
+  .sun-editor .se-btn{min-width:24px!important;height:24px!important}
+  .sun-editor .se-dialog .se-input-form,
+  .sun-editor .se-dialog input,
+  .sun-editor .se-dialog select{font-size:13px!important}
+}

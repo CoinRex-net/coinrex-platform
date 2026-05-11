@@ -1,0 +1,658 @@
+/* ========================================
+   DevHub Base Styles + Mobile Responsive
+   ======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #0a0f1a;
+    overflow-x: hidden;
+}
+
+.expert-mode {
+    --expert-bg-accent: #0A2540;
+    --expert-primary: #3B82F6;
+    --expert-glow: #38BDF8;
+    --expert-border: #1E3A8A;
+}
+
+/* Main Layout */
+.devhub-app-wrapper {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Sidebar - Desktop */
+.devhub-sidebar {
+    width: 280px;
+    background: #0a0f1a;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Main Content */
+.devhub-main-content {
+    flex: 1;
+    margin-left: 280px;
+    width: calc(100% - 280px);
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+/* ===== MOBILE MENU BUTTON (Hidden on desktop) ===== */
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 1201;
+    background: #1D4ED8;
+    border: 0;
+    color: #ffffff;
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 20px;
+    transition: left 0.3s ease;
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.30);
+}
+
+.mobile-menu-btn.is-open {
+    background: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+
+/* Sidebar Overlay for Mobile */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.7);
+    z-index: 1199;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+/* Sidebar Styles */
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 28px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 24px;
+}
+
+.sidebar-logo-img {
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+}
+
+.sidebar-logo span {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: white;
+    letter-spacing: -0.3px;
+}
+
+.sidebar-logo small {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: #94a3b8;
+    margin-top: 2px;
+    display: block;
+}
+
+.sidebar-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 16px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    color: #cbd5e1;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.nav-item i {
+    width: 22px;
+    font-size: 1.1rem;
+}
+
+.nav-item:hover {
+    background: rgba(29, 78, 216, 0.16);
+    color: #93C5FD;
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.28);
+}
+
+.nav-item.active {
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(29, 78, 216, 0.30);
+}
+
+.sidebar-footer {
+    padding: 24px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin-top: auto;
+}
+
+.logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    color: #fca5a5;
+    text-decoration: none;
+    font-weight: 500;
+    background: rgba(239, 68, 68, 0.14);
+}
+
+.logout-btn:hover {
+    color: #fecaca;
+    background: rgba(239, 68, 68, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.3);
+}
+
+/* DevHub topbar + notifications */
+.devhub-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 24px;
+    background: #0f172a;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 1100;
+}
+
+.devhub-topbar-left,
+.devhub-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.devhub-topbar-left {
+    min-width: 0;
+}
+
+.devhub-topbar-title {
+    color: #f8fafc;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.devhub-notification-menu { position: relative; }
+.devhub-notification-btn {
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: #111827;
+    color: #cbd5e1;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.devhub-notification-btn:hover,
+.devhub-profile-toggle:hover {
+    border-color: rgba(29, 78, 216, 0.45);
+    box-shadow: none;
+    color: #1D4ED8;
+}
+
+.devhub-notification-badge {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.devhub-notification-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: min(420px, 92vw);
+    max-height: 420px;
+    overflow: auto;
+    background: #0f172a;
+    border: 1px solid rgba(148,163,184,.22);
+    border-radius: 14px;
+    box-shadow: 0 18px 38px rgba(2,6,23,.5);
+    display: none;
+    z-index: 1200;
+}
+
+.devhub-notification-dropdown.active { display: block; }
+
+.devhub-notification-link {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px;
+    color: #cbd5e1;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(148,163,184,.12);
+}
+.devhub-notification-link.is-unread { background: rgba(59,130,246,.12); }
+.devhub-notification-link i { margin-top: 3px; color: #93c5fd; }
+.devhub-notification-meta { display: grid; gap: 2px; }
+.devhub-notification-meta strong { color: #f8fafc; font-size: 13px; }
+.devhub-notification-meta small { color: #94a3b8; font-size: 12px; line-height: 1.35; }
+.devhub-notification-meta em { color: #64748b; font-size: 11px; font-style: normal; }
+
+.devhub-notification-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px;
+}
+.devhub-notification-actions a {
+    font-size: 12px;
+    text-align: center;
+    text-decoration: none;
+    color: #dbeafe;
+    border: 1px solid rgba(59,130,246,.35);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+.devhub-notification-empty { padding: 14px; color: #94a3b8; font-size: 13px; }
+
+.devhub-profile-menu {
+    position: relative;
+}
+
+.devhub-profile-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    background: #111827;
+    color: #e5e7eb;
+    padding: 6px 8px 6px 12px;
+    cursor: pointer;
+    min-height: 46px;
+    transition: all 0.2s ease;
+}
+
+.devhub-profile-meta {
+    display: grid;
+    gap: 2px;
+    text-align: right;
+}
+
+.devhub-profile-name {
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.devhub-profile-role {
+    color: #1D4ED8;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+.verified-tick {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #1d9bf0;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.devhub-verified-tick {
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+    flex-shrink: 0;
+}
+
+.devhub-profile-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: #021209;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.devhub-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.devhub-profile-caret {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.devhub-profile-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    min-width: 220px;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 16px;
+    box-shadow: 0 20px 45px rgba(2, 6, 23, 0.45);
+    display: none;
+    z-index: 1200;
+    padding: 8px;
+}
+
+.devhub-profile-dropdown.active {
+    display: block;
+}
+
+.devhub-profile-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #e5e7eb;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.devhub-profile-link:hover {
+    background: rgba(29, 78, 216, 0.12);
+    color: #93c5fd;
+}
+
+.devhub-profile-link--danger {
+    color: #fca5a5;
+}
+
+.devhub-profile-link--danger:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fecaca;
+}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 992px) {
+    /* Show mobile menu button */
+    .mobile-menu-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mobile-menu-btn.slide {
+        left: min(300px, calc(100vw - 58px));
+    }
+    
+    /* Sidebar hidden by default on mobile */
+    .devhub-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        transform: translateX(-100%);
+        width: 280px;
+        max-width: 85vw;
+        height: 100vh;
+        z-index: 1200;
+        box-shadow: none;
+        overflow-y: auto;
+        transition: transform 0.25s ease;
+    }
+    
+    /* When sidebar is open */
+    .devhub-sidebar.open {
+        transform: translateX(0);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Show overlay when sidebar is open */
+    .sidebar-overlay.show {
+        display: block;
+        opacity: 1;
+    }
+    
+    /* Main content full width on mobile */
+    .devhub-main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .devhub-topbar {
+        padding: 14px 16px 14px 68px;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .devhub-topbar-left {
+        gap: 12px;
+        flex: 1;
+    }
+
+    .devhub-topbar-right {
+        display: inline-flex;
+        margin-left: auto;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .devhub-topbar-title {
+        font-size: 1.05rem;
+        line-height: 1.2;
+    }
+
+    .devhub-profile-toggle {
+        padding: 6px 8px;
+    }
+
+    .devhub-profile-meta {
+        display: none;
+    }
+
+    /* Adjust content padding */
+    .dashboard-wrapper {
+        padding: 15px !important;
+    }
+    
+    /* Make cards full width */
+    .dashboard-header,
+    .progress-card,
+    .stat-card,
+    .action-section {
+        padding: 20px !important;
+    }
+    
+    /* Stack grids vertically */
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+    }
+    
+    .completion-list {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Make buttons full width */
+    .action-buttons {
+        flex-direction: column !important;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    
+    /* Adjust user area */
+    .user-area {
+        padding: 6px 16px !important;
+    }
+    
+    .user-avatar {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 16px !important;
+    }
+    
+    .user-name {
+        font-size: 14px !important;
+    }
+    
+    .welcome-text h2 {
+        font-size: 20px !important;
+    }
+    
+    /* Progress card adjustments */
+    .progress-title {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    .completion-item {
+        font-size: 13px !important;
+    }
+    
+    /* Stats cards */
+    .stat-card h3 {
+        font-size: 28px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .devhub-topbar {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .devhub-topbar-title {
+        font-size: 16px;
+    }
+
+    .devhub-topbar-right {
+        width: auto;
+        justify-content: flex-end;
+        margin-left: auto;
+    }
+
+    .devhub-profile-toggle {
+        padding: 6px 8px;
+    }
+
+    .mobile-menu-btn.slide {
+        left: calc(100vw - 58px);
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    .dashboard-wrapper {
+        padding: 10px !important;
+    }
+    
+    .dashboard-header {
+        padding: 15px !important;
+    }
+    
+    .user-area {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .user-info {
+        text-align: left;
+    }
+    
+    .welcome-text {
+        text-align: center;
+    }
+    
+    .welcome-text h2 {
+        font-size: 18px !important;
+    }
+    
+    .progress-card {
+        padding: 15px !important;
+    }
+    
+    .progress-badge {
+        font-size: 11px !important;
+    }
+    
+    .stat-card {
+        padding: 15px !important;
+    }
+    
+    .stat-card h3 {
+        font-size: 24px !important;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

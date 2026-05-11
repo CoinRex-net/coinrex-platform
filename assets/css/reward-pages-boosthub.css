@@ -1,0 +1,377 @@
+/* BoostHub standalone premium stylesheet (fully isolated) */
+
+:root {
+    --bh-bg: #081120;
+    --bh-panel: #102349;
+    --bh-panel-2: #122a59;
+    --bh-border: rgba(212, 175, 55, 0.18);
+    --bh-text: #e5eefb;
+    --bh-muted: #9db0c8;
+    --bh-accent: #1D4ED8;
+    --bh-accent-2: #93C5FD;
+    --bh-gold: #D4AF37;
+    --bh-warning: #f59e0b;
+}
+
+.boosthub-premium-page {
+    min-height: calc(100vh - 72px);
+    background:
+        radial-gradient(circle at 10% 0%, rgba(29, 78, 216, 0.14), transparent 35%),
+        radial-gradient(circle at 90% 8%, rgba(56, 189, 248, 0.1), transparent 35%),
+        var(--bh-bg);
+    padding: 18px 0 48px;
+}
+
+.boosthub-shell {
+    width: min(980px, calc(100% - 32px));
+    margin: 0 auto;
+    display: grid;
+    gap: 16px;
+}
+
+.boosthub-hero,
+.boosthub-premium-page .task-card,
+.boosthub-premium-page .taskhub-modal-dialog {
+    border-radius: 20px;
+    border: 1px solid var(--bh-border);
+    background: linear-gradient(165deg, rgba(12, 22, 36, 0.95), rgba(13, 26, 44, 0.95));
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+.boosthub-hero {
+    padding: 22px;
+    display: grid;
+    gap: 14px;
+}
+
+.boosthub-badge,
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.boosthub-badge {
+    background: rgba(212, 175, 55, 0.14);
+    border: 1px solid rgba(212, 175, 55, 0.30);
+    color: #ffe08a;
+}
+
+.boosthub-hero h1 {
+    margin: 8px 0 6px;
+    font-size: clamp(1.4rem, 1.2rem + 1vw, 2rem);
+    color: #fff;
+}
+
+.boosthub-hero p {
+    margin: 0;
+    color: var(--bh-muted);
+}
+
+.boosthub-hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.metric-card {
+    border-radius: 14px;
+    border: 1px solid var(--bh-border);
+    background: rgba(2, 8, 20, 0.58);
+    padding: 12px;
+}
+
+.metric-card span {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ab0cb;
+}
+
+.metric-card strong {
+    display: block;
+    margin-top: 6px;
+    color: #f8fbff;
+    font-size: 1rem;
+}
+
+.boosthub-premium-page .task-card {
+    padding: 18px;
+    display: grid;
+    gap: 12px;
+}
+
+.boosthub-safety-card {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: linear-gradient(165deg, rgba(46, 30, 8, 0.38), rgba(13, 26, 44, 0.95));
+}
+
+.boosthub-safety-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.boosthub-safety-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(245, 158, 11, 0.18);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    color: #fbbf24;
+    font-weight: 900;
+}
+
+.boosthub-safety-subtitle {
+    margin-top: 4px !important;
+    color: #f8d88d !important;
+    font-size: 13px;
+}
+
+.boosthub-safety-list {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 7px;
+    color: #d5e2f5;
+}
+
+.boosthub-safety-list li {
+    line-height: 1.55;
+}
+
+.boosthub-safety-footer {
+    border-top: 1px dashed rgba(245, 158, 11, 0.35);
+    padding-top: 10px;
+    color: #fde68a !important;
+}
+
+.boosthub-premium-page h3,
+.boosthub-premium-page p,
+.boosthub-premium-page strong,
+.boosthub-premium-page span {
+    margin: 0;
+}
+
+.boosthub-premium-page h3 {
+    color: #f8fbff;
+    line-height: 1.35;
+}
+
+.boosthub-premium-page p,
+.boosthub-premium-page span {
+    color: var(--bh-muted);
+    line-height: 1.6;
+}
+
+.task-grid {
+    display: grid;
+    gap: 0;
+    margin: 0;
+}
+
+.boosthub-task-card {
+    position: relative;
+    overflow: hidden;
+    gap: 14px !important;
+}
+
+.boosthub-task-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.16), rgba(56, 189, 248, 0.16));
+    z-index: 0;
+    pointer-events: none;
+}
+
+.boosthub-task-card > * { position: relative; z-index: 1; }
+
+.history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.history-row-right {
+    text-align: right;
+}
+
+.status-chip {
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: #d8e4f4;
+}
+
+.boosthub-task-title {
+    margin: 8px 0 6px !important;
+}
+
+.task-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.boosthub-reward-pill {
+    width: fit-content;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(29, 78, 216, 0.18);
+    border: 1px solid rgba(29, 78, 216, 0.35);
+    color: #b7f7cc !important;
+    font-weight: 700;
+}
+
+.taskhub-brief-card,
+.boosthub-proof-form {
+    border-radius: 14px;
+    border: 1px solid var(--bh-border);
+    background: rgba(5, 12, 24, 0.62);
+    padding: 14px;
+}
+
+.boosthub-proof-grid { display: grid; gap: 10px; }
+
+.task-proof-input,
+.primary-btn,
+.secondary-btn,
+.taskhub-modal-close {
+    font: inherit;
+}
+
+.task-proof-input {
+    width: 100%;
+    min-height: 128px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    background: rgba(2, 6, 16, 0.75);
+    color: #f1f6ff;
+    padding: 12px 14px;
+    resize: vertical;
+}
+
+.task-proof-input:focus {
+    outline: none;
+    border-color: rgba(56, 189, 248, 0.85);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.primary-btn,
+.secondary-btn {
+    min-height: 42px;
+    border-radius: 12px;
+    padding: 0 15px;
+    border: 0;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, var(--bh-accent), #1E40AF);
+    color: #05240f;
+}
+
+.secondary-btn {
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    color: #e2ecfa;
+}
+
+.primary-btn:hover,
+.secondary-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(0,0,0,.25);
+    filter: brightness(1.04);
+}
+
+.task-countdown.boosthub-countdown {
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.36);
+    background: rgba(2, 12, 24, 0.6);
+    padding: 12px;
+    color: #bde8ff;
+    font-weight: 700;
+}
+
+.taskhub-modal[hidden] { display: none; }
+.taskhub-modal { position: fixed; inset: 0; z-index: 1300; }
+.taskhub-modal-backdrop { position: absolute; inset: 0; background: rgba(2, 8, 18, 0.72); backdrop-filter: blur(3px); }
+
+.taskhub-modal-dialog {
+    position: relative;
+    width: min(480px, calc(100vw - 24px));
+    margin: 10vh auto 0;
+    padding: 18px;
+}
+
+.taskhub-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.taskhub-modal-head h3 { color: #fff; }
+
+.taskhub-modal-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--bh-border);
+    background: rgba(15, 23, 42, 0.88);
+    color: #eff6ff;
+    cursor: pointer;
+}
+
+.taskhub-modal-message { margin-top: 12px; color: #d0ddef; }
+
+@media (max-width: 900px) {
+    .boosthub-hero-metrics,
+    .task-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .history-row {
+        flex-direction: column;
+    }
+
+    .history-row-right {
+        text-align: left;
+        width: 100%;
+    }
+
+    .page-actions .primary-btn,
+    .page-actions .secondary-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .boosthub-premium-page { padding-top: 10px; }
+    .boosthub-shell { width: calc(100% - 18px); }
+    .boosthub-hero,
+    .boosthub-premium-page .task-card { padding: 14px; border-radius: 16px; }
+}

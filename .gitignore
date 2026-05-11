@@ -1,0 +1,29 @@
+.env
+.env.local
+
+# Dependency directories
+/vendor/
+
+# Runtime uploads and user-generated content
+/uploads/ads/
+/uploads/avatar/
+/uploads/projects_logo/
+/uploads/proofs/
+/assets/uploads/avatars/
+/devhub/projects/logos/
+
+# Runtime logs
+/devhub/logs/*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Local archives / dumps
+*.zip
+*.tar
+*.gz
+*.rar
+*.sql.bak

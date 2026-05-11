@@ -1,0 +1,302 @@
+:root,
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Core brand */
+    --color-primary: #1D4ED8;
+    --color-primary-dark: #1E40AF;
+    --color-primary-light: #93C5FD;
+    --color-secondary: #3b82f6;
+    --color-secondary-dark: #2563eb;
+    --color-secondary-light: #60a5fa;
+    --color-accent: #D4AF37;
+    --color-accent-light: #FACC15;
+    --color-accent-soft: #ffe08a;
+
+    /* Backgrounds */
+    --color-bg-main: #081120;
+    --color-bg-secondary: #0b1730;
+    --color-bg-surface: #0d1b34;
+    --color-bg-elevated: #12254a;
+    --color-bg-hover: #16305f;
+    --color-bg-overlay: rgba(0, 0, 0, 0.85);
+
+    /* Text */
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #dbeafe;
+    --color-text-muted: #b9c7e8;
+    --color-text-disabled: #64748b;
+    --color-text-inverse: #ffffff;
+    --color-text-strong-soft: rgba(255, 255, 255, 0.90);
+    --color-text-body-soft: rgba(255, 255, 255, 0.88);
+    --color-text-body-muted: rgba(255, 255, 255, 0.84);
+    --color-text-caption: rgba(255, 255, 255, 0.82);
+
+    /* Borders */
+    --color-border-light: rgba(212, 175, 55, 0.10);
+    --color-border-medium: rgba(212, 175, 55, 0.18);
+    --color-border-strong: rgba(212, 175, 55, 0.28);
+    --color-border-glass: rgba(255, 255, 255, 0.18);
+    --color-border-glass-soft: rgba(255, 255, 255, 0.14);
+    --color-border-slate-soft: rgba(148, 163, 184, 0.14);
+
+    /* Inputs */
+    --color-input-bg: #ffffff;
+    --color-input-text: #0b1730;
+    --color-input-placeholder: #5b6982;
+    --color-input-border: rgba(212, 175, 55, 0.35);
+    --color-input-focus: #1d4ed8;
+    --color-input-focus-ring: rgba(29, 78, 216, 0.18);
+
+    /* Status */
+    --color-success: #22c55e;
+    --color-success-strong: #1D4ED8;
+    --color-success-bg: rgba(29, 78, 216, 0.12);
+    --color-warning: #f59e0b;
+    --color-warning-soft: #fbbf24;
+    --color-warning-bg: rgba(245, 158, 11, 0.10);
+    --color-danger: #ef4444;
+    --color-danger-soft: #fca5a5;
+    --color-danger-mid: #f87171;
+    --color-danger-bg: rgba(239, 68, 68, 0.10);
+    --color-info: #3b82f6;
+    --color-info-bg: rgba(59, 130, 246, 0.10);
+    --color-info-soft: #bfdbfe;
+
+    /* Shared shadows */
+    --shadow-soft: 0 16px 32px rgba(2, 8, 23, 0.14);
+    --shadow-card: 0 18px 40px rgba(2, 8, 23, 0.18);
+    --shadow-panel: 0 24px 50px rgba(2, 8, 23, 0.18);
+    --shadow-hero: 0 28px 60px rgba(2, 8, 23, 0.18);
+    --shadow-consent: 0 22px 48px rgba(2, 8, 23, 0.20);
+    --shadow-primary: 0 14px 28px rgba(29, 78, 216, 0.22);
+
+    /* Shared surfaces / gradients */
+    --theme-page-bg:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.20), transparent 24%),
+        radial-gradient(circle at top right, rgba(212, 175, 55, 0.12), transparent 18%),
+        linear-gradient(180deg, #081120 0%, #0b1730 100%);
+    --theme-body-bg:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.14), transparent 22%),
+        linear-gradient(180deg, #081120 0%, #0b1730 100%);
+    --theme-hero-bg:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 34%),
+        linear-gradient(145deg, #11306d 0%, #0d2350 55%, #0a1730 100%);
+    --theme-sidecard-bg: linear-gradient(145deg, #132a59 0%, #102042 58%, #0b1630 100%);
+    --theme-project-card-bg: linear-gradient(145deg, #102349 0%, #0c1e40 60%, #0a1730 100%);
+    --theme-trust-bg:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
+        linear-gradient(145deg, #102349 0%, #0d1f43 60%, #091528 100%);
+    --theme-submit-card-bg:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 30%),
+        linear-gradient(145deg, #12306b 0%, #0f2859 45%, #0a1730 100%);
+    --theme-consent-bg: linear-gradient(145deg, #12306b 0%, #0f2758 50%, #0a1730 100%);
+    --theme-wallet-panel-bg: linear-gradient(145deg, rgba(19, 42, 89, 0.92), rgba(13, 28, 60, 0.98));
+    --theme-wallet-option-bg: linear-gradient(180deg, rgba(18, 27, 46, 0.95), rgba(12, 21, 37, 0.95));
+    --theme-upload-bg: linear-gradient(145deg, rgba(24, 34, 56, 0.92), rgba(13, 23, 40, 0.96));
+    --theme-upload-bg-hover: linear-gradient(145deg, rgba(28, 42, 70, 0.94), rgba(16, 28, 48, 0.98));
+    --theme-tip-bg: linear-gradient(145deg, rgba(212, 175, 55, 0.14), rgba(59, 130, 246, 0.10));
+    --theme-tip-soft-bg: linear-gradient(145deg, rgba(17, 35, 72, 0.88), rgba(11, 23, 45, 0.86));
+    --theme-info-banner-bg: linear-gradient(135deg, rgba(29, 78, 216, 0.18), rgba(212, 175, 55, 0.10));
+    --theme-info-note-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(14, 165, 233, 0.08));
+    --theme-info-note-soft-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(96, 165, 250, 0.06));
+    --theme-score-card-bg: linear-gradient(180deg, rgba(18, 42, 88, 0.90), rgba(10, 24, 47, 0.96));
+    --theme-reward-preview-bg: linear-gradient(135deg, rgba(29, 78, 216, 0.12), rgba(59, 130, 246, 0.06));
+    --theme-terms-bg: linear-gradient(145deg, rgba(20, 29, 50, 0.94), rgba(12, 21, 37, 0.96));
+    --theme-public-hero-bg:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.20), transparent 24%),
+        linear-gradient(135deg, #081120 0%, #0d1b34 100%);
+    --theme-public-page-bg:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.14), transparent 24%),
+        linear-gradient(180deg, #081120 0%, #0b1730 100%);
+    --theme-public-info-card: linear-gradient(145deg, rgba(15, 23, 42, 0.88), rgba(13, 27, 52, 0.96));
+    --theme-public-note-bg: linear-gradient(135deg, rgba(29, 78, 216, 0.14), rgba(212, 175, 55, 0.09));
+
+    /* Component tokens */
+    --theme-kicker-bg: rgba(212, 175, 55, 0.16);
+    --theme-kicker-border: rgba(212, 175, 55, 0.26);
+    --theme-glass-bg: rgba(255, 255, 255, 0.10);
+    --theme-glass-bg-strong: rgba(255, 255, 255, 0.12);
+    --theme-glass-border: rgba(255, 255, 255, 0.18);
+    --theme-glass-border-soft: rgba(255, 255, 255, 0.16);
+    --theme-chip-blue-bg: rgba(29, 78, 216, 0.14);
+    --theme-chip-blue-border: rgba(29, 78, 216, 0.22);
+    --theme-preview-bg: rgba(255, 255, 255, 0.96);
+    --theme-preview-border: rgba(212, 175, 55, 0.30);
+}
+
+[data-theme="light"] {
+    color-scheme: light;
+
+    --color-bg-main: #f4f8ff;
+    --color-bg-secondary: #e8f0ff;
+    --color-bg-surface: #ffffff;
+    --color-bg-elevated: #edf4ff;
+    --color-bg-hover: #dbeafe;
+    --color-bg-overlay: rgba(15, 23, 42, 0.55);
+
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #1e3a5f;
+    --color-text-muted: #4b6385;
+    --color-text-inverse: #ffffff;
+    --color-text-strong-soft: rgba(15, 23, 42, 0.88);
+    --color-text-body-soft: rgba(30, 58, 95, 0.84);
+    --color-text-body-muted: rgba(30, 58, 95, 0.72);
+    --color-text-caption: rgba(30, 58, 95, 0.70);
+
+    --color-border-light: rgba(29, 78, 216, 0.12);
+    --color-border-medium: rgba(29, 78, 216, 0.20);
+    --color-border-strong: rgba(29, 78, 216, 0.28);
+    --color-border-glass: rgba(29, 78, 216, 0.18);
+    --color-border-glass-soft: rgba(29, 78, 216, 0.12);
+    --color-border-slate-soft: rgba(148, 163, 184, 0.24);
+
+    --theme-page-bg:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.12), transparent 24%),
+        radial-gradient(circle at top right, rgba(212, 175, 55, 0.10), transparent 18%),
+        linear-gradient(180deg, #f8fbff 0%, #eaf2ff 100%);
+    --theme-body-bg:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.10), transparent 22%),
+        linear-gradient(180deg, #f8fbff 0%, #eaf2ff 100%);
+}
+
+.expert-mode {
+    --color-bg-main: #020617;
+    --color-bg-secondary: #0A2540;
+    --color-bg-surface: #0b1f36;
+    --color-bg-elevated: #0f223a;
+    --color-bg-hover: #123054;
+    --color-primary: #3B82F6;
+    --color-primary-dark: #1E3A8A;
+    --color-primary-light: #38BDF8;
+    --color-secondary: #3B82F6;
+    --color-secondary-dark: #1E3A8A;
+    --color-secondary-light: #38BDF8;
+    --color-border-medium: rgba(59, 130, 246, 0.28);
+}
+
+html {
+    background: var(--color-bg-main);
+}
+
+body {
+    background: var(--theme-body-bg);
+    color: var(--color-text-secondary);
+}
+
+/* ========================================
+   Shared Theme Components / Utilities
+   Phase 2 centralization layer
+   ======================================== */
+
+.theme-gradient-text,
+.gradient-text {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary-light) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.theme-kicker,
+.hero-kicker,
+.detail-kicker,
+.overview-label,
+.hero-sidecard-kicker,
+.project-card-kicker,
+.step-kicker,
+.simple-badge,
+.boosthub-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--theme-kicker-bg);
+    border: 1px solid var(--theme-kicker-border);
+    color: var(--color-accent-soft);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.theme-badge-glass,
+.header-badge,
+.hero-point,
+.signals-intro-badge,
+.consent-status-pill {
+    background: var(--theme-glass-bg-strong);
+    border: 1px solid var(--theme-glass-border);
+    color: var(--color-text-primary);
+}
+
+.theme-pill,
+.project-summary-pills span,
+.final-review-item,
+.reward-breakdown div {
+    background: var(--theme-glass-bg);
+    border: 1px solid var(--theme-glass-border-soft);
+    color: var(--color-text-primary);
+}
+
+.theme-btn-primary,
+.nex-btn-primary,
+.btn-submit,
+.auth-submit,
+.claim-soon-action {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: var(--color-text-inverse);
+}
+
+.theme-btn-secondary,
+.btn-cancel {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-light);
+    color: var(--color-text-body-soft);
+}
+
+.theme-panel-premium,
+.hero-copy,
+.selected-project-card-upgraded,
+.review-trust-card,
+.submit-card-upgraded,
+.consent-panel {
+    box-shadow: var(--shadow-panel);
+}
+
+.theme-public-page-bg,
+.projects-main,
+.reviews-main {
+    background: var(--theme-public-page-bg);
+}
+
+.theme-public-hero,
+.about-hero {
+    background: var(--theme-public-hero-bg);
+}
+
+.theme-input,
+.form-group input,
+.form-group textarea,
+.form-group select {
+    background: var(--color-input-bg);
+    color: var(--color-input-text);
+    border: 2px solid var(--color-input-border);
+}
+
+.theme-input::placeholder,
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: var(--color-input-placeholder);
+    opacity: 1;
+}
+
+.theme-input:focus,
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--color-input-focus);
+    box-shadow: 0 0 0 4px var(--color-input-focus-ring);
+}
