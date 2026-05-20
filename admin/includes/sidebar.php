@@ -50,6 +50,7 @@
             </button>
             <div class="admin-nav-group-links" data-nav-group-links>
                 <?php if (canCurrentAdmin('manage_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/task-management.php" class="<?php echo $activePage === 'task-management' ? 'active' : ''; ?>"><i class="fas fa-list-check"></i><span>Task Management</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('manage_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/quiz-manager.php" class="<?php echo $activePage === 'quiz-manager' ? 'active' : ''; ?>"><i class="fas fa-question-circle"></i><span>Quiz Manager</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/taskhub-review.php" class="<?php echo $activePage === 'taskhub-review' ? 'active' : ''; ?>"><i class="fas fa-clipboard-check"></i><span>TaskHub Review</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/boosthub.php" class="<?php echo $activePage === 'boosthub-management' ? 'active' : ''; ?>"><i class="fas fa-bolt"></i><span>BoostHub Management</span></a><?php endif; ?>
             </div>

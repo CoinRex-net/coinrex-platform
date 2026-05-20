@@ -1,5 +1,5 @@
 .forgot-main {
-    padding-top: 22px;
+    padding-top: 8px;
 }
 
 .forgot-container {
@@ -7,43 +7,44 @@
 }
 
 .forgot-card {
-    padding: 34px 34px 28px;
+    padding: 18px 22px 16px;
 }
 
 .forgot-heading {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .forgot-guide {
-    margin-bottom: 22px;
+    margin-bottom: 12px;
 }
 
 .forgot-section {
-    padding: 24px;
+    padding: 14px;
     border-radius: 24px;
-    background: rgba(16, 35, 73, 0.42);
-    border: 1px solid rgba(212, 175, 55, 0.10);
+    background: rgba(15, 23, 42, 0.62);
+    border: 1px solid var(--color-border-light);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .forgot-section + .forgot-section {
-    margin-top: 18px;
+    margin-top: 10px;
 }
 
 .section-head {
-    margin-bottom: 18px;
+    margin-bottom: 10px;
 }
 
 .section-head h2 {
     margin: 0 0 8px;
     color: var(--color-text-primary);
-    font-size: 24px;
+    font-size: 20px;
 }
 
 .section-head p {
     margin: 0;
     color: var(--color-text-muted);
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 12px;
+    line-height: 1.45;
 }
 
 .forgot-lookup-form .auth-submit,
@@ -52,18 +53,22 @@
 }
 
 .forgot-email-card {
-    margin-bottom: 18px;
+    margin-bottom: 10px;
 }
 
 .forgot-actions {
-    margin-top: 18px;
+    margin-top: 10px;
+}
+
+.forgot-email-card {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .reset-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    margin-bottom: 18px;
+    margin-bottom: 10px;
 }
 
 .reset-grid .input-group:last-child {
@@ -72,24 +77,28 @@
 
 @media (max-width: 768px) {
     .forgot-card {
-        padding: 28px 22px 24px;
+        padding: 14px 12px 12px;
     }
 
     .forgot-section {
-        padding: 20px;
+        padding: 12px;
     }
 }
 
 @media (max-width: 568px) {
     .forgot-main {
-        padding-top: 18px;
+        padding-top: 6px;
     }
 
     .forgot-card {
-        padding: 24px 20px 20px;
+        padding: 12px 10px 10px;
     }
 
     .section-head h2 {
-        font-size: 22px;
+        font-size: 18px;
+    }
+
+    .forgot-section {
+        border-radius: 20px;
     }
 }

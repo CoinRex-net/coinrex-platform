@@ -1,15 +1,7 @@
-:root {
-    color-scheme: dark;
-    --bg: #020617;
-    --panel: #0f172a;
-    --panel-alt: #111b33;
-    --text: #f8fafc;
-    --muted: #94a3b8;
-    --accent: #1D4ED8;
-    --accent-dark: #1E40AF;
-    --border: rgba(148, 163, 184, 0.12);
-    --shadow: 0 35px 60px rgba(2, 8, 26, 0.35);
-}
+/* ========================================
+   DevHub Premium Terms Page
+   Uses .devhub-theme variables from theme.css
+   ======================================== */
 
 * {
     box-sizing: border-box;
@@ -23,8 +15,8 @@ body {
     margin: 0;
     min-height: 100vh;
     font-family: 'Inter', sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    background: var(--theme-body-bg);
+    color: var(--color-text-primary);
     overflow-x: hidden;
 }
 
@@ -34,7 +26,7 @@ a {
 }
 
 .devhub-terms-main {
-    background: #020617;
+    background: var(--theme-page-bg);
     overflow-x: hidden;
 }
 
@@ -45,7 +37,7 @@ a {
 }
 
 .devhub-hero {
-    background: linear-gradient(135deg, #0a0c12 0%, #0f172a 100%);
+    background: var(--theme-hero-bg);
     padding: 80px 0 150px;
     position: relative;
     overflow: hidden;
@@ -68,19 +60,19 @@ a {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(29, 78, 216, 0.12);
+    background: var(--theme-kicker-bg);
     padding: 8px 20px;
     border-radius: 40px;
     margin-bottom: 24px;
-    border: 1px solid rgba(29, 78, 216, 0.30);
+    border: 1px solid var(--theme-kicker-border);
 }
 
 .hero-badge i {
-    color: var(--accent);
+    color: var(--color-accent);
 }
 
 .hero-badge span {
-    color: #93C5FD;
+    color: var(--color-accent-soft);
     font-size: 14px;
 }
 
@@ -89,11 +81,11 @@ a {
     font-weight: 800;
     margin-bottom: 20px;
     line-height: 1.2;
-    color: var(--text);
+    color: var(--color-text-primary);
 }
 
 .gradient-text {
-    background: linear-gradient(135deg, var(--accent), #93C5FD);
+    background: linear-gradient(135deg, var(--color-primary-light), var(--color-accent-soft));
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
@@ -101,7 +93,7 @@ a {
 
 .hero-description {
     font-size: 18px;
-    color: var(--muted);
+    color: var(--color-text-body-soft);
     line-height: 1.6;
     margin-bottom: 40px;
 }
@@ -120,8 +112,8 @@ a {
     min-width: 130px;
     padding: 16px 18px;
     border-radius: 20px;
-    background: rgba(15, 23, 42, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--theme-glass-bg);
+    border: 1px solid var(--theme-glass-border);
     backdrop-filter: blur(10px);
 }
 
@@ -129,12 +121,12 @@ a {
     display: block;
     font-size: 32px;
     font-weight: 700;
-    color: var(--accent);
+    color: var(--color-accent-light);
 }
 
 .hero-stat .stat-label {
     font-size: 14px;
-    color: var(--muted);
+    color: var(--color-text-caption);
 }
 
 .hero-wave {
@@ -179,27 +171,27 @@ a {
 }
 
 .overview-card {
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--theme-public-info-card);
+    border: 1px solid var(--color-border-card);
     border-radius: 24px;
     padding: 28px 24px;
-    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.35);
+    box-shadow: var(--dh-shadow-elevated);
 }
 
 .overview-card i {
     font-size: 32px;
-    color: var(--accent);
+    color: var(--color-accent);
     margin-bottom: 16px;
 }
 
 .overview-card h3 {
-    color: var(--text);
+    color: var(--color-text-primary);
     font-size: 20px;
     margin-bottom: 10px;
 }
 
 .overview-card p {
-    color: var(--muted);
+    color: var(--color-text-body-soft);
     line-height: 1.65;
     margin: 0;
 }
@@ -215,18 +207,18 @@ a {
 }
 
 .terms-panel {
-    background: var(--panel);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--theme-terms-bg);
+    border: 1px solid var(--color-border-card);
     border-radius: 28px;
     padding: 30px 28px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--dh-shadow-card);
     transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .terms-panel:hover {
     transform: translateY(-4px);
-    border-color: rgba(29, 78, 216, 0.35);
-    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.24);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--dh-shadow-elevated);
 }
 
 .agreement-panel {
@@ -236,7 +228,7 @@ a {
 .section-icon {
     width: 70px;
     height: 70px;
-    background: linear-gradient(135deg, rgba(29, 78, 216, 0.16), rgba(29, 78, 216, 0.08));
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.18), rgba(212, 175, 55, 0.12));
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -246,17 +238,17 @@ a {
 
 .section-icon i {
     font-size: 30px;
-    color: var(--accent);
+    color: var(--color-accent-light);
 }
 
 .terms-panel h2 {
     font-size: 30px;
     margin: 0 0 18px;
-    color: var(--text);
+    color: var(--color-text-primary);
 }
 
 .terms-panel p {
-    color: var(--muted);
+    color: var(--color-text-body-soft);
     line-height: 1.7;
     margin: 0 0 16px;
 }
@@ -273,13 +265,13 @@ a {
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    color: var(--muted);
+    color: var(--color-text-body-soft);
     line-height: 1.6;
 }
 
 .terms-list i {
     margin-top: 4px;
-    color: var(--accent);
+    color: var(--color-accent-light);
     width: 16px;
     flex: 0 0 auto;
 }
@@ -296,20 +288,20 @@ a {
 }
 
 .mini-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--color-border-light);
     border-radius: 18px;
     padding: 18px 16px;
 }
 
 .mini-card strong {
     display: block;
-    color: var(--text);
+    color: var(--color-text-primary);
     margin-bottom: 6px;
 }
 
 .mini-card span {
-    color: var(--muted);
+    color: var(--color-text-caption);
     line-height: 1.5;
     font-size: 14px;
 }
@@ -343,11 +335,11 @@ a {
 
 .terms-actions {
     width: 100%;
-    background: linear-gradient(135deg, rgba(29, 78, 216, 0.10), rgba(59, 130, 246, 0.07));
-    border: 1px solid rgba(29, 78, 216, 0.18);
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.16), rgba(212, 175, 55, 0.10));
+    border: 1px solid var(--color-border-medium);
     border-radius: 30px;
     padding: 36px 32px;
-    box-shadow: var(--shadow);
+    box-shadow: var(--dh-shadow-card);
     text-align: center;
 }
 
@@ -358,13 +350,13 @@ a {
 
 .cta-header h2 {
     margin: 0 0 14px;
-    color: var(--text);
+    color: var(--color-text-primary);
     font-size: 38px;
 }
 
 .cta-header p {
     margin: 0;
-    color: var(--muted);
+    color: var(--color-text-body-soft);
     line-height: 1.7;
 }
 
@@ -378,7 +370,7 @@ a {
     gap: 12px;
     cursor: pointer;
     font-size: 1rem;
-    color: var(--text);
+    color: var(--color-text-primary);
     width: 100%;
     justify-content: center;
     flex-wrap: wrap;
@@ -391,15 +383,15 @@ a {
 .checkmark {
     width: 24px;
     height: 24px;
-    border: 2px solid var(--border);
+    border: 2px solid var(--color-border-medium);
     border-radius: 6px;
     position: relative;
     transition: all 0.2s;
 }
 
 .agreement-checkbox input[type="checkbox"]:checked + .checkmark {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-light));
+    border-color: var(--color-accent);
 }
 
 .agreement-checkbox input[type="checkbox"]:checked + .checkmark::after {
@@ -415,7 +407,7 @@ a {
 }
 
 .agreement-text {
-    color: var(--text);
+    color: var(--color-text-primary);
 }
 
 .terms-buttons {
@@ -439,14 +431,14 @@ a {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-    color: #020617;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: #ffffff;
     border: none;
 }
 
 .btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 8px 25px rgba(29, 78, 216, 0.30);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.30);
 }
 
 .btn-primary:disabled {
@@ -457,14 +449,14 @@ a {
 }
 
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--muted);
-    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-glass);
 }
 
 .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text);
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--color-text-primary);
 }
 
 .animate-fade-up {
@@ -616,4 +608,3 @@ a {
         width: 100%;
     }
 }
-

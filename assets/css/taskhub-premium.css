@@ -1,0 +1,3194 @@
+/* ============================================================
+   TASKHUB PREMIUM — Single-Card Focus Design
+   Dark-Mode Web3 Aesthetic with Glassmorphism
+   ============================================================ */
+
+/* ── CSS Custom Properties ── */
+.taskhub-premium {
+    --th-primary: #1D4ED8;
+    --th-primary-dark: #1E40AF;
+    --th-primary-light: #93C5FD;
+    --th-primary-glow: rgba(29, 78, 216, 0.35);
+    --th-primary-soft: rgba(29, 78, 216, 0.12);
+    --th-gold: #D4AF37;
+    --th-gold-light: #FACC15;
+    --th-gold-soft: rgba(212, 175, 55, 0.15);
+    --th-green: #22c55e;
+    --th-green-soft: rgba(34, 197, 94, 0.12);
+    --th-red: #ef4444;
+    --th-surface: #0d1b34;
+    --th-surface-elevated: #12254a;
+    --th-glass: rgba(255, 255, 255, 0.04);
+    --th-border: rgba(212, 175, 55, 0.10);
+    --th-border-medium: rgba(212, 175, 55, 0.18);
+    --th-border-active: rgba(29, 78, 216, 0.30);
+    --th-text-primary: #ffffff;
+    --th-text-secondary: #dbeafe;
+    --th-text-muted: #b9c7e8;
+    --th-radius: 18px;
+    --th-radius-sm: 12px;
+    --th-radius-lg: 24px;
+}
+
+/* ── Page Header ── */
+.taskhub-premium .th-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    background: var(--th-surface);
+    border: 1px solid var(--th-border);
+    border-radius: var(--th-radius-lg);
+    backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+}
+
+.taskhub-premium .th-header::before {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--th-primary-glow), transparent 70%);
+    top: -150px;
+    right: -100px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
+}
+
+.taskhub-premium .th-header-left .reward-tag {
+    background: var(--th-primary-soft);
+    color: var(--th-primary);
+    border: 1px solid var(--th-border-active);
+}
+
+.taskhub-premium .th-header-left h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--th-text-primary);
+    font-weight: 800;
+}
+
+.taskhub-premium .th-header-actions {
+    display: flex;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.taskhub-premium .th-header-actions .secondary-btn {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid var(--th-border);
+    color: var(--th-text-secondary);
+    min-height: 38px;
+    font-size: 13px;
+    backdrop-filter: blur(4px);
+}
+
+.taskhub-premium .th-header-actions .secondary-btn:hover {
+    border-color: var(--th-border-active);
+    color: var(--th-text-primary);
+}
+
+/* ── Day Stepper ── */
+.taskhub-premium .th-day-stepper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    background: var(--th-surface);
+    border: 1px solid var(--th-border);
+    border-radius: var(--th-radius);
+    backdrop-filter: blur(8px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.taskhub-premium .th-day-stepper::-webkit-scrollbar {
+    display: none;
+}
+
+.taskhub-premium .th-day-step {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.taskhub-premium .th-day-dot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid var(--th-border);
+    background: transparent;
+    color: var(--th-text-muted);
+    cursor: default;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.taskhub-premium .th-day-dot.is-completed {
+    border-color: var(--th-green);
+    background: var(--th-green-soft);
+    color: var(--th-green);
+}
+
+.taskhub-premium .th-day-dot.is-active {
+    border-color: var(--th-primary);
+    background: var(--th-primary-soft);
+    color: var(--th-primary);
+    box-shadow: 0 0 16px var(--th-primary-glow);
+    animation: thPulseGlow 2s ease-in-out infinite;
+}
+
+.taskhub-premium .th-day-dot.is-locked {
+    border-color: var(--th-border);
+    background: rgba(15, 23, 42, 0.5);
+    color: var(--th-text-muted);
+    opacity: 0.5;
+}
+
+.taskhub-premium .th-day-dot.is-locked::after {
+    content: '🔒';
+    font-size: 10px;
+    position: absolute;
+    top: -6px;
+    right: -6px;
+}
+
+.taskhub-premium .th-day-step-label {
+    font-size: 10px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+    display: none;
+}
+
+.taskhub-premium .th-day-step.active .th-day-step-label {
+    display: block;
+    color: var(--th-primary);
+}
+
+.taskhub-premium .th-day-connector {
+    width: 16px;
+    height: 2px;
+    background: var(--th-border);
+    border-radius: 1px;
+    flex-shrink: 0;
+}
+
+.taskhub-premium .th-day-connector.is-done {
+    background: var(--th-green);
+}
+
+@keyframes thPulseGlow {
+    0%, 100% { box-shadow: 0 0 8px var(--th-primary-glow); }
+    50% { box-shadow: 0 0 20px var(--th-primary-glow), 0 0 40px rgba(29, 78, 216, 0.15); }
+}
+
+/* ── Hero Card ── */
+.taskhub-premium .th-hero-card {
+    position: relative;
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid var(--th-border-active);
+    border-radius: var(--th-radius-lg);
+    padding: 28px;
+    overflow: hidden;
+    min-height: 320px;
+    box-shadow: 0 20px 60px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-hero-card::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.08), transparent 65%);
+    top: -250px;
+    right: -200px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-hero-card::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.05), transparent 65%);
+    bottom: -150px;
+    left: -100px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-hero-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Hero Card Header ── */
+.taskhub-premium .th-hero-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--th-border);
+}
+
+.taskhub-premium .th-hero-day-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 999px;
+    background: var(--th-primary-soft);
+    border: 1px solid var(--th-border-active);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.taskhub-premium .th-hero-day-badge .th-day-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--th-primary);
+    color: #fff;
+    font-size: 11px;
+}
+
+.taskhub-premium .th-hero-title {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--th-text-primary);
+    font-weight: 800;
+}
+
+.taskhub-premium .th-hero-task-progress {
+    font-size: 12px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.taskhub-premium .th-hero-status-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--th-primary-soft);
+    color: var(--th-primary);
+    border: 1px solid var(--th-border-active);
+    white-space: nowrap;
+}
+
+.taskhub-premium .th-hero-status-chip.is-completed {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.taskhub-premium .th-hero-status-chip.is-locked {
+    background: rgba(100, 116, 139, 0.12);
+    color: var(--th-text-muted);
+    border-color: var(--th-border);
+}
+
+/* ── Hero Card Body (Task Content) ── */
+.taskhub-premium .th-hero-body {
+    min-height: 180px;
+}
+
+.taskhub-premium .th-task-content {
+    animation: thFadeIn 0.4s ease;
+}
+
+@keyframes thFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.taskhub-premium .th-task-content.is-exiting {
+    animation: thFadeOut 0.3s ease forwards;
+}
+
+@keyframes thFadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-12px); }
+}
+
+.taskhub-premium .th-task-description {
+    color: var(--th-text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-task-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+/* ── Learning Gate ── */
+.taskhub-premium .th-learning-gate {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: var(--th-radius-sm);
+    border: 1px dashed rgba(29, 78, 216, 0.3);
+    background: rgba(29, 78, 216, 0.04);
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-learning-gate.is-locked {
+    opacity: 0.85;
+    border-color: rgba(29, 78, 216, 0.2);
+}
+
+.taskhub-premium .th-learning-gate.is-validated {
+    border-color: rgba(34, 197, 94, 0.3);
+    background: var(--th-green-soft);
+}
+
+.taskhub-premium .th-learning-label {
+    flex: 1;
+    font-size: 13px;
+    color: var(--th-text-secondary);
+}
+
+.taskhub-premium .th-learning-btn {
+    min-height: 34px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--th-border-active);
+    background: var(--th-primary-soft);
+    color: var(--th-primary);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.taskhub-premium .th-learning-btn:hover {
+    background: rgba(29, 78, 216, 0.2);
+    transform: translateY(-1px);
+}
+
+.taskhub-premium .th-learning-status {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-text-muted);
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--th-border);
+    white-space: nowrap;
+}
+
+.taskhub-premium .th-learning-gate.is-validated .th-learning-status {
+    color: var(--th-green);
+    border-color: rgba(34, 197, 94, 0.3);
+    background: var(--th-green-soft);
+}
+
+/* ── Learning Gate Countdown Timer ── */
+.taskhub-premium .th-learn-countdown {
+    flex-shrink: 0;
+    min-width: 80px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--th-primary);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(29, 78, 216, 0.08);
+    border: 1px solid rgba(29, 78, 216, 0.15);
+    white-space: nowrap;
+}
+
+/* ── Learning Gate Progress Bar ── */
+.taskhub-premium .th-learn-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--th-primary), #60a5fa);
+    border-radius: 0 0 var(--th-radius-sm) var(--th-radius-sm);
+    transition: width 0.5s linear;
+    max-width: 100%;
+}
+
+.taskhub-premium .th-learning-gate {
+    position: relative;
+    overflow: hidden;
+}
+
+/* ── Learning Gate — Reading State (timer active) ── */
+.taskhub-premium .th-learning-gate.is-reading {
+    border-color: rgba(29, 78, 216, 0.3);
+    background: rgba(29, 78, 216, 0.04);
+}
+
+.taskhub-premium .th-learning-gate.is-reading .th-learning-label {
+    color: var(--th-primary);
+}
+
+/* ── Learning Gate — Paused State ── */
+.taskhub-premium .th-learning-gate.is-paused {
+    border-color: rgba(212, 175, 55, 0.3);
+    background: rgba(212, 175, 55, 0.04);
+    opacity: 0.85;
+}
+
+.taskhub-premium .th-learning-gate.is-paused .th-learning-label {
+    color: var(--th-gold);
+}
+
+.taskhub-premium .th-learn-countdown.is-paused {
+    color: #6b7280 !important;
+    background: rgba(107, 114, 128, 0.08);
+    border-color: rgba(107, 114, 128, 0.15);
+}
+
+/* ── Learning Gate — Paused Overlay ── */
+.taskhub-premium .th-learn-paused-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(4px);
+    border-radius: var(--th-radius-sm);
+    z-index: 5;
+    padding: 12px 16px;
+    animation: thPausedFadeIn 0.3s ease;
+}
+
+@keyframes thPausedFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.taskhub-premium .th-learn-paused-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.taskhub-premium .th-learn-paused-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--th-gold);
+    line-height: 1.4;
+    text-align: center;
+}
+
+/* ── Social Proof / Manual Inputs ── */
+.taskhub-premium .th-social-proof {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-social-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.taskhub-premium .th-social-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--th-border);
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--th-text-secondary);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.taskhub-premium .th-social-link:hover {
+    border-color: var(--th-border-active);
+    color: var(--th-text-primary);
+    background: rgba(15, 23, 42, 0.8);
+}
+
+.taskhub-premium .th-social-note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--th-text-muted);
+    line-height: 1.5;
+}
+
+.taskhub-premium .th-input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.taskhub-premium .th-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: var(--th-radius-sm);
+    border: 1px solid var(--th-border);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--th-text-primary);
+    font: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.taskhub-premium .th-input:focus {
+    outline: none;
+    border-color: var(--th-primary);
+    box-shadow: 0 0 0 3px var(--th-primary-soft);
+}
+
+.taskhub-premium .th-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px 14px;
+    border-radius: var(--th-radius-sm);
+    border: 1px solid var(--th-border);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--th-text-primary);
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.taskhub-premium .th-textarea:focus {
+    outline: none;
+    border-color: var(--th-primary);
+    box-shadow: 0 0 0 3px var(--th-primary-soft);
+}
+
+.taskhub-premium .th-select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: var(--th-radius-sm);
+    border: 1px solid var(--th-border);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--th-text-primary);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+.taskhub-premium .th-select:focus {
+    outline: none;
+    border-color: var(--th-primary);
+    box-shadow: 0 0 0 3px var(--th-primary-soft);
+}
+
+/* ── Hero Card Footer (Submit Button) ── */
+.taskhub-premium .th-hero-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--th-border);
+}
+
+.taskhub-premium .th-hero-footer .th-task-counter {
+    font-size: 12px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+}
+
+.taskhub-premium .th-hero-footer .primary-btn {
+    min-height: 44px;
+    padding: 0 24px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), #1E40AF);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-hero-footer .primary-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-hero-footer .primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-hero-footer .primary-btn.is-submitted {
+    background: rgba(100, 116, 139, 0.3);
+    color: var(--th-text-muted);
+    cursor: default;
+}
+
+.taskhub-premium .th-hero-footer .primary-btn.is-completed-btn {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+.taskhub-premium .th-hero-footer .secondary-btn {
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid var(--th-border);
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.taskhub-premium .th-hero-footer .secondary-btn:hover {
+    border-color: var(--th-border-active);
+    color: var(--th-text-primary);
+}
+
+/* ── Timer Overlay ── */
+.taskhub-premium .th-timer-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--th-radius-lg);
+    backdrop-filter: blur(8px);
+    background: rgba(2, 6, 23, 0.6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 10;
+    animation: thFadeIn 0.3s ease;
+}
+
+.taskhub-premium .th-timer-overlay .th-timer-icon {
+    font-size: 36px;
+    opacity: 0.8;
+}
+
+.taskhub-premium .th-timer-overlay .th-timer-label {
+    font-size: 12px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.taskhub-premium .th-timer-overlay .th-timer-count {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.taskhub-premium .th-timer-overlay .th-timer-sub {
+    font-size: 13px;
+    color: var(--th-text-muted);
+}
+
+/* ── Quiz Inside Hero Card ── */
+.taskhub-premium .th-quiz-block {
+    margin: 16px 0;
+    padding: 20px;
+    border-radius: var(--th-radius);
+    border: 1px solid var(--th-border);
+    background: rgba(2, 6, 23, 0.4);
+}
+
+.taskhub-premium .th-quiz-progress {
+    margin-bottom: 20px;
+}
+
+.taskhub-premium .th-quiz-progress-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.taskhub-premium .th-quiz-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--th-primary), #60a5fa);
+    border-radius: 3px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.taskhub-premium .th-quiz-progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.taskhub-premium .th-quiz-progress-label {
+    font-size: 12px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+}
+
+.taskhub-premium .th-quiz-progress-pct {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--th-primary);
+}
+
+.taskhub-premium .th-quiz-question {
+    animation: thFadeIn 0.35s ease;
+}
+
+.taskhub-premium .th-quiz-question[hidden] {
+    display: none !important;
+}
+
+.taskhub-premium .th-quiz-q-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--th-text-primary);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-quiz-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.taskhub-premium .th-quiz-choice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--th-radius-sm);
+    border: 2px solid var(--th-border);
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.taskhub-premium .th-quiz-choice:hover {
+    border-color: rgba(29, 78, 216, 0.3);
+    background: rgba(29, 78, 216, 0.04);
+}
+
+.taskhub-premium .th-quiz-choice.is-selected {
+    border-color: var(--th-primary);
+    background: var(--th-primary-soft);
+}
+
+.taskhub-premium .th-quiz-choice-marker {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--th-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--th-text-muted);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.taskhub-premium .th-quiz-choice.is-selected .th-quiz-choice-marker {
+    border-color: var(--th-primary);
+    background: var(--th-primary);
+    color: #fff;
+}
+
+.taskhub-premium .th-quiz-choice-text {
+    font-size: 14px;
+    color: var(--th-text-primary);
+    line-height: 1.4;
+    flex: 1;
+}
+
+.taskhub-premium .th-quiz-submit-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--th-border);
+}
+
+.taskhub-premium .th-quiz-submit-btn {
+    min-height: 44px;
+    padding: 0 32px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), #1E40AF);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-quiz-submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-quiz-submit-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-quiz-score-preview {
+    font-size: 12px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+}
+
+/* ── Mystery Box (Day 10) ── */
+.taskhub-premium .th-mystery-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 0;
+}
+
+.taskhub-premium .th-mystery-area p {
+    color: var(--th-text-secondary);
+    text-align: center;
+    margin: 0;
+}
+
+.taskhub-premium .th-mystery-boxes {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.taskhub-premium .th-mystery-box {
+    width: 120px;
+    height: 140px;
+    perspective: 600px;
+    cursor: pointer;
+}
+
+.taskhub-premium .th-mystery-box-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 0.6s ease;
+    transform-style: preserve-3d;
+}
+
+.taskhub-premium .th-mystery-box.is-flipped .th-mystery-box-inner {
+    transform: rotateY(180deg);
+}
+
+.taskhub-premium .th-mystery-box-front,
+.taskhub-premium .th-mystery-box-back {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--th-radius);
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 2px solid var(--th-border-active);
+}
+
+.taskhub-premium .th-mystery-box-front {
+    background: linear-gradient(145deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+}
+
+.taskhub-premium .th-mystery-box-back {
+    background: linear-gradient(145deg, var(--th-gold-soft), rgba(212, 175, 55, 0.05));
+    transform: rotateY(180deg);
+    border-color: rgba(212, 175, 55, 0.3);
+}
+
+.taskhub-premium .th-mystery-box-icon {
+    font-size: 32px;
+}
+
+.taskhub-premium .th-mystery-box-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--th-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.taskhub-premium .th-mystery-box-reward {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--th-gold);
+}
+
+.taskhub-premium .th-mystery-result {
+    text-align: center;
+    animation: thFadeIn 0.4s ease;
+}
+
+.taskhub-premium .th-mystery-result-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.taskhub-premium .th-mystery-result strong {
+    display: block;
+    font-size: 1.3rem;
+    color: var(--th-gold);
+    margin-bottom: 4px;
+}
+
+.taskhub-premium .th-mystery-result p {
+    color: var(--th-text-muted);
+    font-size: 13px;
+}
+
+/* ── Step Progress Badge ── */
+.taskhub-premium .th-step-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: var(--th-primary-soft);
+    border: 1px solid var(--th-border-active);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.taskhub-premium .th-step-badge-icon {
+    font-size: 13px;
+}
+
+/* ── Task Header Row (description + help tip) ── */
+.taskhub-premium .th-task-header-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.taskhub-premium .th-task-header-row .th-task-description {
+    flex: 1;
+    margin: 0 0 16px;
+}
+
+/* ── Help Tooltip ── */
+.taskhub-premium .th-help-tip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(29, 78, 216, 0.15);
+    border: 1px solid var(--th-border-active);
+    color: var(--th-primary);
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 1;
+    position: relative;
+}
+
+.taskhub-premium .th-help-tip:hover,
+.taskhub-premium .th-help-tip:focus {
+    background: var(--th-primary);
+    color: #fff;
+    box-shadow: 0 0 12px var(--th-primary-glow);
+    outline: none;
+}
+
+/* Tooltip popover on hover */
+.taskhub-premium .th-help-tip::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: -8px;
+    width: 240px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #0d1b34;
+    border: 1px solid var(--th-border-active);
+    color: var(--th-text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    text-align: left;
+    white-space: normal;
+    box-shadow: 0 8px 24px rgba(2, 6, 23, 0.6);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+}
+
+.taskhub-premium .th-help-tip:hover::after,
+.taskhub-premium .th-help-tip:focus::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Click-based tooltip show state */
+.taskhub-premium .th-help-tip.is-showing::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ── Confetti Burst (task completion) ── */
+.taskhub-premium .th-confetti-burst {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 20;
+    border-radius: var(--th-radius-lg);
+}
+
+/* ── Next Day Preview ── */
+.taskhub-premium .th-next-day-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: var(--th-radius-sm);
+    background: var(--th-primary-soft);
+    border: 1px solid var(--th-border-active);
+    margin-top: 8px;
+}
+
+.taskhub-premium .th-next-day-label {
+    font-size: 11px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.taskhub-premium .th-next-day-preview strong {
+    font-size: 13px;
+    color: var(--th-primary);
+    font-weight: 700;
+}
+
+/* ── Completed Day Summary ── */
+.taskhub-premium .th-completed-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.taskhub-premium .th-completed-summary .th-completed-icon {
+    font-size: 48px;
+}
+
+.taskhub-premium .th-completed-summary h3 {
+    margin: 0;
+    color: var(--th-green);
+    font-size: 1.3rem;
+}
+
+.taskhub-premium .th-completed-summary p {
+    color: var(--th-text-muted);
+    margin: 0;
+    font-size: 14px;
+}
+
+/* ============================================================
+   PREMIUM MISSION CARDS — Distinct Visual Styles
+   Three card types: Daily Check-in, Social Tasks, Quiz Section
+   ============================================================ */
+
+/* ── Premium Card Base ── */
+.taskhub-premium .th-premium-card {
+    position: relative;
+    border-radius: var(--th-radius-lg);
+    padding: 24px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--th-radius-lg);
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Premium Card Type 1: Daily Check-in ── */
+.taskhub-premium .th-premium-card.is-checkin {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.25);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-checkin::before {
+    background: radial-gradient(ellipse at 20% 50%, rgba(29, 78, 216, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-checkin::after {
+    content: '';
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.04), transparent 65%);
+    bottom: -100px;
+    right: -80px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-title .streak-flame {
+    font-size: 20px;
+    animation: thFlameFlicker 1.5s ease-in-out infinite;
+}
+
+@keyframes thFlameFlicker {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(-3deg); }
+    75% { transform: scale(1.05) rotate(3deg); }
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-streak {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(29, 78, 216, 0.06);
+    border: 1px solid rgba(29, 78, 216, 0.12);
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-streak-days {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--th-primary);
+    line-height: 1;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-streak-label {
+    font-size: 11px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-streak-bar {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-streak-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--th-primary), #60a5fa);
+    transition: width 0.5s ease;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), #1E40AF);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+/* ── Premium Card Type 2: Social Tasks ── */
+.taskhub-premium .th-premium-card.is-social {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.25);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-social::before {
+    background: radial-gradient(ellipse at 80% 30%, rgba(29, 78, 216, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-social::after {
+    content: '';
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.04), transparent 65%);
+    top: -80px;
+    left: -60px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-platforms {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-platform {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(29, 78, 216, 0.15);
+    background: rgba(29, 78, 216, 0.04);
+    color: var(--th-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-platform:hover {
+    border-color: rgba(29, 78, 216, 0.3);
+    background: rgba(29, 78, 216, 0.08);
+    color: var(--th-text-primary);
+    transform: translateY(-1px);
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-platform-icon {
+    font-size: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: var(--th-radius-sm);
+    border: 1px solid rgba(29, 78, 216, 0.15);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--th-text-primary);
+    font: inherit;
+    font-size: 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-input:focus {
+    outline: none;
+    border-color: var(--th-primary);
+    box-shadow: 0 0 0 3px var(--th-primary-soft);
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), var(--th-primary-dark));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-social .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+
+/* ── Premium Card Type 3: Quiz Section ── */
+.taskhub-premium .th-premium-card.is-quiz {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.25);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-quiz::before {
+    background: radial-gradient(ellipse at 50% 0%, rgba(29, 78, 216, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-quiz::after {
+    content: '';
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.03), transparent 65%);
+    bottom: -120px;
+    right: -100px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-quiz-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(29, 78, 216, 0.04);
+    border: 1px solid rgba(29, 78, 216, 0.1);
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-quiz-info-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-quiz-info-text {
+    flex: 1;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-quiz-info-text strong {
+    display: block;
+    font-size: 13px;
+    color: var(--th-text-primary);
+    font-weight: 700;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-quiz-info-text span {
+    font-size: 12px;
+    color: var(--th-text-muted);
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), var(--th-primary-dark));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-quiz .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+
+/* ── Premium Card Shared Elements ── */
+.taskhub-premium .th-premium-card .th-premium-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.taskhub-premium .th-premium-card .th-premium-step {
+    font-size: 11px;
+    color: var(--th-text-muted);
+    font-weight: 600;
+}
+
+/* ── Premium Card Type 4: Profile Setup ── */
+.taskhub-premium .th-premium-card.is-profile {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.25);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-profile::before {
+    background: radial-gradient(ellipse at 30% 20%, rgba(29, 78, 216, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-profile::after {
+    content: '';
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.04), transparent 65%);
+    top: -100px;
+    left: -80px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), var(--th-primary-dark));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-profile .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+
+/* ── Premium Card Type 5: Wallet Connect ── */
+.taskhub-premium .th-premium-card.is-wallet {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.25);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-wallet::before {
+    background: radial-gradient(ellipse at 70% 40%, rgba(29, 78, 216, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-wallet::after {
+    content: '';
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.04), transparent 65%);
+    bottom: -90px;
+    right: -70px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), var(--th-primary-dark));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-wallet .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+
+/* ── Premium Card Type 6: Proof Submission ── */
+.taskhub-premium .th-premium-card.is-proof {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.25);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-proof::before {
+    background: radial-gradient(ellipse at 60% 60%, rgba(29, 78, 216, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-proof::after {
+    content: '';
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.04), transparent 65%);
+    top: -100px;
+    right: -80px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), var(--th-primary-dark));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-proof .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+
+/* ── Premium Card Type 7: Mystery Box ── */
+.taskhub-premium .th-premium-card.is-mystery {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    box-shadow: 0 8px 32px rgba(212, 175, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-mystery::before {
+    background: radial-gradient(ellipse at 50% 50%, rgba(212, 175, 55, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-mystery::after {
+    content: '';
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.04), transparent 65%);
+    bottom: -110px;
+    left: -90px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--th-gold-soft), rgba(212, 175, 55, 0.05));
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-gold-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-gold), #b8962e);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.25);
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-mystery .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+
+/* ── Premium Card Type 8: BoostHub Challenge ── */
+.taskhub-premium .th-premium-card.is-boosthub {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.25);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-boosthub::before {
+    background: radial-gradient(ellipse at 40% 30%, rgba(29, 78, 216, 0.06), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-boosthub::after {
+    content: '';
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.04), transparent 65%);
+    top: -100px;
+    right: -80px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), var(--th-primary-dark));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-boosthub .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+/* ── Premium Card Type 9: Default Mission Task ── */
+.taskhub-premium .th-premium-card.is-mission {
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    box-shadow: 0 8px 32px rgba(29, 78, 216, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.taskhub-premium .th-premium-card.is-mission::before {
+    background: radial-gradient(ellipse at 50% 20%, rgba(29, 78, 216, 0.04), transparent 60%);
+}
+
+.taskhub-premium .th-premium-card.is-mission::after {
+    content: '';
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.03), transparent 65%);
+    bottom: -90px;
+    right: -70px;
+    pointer-events: none;
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--th-primary-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-badge-icon {
+    font-size: 14px;
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-desc {
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--th-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--th-gold);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-btn {
+    min-height: 44px;
+    padding: 0 28px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), var(--th-primary-dark));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.taskhub-premium .th-premium-card.is-mission .th-premium-btn.is-done {
+    background: var(--th-green-soft);
+    color: var(--th-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    cursor: default;
+}
+
+
+/* ── Premium Card Animations ── */
+@keyframes thPremiumGlow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.taskhub-premium .th-premium-card.is-checkin .th-premium-badge {
+    animation: thPremiumGlow 3s ease-in-out infinite;
+}
+
+/* ── Responsive for Premium Cards ── */
+@media (max-width: 768px) {
+    .taskhub-premium .th-premium-card {
+        padding: 18px;
+    }
+    
+    .taskhub-premium .th-premium-card.is-social .th-premium-inputs {
+        grid-template-columns: 1fr;
+    }
+    
+    .taskhub-premium .th-premium-card .th-premium-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .taskhub-premium .th-premium-card .th-premium-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .taskhub-premium .th-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px;
+    }
+
+    .taskhub-premium .th-header-actions {
+        width: 100%;
+    }
+
+    .taskhub-premium .th-header-actions .secondary-btn {
+        flex: 1;
+    }
+
+    .taskhub-premium .th-hero-card {
+        padding: 20px;
+    }
+
+    .taskhub-premium .th-hero-header {
+        flex-direction: column;
+    }
+
+    .taskhub-premium .th-input-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .taskhub-premium .th-mystery-box {
+        width: 100px;
+        height: 120px;
+    }
+
+    .taskhub-premium .th-hero-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .taskhub-premium .th-hero-footer .primary-btn,
+    .taskhub-premium .th-hero-footer .secondary-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ── TaskHub Modal (overrides) ── */
+.taskhub-premium .taskhub-modal-dialog {
+    border-radius: var(--th-radius-lg);
+    border: 1px solid var(--th-border-active);
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.6);
+}
+
+.taskhub-premium .taskhub-modal-head h3 {
+    color: var(--th-text-primary);
+    font-size: 1.1rem;
+}
+
+.taskhub-premium .taskhub-modal-message {
+    color: var(--th-text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.taskhub-premium .taskhub-modal .page-actions .primary-btn {
+    min-height: 44px;
+    padding: 0 32px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), #1E40AF);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.taskhub-premium .taskhub-modal .page-actions .primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+/* ── Greeting Modal ── */
+.taskhub-greeting-modal[hidden] {
+    display: none;
+}
+
+.taskhub-greeting-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+}
+
+.taskhub-greeting-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.75);
+    backdrop-filter: blur(6px);
+}
+
+.taskhub-greeting-dialog {
+    position: relative;
+    width: min(420px, calc(100vw - 32px));
+    margin: 15vh auto 0;
+    border-radius: var(--th-radius-lg);
+    border: 1px solid var(--th-border-active);
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.6);
+    overflow: hidden;
+}
+
+.taskhub-greeting-orb {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--th-primary-glow), transparent 70%);
+    top: -100px;
+    right: -80px;
+    pointer-events: none;
+}
+
+.taskhub-greeting-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 24px;
+    text-align: center;
+}
+
+.taskhub-greeting-emoji {
+    font-size: 48px;
+}
+
+.taskhub-greeting-content h2 {
+    margin: 0;
+    color: var(--th-text-primary);
+    font-size: 1.4rem;
+}
+
+.taskhub-greeting-content p {
+    margin: 0;
+    color: var(--th-text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.taskhub-greeting-day-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-radius: 999px;
+    background: var(--th-primary-soft);
+    border: 1px solid var(--th-border-active);
+}
+
+.taskhub-greeting-day-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--th-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.taskhub-greeting-day-badge strong {
+    font-size: 1.5rem;
+    color: var(--th-primary);
+}
+
+.taskhub-greeting-sub {
+    font-size: 13px !important;
+    color: var(--th-text-muted) !important;
+}
+
+.taskhub-greeting-content .primary-btn {
+    min-height: 44px;
+    padding: 0 32px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), #1E40AF);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+}
+
+.taskhub-greeting-content .primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+/* ── Greeting Overview ── */
+.taskhub-premium .th-greeting-overview {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    margin: 8px 0;
+}
+
+.taskhub-premium .th-greeting-overview-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--th-border);
+}
+
+.taskhub-premium .th-greeting-overview-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.taskhub-premium .th-greeting-overview-item div {
+    display: flex;
+    flex-direction: column;
+}
+
+.taskhub-premium .th-greeting-overview-item strong {
+    font-size: 12px;
+    color: var(--th-text-primary);
+    font-weight: 700;
+}
+
+.taskhub-premium .th-greeting-overview-item span {
+    font-size: 11px;
+    color: var(--th-text-muted);
+}
+
+.taskhub-premium .taskhub-greeting-tip {
+    font-size: 12px !important;
+    color: var(--th-text-muted) !important;
+    padding: 8px 12px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(212, 175, 55, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    width: 100%;
+}
+
+/* ── Mystery Box Modal ── */
+.taskhub-mystery-modal[hidden] {
+    display: none;
+}
+
+.taskhub-mystery-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+}
+
+.taskhub-mystery-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.8);
+    backdrop-filter: blur(8px);
+}
+
+.taskhub-mystery-dialog {
+    position: relative;
+    width: min(520px, calc(100vw - 32px));
+    margin: 10vh auto 0;
+    border-radius: var(--th-radius-lg);
+    border: 1px solid var(--th-border-active);
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.6);
+    overflow: hidden;
+}
+
+.taskhub-mystery-confetti {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.taskhub-confetti-piece {
+    position: absolute;
+    top: -10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: thConfettiFall linear forwards;
+}
+
+@keyframes thConfettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(400px) rotate(720deg); opacity: 0; }
+}
+
+/* ── Success Animation Overlay ── */
+@keyframes thSuccessPop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.taskhub-premium .th-success-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 6, 23, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 30;
+    border-radius: var(--th-radius-lg);
+    animation: thFadeIn 0.3s ease;
+}
+
+.taskhub-premium .th-success-checkmark {
+    font-size: 64px;
+    line-height: 1;
+    margin-bottom: 12px;
+    animation: thSuccessPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.taskhub-premium .th-success-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.taskhub-premium .th-success-message {
+    font-size: 14px;
+    color: var(--th-text-muted);
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.5;
+}
+
+/* ── Quiz Feedback Styles ── */
+.taskhub-premium .th-quiz-choice.is-correct {
+    border-color: rgba(34, 197, 94, 0.5) !important;
+    background: rgba(34, 197, 94, 0.1) !important;
+}
+
+.taskhub-premium .th-quiz-choice.is-correct .th-quiz-choice-marker {
+    border-color: var(--th-green) !important;
+    background: var(--th-green) !important;
+    color: #fff !important;
+}
+
+.taskhub-premium .th-quiz-choice.is-wrong {
+    border-color: rgba(239, 68, 68, 0.5) !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+}
+
+.taskhub-premium .th-quiz-choice.is-wrong .th-quiz-choice-marker {
+    border-color: var(--th-red) !important;
+    background: var(--th-red) !important;
+    color: #fff !important;
+}
+
+.taskhub-premium .th-choice-feedback {
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.taskhub-premium .th-choice-correct {
+    color: var(--th-green);
+}
+
+.taskhub-premium .th-choice-wrong {
+    color: var(--th-red);
+}
+
+.taskhub-premium .th-quiz-retry-prompt {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    color: var(--th-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    animation: thFadeIn 0.3s ease;
+}
+
+.taskhub-mystery-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 24px;
+    text-align: center;
+}
+
+.taskhub-mystery-emoji {
+    font-size: 48px;
+}
+
+.taskhub-mystery-content h2 {
+    margin: 0;
+    color: var(--th-gold);
+    font-size: 1.5rem;
+}
+
+.taskhub-mystery-content > p {
+    margin: 0;
+    color: var(--th-text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+    max-width: 360px;
+}
+
+.taskhub-mystery-boxes {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 8px 0;
+}
+
+.taskhub-mystery-box {
+    width: 120px;
+    height: 140px;
+    perspective: 600px;
+    cursor: pointer;
+}
+
+.taskhub-mystery-box-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 0.6s ease;
+    transform-style: preserve-3d;
+}
+
+.taskhub-mystery-box.is-flipped .taskhub-mystery-box-inner {
+    transform: rotateY(180deg);
+}
+
+.taskhub-mystery-box-front,
+.taskhub-mystery-box-back {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--th-radius);
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 2px solid var(--th-border-active);
+}
+
+.taskhub-mystery-box-front {
+    background: linear-gradient(145deg, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05));
+}
+
+.taskhub-mystery-box-back {
+    background: linear-gradient(145deg, var(--th-gold-soft), rgba(212, 175, 55, 0.05));
+    transform: rotateY(180deg);
+    border-color: rgba(212, 175, 55, 0.3);
+}
+
+.taskhub-mystery-box-icon {
+    font-size: 32px;
+}
+
+.taskhub-mystery-box-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--th-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.taskhub-mystery-box-reward {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--th-gold);
+}
+
+.taskhub-mystery-result {
+    animation: thFadeIn 0.4s ease;
+}
+
+.taskhub-mystery-result-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.taskhub-mystery-result strong {
+    display: block;
+    font-size: 1.3rem;
+    color: var(--th-gold);
+    margin-bottom: 4px;
+}
+
+.taskhub-mystery-result p {
+    color: var(--th-text-muted);
+    font-size: 13px;
+    margin: 0;
+}
+
+.taskhub-mystery-content .primary-btn {
+    min-height: 44px;
+    padding: 0 32px;
+    border-radius: var(--th-radius-sm);
+    background: linear-gradient(135deg, var(--th-primary), #1E40AF);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.taskhub-mystery-content .primary-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--th-primary-glow);
+}
+
+.taskhub-mystery-content .primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+    .taskhub-premium .th-day-dot {
+        width: 28px;
+        height: 28px;
+        font-size: 10px;
+    }
+
+    .taskhub-premium .th-day-connector {
+        width: 10px;
+    }
+
+    .taskhub-premium .th-hero-card {
+        padding: 16px;
+        border-radius: 18px;
+    }
+
+    .taskhub-premium .th-hero-title {
+        font-size: 1.1rem;
+    }
+
+    .taskhub-premium .th-quiz-choice {
+        padding: 10px 12px;
+    }
+
+    .taskhub-premium .th-quiz-q-text {
+        font-size: 14px;
+    }
+
+    .taskhub-mystery-box {
+        width: 100px;
+        height: 120px;
+    }
+}
+
+/* ============================================================
+   LEARNING TOAST — Brief notification after validation
+   ============================================================ */
+.th-learning-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    opacity: 0;
+    z-index: 10001;
+    padding: 14px 24px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.08));
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #4ade80;
+    font-size: 14px;
+    font-weight: 700;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(2, 6, 23, 0.4);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   BEGINNER-FRIENDLY QUIZ INSTRUCTIONS
+   ============================================================ */
+.taskhub-premium .th-quiz-instructions {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(29, 78, 216, 0.06);
+    border: 1px solid rgba(29, 78, 216, 0.15);
+    font-size: 13px;
+    color: var(--th-text-secondary);
+    line-height: 1.6;
+}
+
+.taskhub-premium .th-quiz-instructions-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+
+.taskhub-premium .th-quiz-instructions-text {
+    flex: 1;
+}
+
+.taskhub-premium .th-quiz-instructions-text strong {
+    color: var(--th-text-primary);
+}
+
+/* ============================================================
+   PROOF SUBMISSION SECTION — Beginner-friendly
+   ============================================================ */
+.taskhub-premium .th-proof-section {
+    margin: 16px 0;
+    padding: 20px;
+    border-radius: var(--th-radius);
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.04), rgba(29, 78, 216, 0.02));
+}
+
+.taskhub-premium .th-proof-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-proof-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(29, 78, 216, 0.12);
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.taskhub-premium .th-proof-header-text {
+    flex: 1;
+}
+
+.taskhub-premium .th-proof-header-text strong {
+    display: block;
+    font-size: 15px;
+    color: var(--th-text-primary);
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.taskhub-premium .th-proof-header-text span {
+    font-size: 12px;
+    color: var(--th-text-muted);
+}
+
+.taskhub-premium .th-proof-tips {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.taskhub-premium .th-proof-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 13px;
+    color: var(--th-text-secondary);
+    line-height: 1.5;
+}
+
+.taskhub-premium .th-proof-tip-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+
+.taskhub-premium .th-proof-tip strong {
+    color: var(--th-text-primary);
+}
+
+.taskhub-premium .th-proof-input-wrap {
+    position: relative;
+}
+
+.taskhub-premium .th-proof-input-wrap .task-proof-input {
+    width: 100%;
+    min-height: 80px;
+    padding: 14px;
+    border-radius: var(--th-radius-sm);
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--th-text-primary);
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.taskhub-premium .th-proof-input-wrap .task-proof-input:focus {
+    outline: none;
+    border-color: var(--th-primary);
+    box-shadow: 0 0 0 3px var(--th-primary-soft);
+}
+
+.taskhub-premium .th-proof-input-wrap .task-proof-input::placeholder {
+    color: rgba(148, 163, 184, 0.5);
+}
+
+
+/* ============================================================
+   SUCCESS FULLSCREEN OVERLAY — Premium celebration
+   ============================================================ */
+@keyframes thSuccessPop {
+    0% { transform: scale(0.3) rotate(-5deg); opacity: 0; }
+    50% { transform: scale(1.15) rotate(2deg); }
+    70% { transform: scale(0.95) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes thSuccessGlowPulse {
+    0%, 100% { box-shadow: 0 20px 60px rgba(2, 6, 23, 0.5), 0 0 80px rgba(29, 78, 216, 0.15); }
+    50% { box-shadow: 0 20px 60px rgba(2, 6, 23, 0.5), 0 0 120px rgba(29, 78, 216, 0.3), 0 0 200px rgba(34, 197, 94, 0.1); }
+}
+
+@keyframes thSuccessStarFloat {
+    0% { transform: translateY(0) scale(0); opacity: 0; }
+    50% { transform: translateY(-20px) scale(1); opacity: 1; }
+    100% { transform: translateY(-40px) scale(0); opacity: 0; }
+}
+
+@keyframes thSuccessRings {
+    0% { transform: scale(0.5); opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Confetti falling animation — smoother with gravity */
+@keyframes thConfettiFall {
+    0% { transform: translateY(-10px) rotate(0deg) scale(1); opacity: 1; }
+    25% { transform: translateY(25vh) rotate(180deg) scale(1.1); opacity: 1; }
+    50% { transform: translateY(50vh) rotate(360deg) scale(0.9); opacity: 0.8; }
+    75% { transform: translateY(75vh) rotate(540deg) scale(1.05); opacity: 0.5; }
+    100% { transform: translateY(105vh) rotate(720deg) scale(0.8); opacity: 0; }
+}
+
+.taskhub-confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: thConfettiFall 3.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    pointer-events: none;
+}
+
+/* Premium success modal card */
+.th-success-fullscreen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 6, 23, 0.85);
+    backdrop-filter: blur(12px);
+    z-index: 9999;
+    animation: thFadeIn 0.3s ease;
+}
+
+.th-success-modal-card {
+    position: relative;
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid rgba(29, 78, 216, 0.3);
+    border-radius: 24px;
+    padding: 48px 40px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: thSuccessPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, thSuccessGlowPulse 2s ease-in-out infinite 0.6s;
+    overflow: hidden;
+}
+
+/* Expanding ring effect behind the card */
+.th-success-modal-card::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100px;
+    height: 100px;
+    margin: -50px 0 0 -50px;
+    border-radius: 50%;
+    border: 2px solid rgba(34, 197, 94, 0.3);
+    animation: thSuccessRings 1.5s ease-out forwards;
+    pointer-events: none;
+}
+
+.th-success-modal-card::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100px;
+    height: 100px;
+    margin: -50px 0 0 -50px;
+    border-radius: 50%;
+    border: 2px solid rgba(29, 78, 216, 0.2);
+    animation: thSuccessRings 1.5s ease-out 0.3s forwards;
+    pointer-events: none;
+}
+
+/* Floating stars/sparkles */
+.th-success-sparkle {
+    position: absolute;
+    font-size: 20px;
+    pointer-events: none;
+    animation: thSuccessStarFloat 1.5s ease-out forwards;
+    z-index: 10001;
+}
+
+
+

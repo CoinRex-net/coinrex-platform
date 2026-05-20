@@ -173,7 +173,9 @@ body {
                     <div class="terms-card-body">
                         <div class="contact-box">
                             <i class="fas fa-envelope"></i>
-                            <a href="mailto:support@coinrex.net">support@coinrex.net</a>
+                            <a href="mailto:<?php echo htmlspecialchars(SITE_EMAIL, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars(SITE_EMAIL, ENT_QUOTES, 'UTF-8'); ?>
+                            </a>
                         </div>
                     </div>
                 </article>

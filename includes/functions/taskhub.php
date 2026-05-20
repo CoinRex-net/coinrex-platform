@@ -1,6 +1,45 @@
 <?php
 /** Auto-split from legacy functions.php */
 
+/**
+ * Shuffles quiz choices and remaps the correct answer index.
+ * Uses a deterministic seed so the shuffle is consistent within the same request
+ * (both getTaskHubState and taskHubValidateSingleQuizAnswer produce the same order).
+ * This prevents the correct answer from always being at index 0.
+ */
+function shuffleQuizChoices(array $quiz, string $seed = ''): array {
+    $shuffled = [];
+    foreach ($quiz as $q_idx => $question) {
+        $choices = $question['choices'] ?? [];
+        $correct_index = (int) ($question['answer'] ?? 0);
+        $correct_text = $choices[$correct_index] ?? '';
+
+        // Use deterministic shuffle based on seed + question index.
+        // mt_srand seeds the Mersenne Twister which shuffle() uses internally.
+        $keys = array_keys($choices);
+        $seed_str = $seed . '_q' . $q_idx;
+        mt_srand(crc32($seed_str));
+        shuffle($keys);
+        mt_srand();
+
+        $new_choices = [];
+        $new_correct_index = 0;
+        foreach ($keys as $new_idx => $old_idx) {
+            $new_choices[] = $choices[$old_idx];
+            if ((int) $old_idx === $correct_index) {
+                $new_correct_index = $new_idx;
+            }
+        }
+
+        $shuffled[] = [
+            'question' => $question['question'],
+            'choices' => $new_choices,
+            'answer' => $new_correct_index,
+        ];
+    }
+    return $shuffled;
+}
+
 function getTaskHubMissionDefinitions() {
     static $definitions = null;
 
@@ -248,9 +287,17 @@ function taskHubGetBoostGatewayTask($mission_day) {
     ];
 }
 
-function getTaskHubMissionTaskDefinitionByKey($task_key) {
+function getTaskHubMissionTaskDefinitionByKey($task_key, PDO $db = null) {
     foreach (getTaskHubMissionDefinitions() as $definition) {
         if ((string) $definition['task_key'] === (string) $task_key) {
+            // If this task requires a quiz, try loading from DB first.
+            // DB questions override hardcoded quizzes when present.
+            if (!empty($definition['requires_quiz'])) {
+                $db_quiz = taskHubGetQuizByTaskKey((string) $task_key, $db);
+                if (!empty($db_quiz)) {
+                    $definition['quiz'] = $db_quiz;
+                }
+            }
             return $definition;
         }
     }
@@ -325,6 +372,40 @@ function getTaskHubRewardAmountForTask($user_id, array $task_row, array $log_row
     $current_phase_earnings = getTaskHubCurrentPhase1Earnings((int) $user_id, $db);
     $remaining_cap = max(0, (float) TASKHUB_PHASE1_REWARD_CAP - $current_phase_earnings);
     return round(min($reward, $remaining_cap), 8);
+}
+
+/**
+ * Loads quiz questions from the taskhub_quiz_questions DB table for a given task_key.
+ * Returns the same [{question, choices, answer}] format as the hardcoded arrays.
+ * Returns empty array if no DB rows found.
+ */
+function taskHubGetQuizByTaskKey(string $task_key, PDO $db = null): array {
+    $db = $db ?: getDBConnection();
+    $stmt = $db->prepare("
+        SELECT question, choices, answer
+        FROM taskhub_quiz_questions
+        WHERE task_key = ?
+          AND is_active = 1
+        ORDER BY sort_order ASC, id ASC
+    ");
+    $stmt->execute([$task_key]);
+    $rows = $stmt->fetchAll();
+    if (empty($rows)) {
+        return [];
+    }
+    $quiz = [];
+    foreach ($rows as $row) {
+        $choices = json_decode((string) ($row['choices'] ?? '[]'), true);
+        if (!is_array($choices) || empty($choices)) {
+            continue;
+        }
+        $quiz[] = [
+            'question' => (string) ($row['question'] ?? ''),
+            'choices' => $choices,
+            'answer' => (int) ($row['answer'] ?? 0),
+        ];
+    }
+    return $quiz;
 }
 
 function getTaskHubTaskRows(PDO $db = null) {
@@ -484,7 +565,9 @@ function taskHubCreateFollowupTasksAfterCheckIn($user_id, $mission_day, $checkin
             continue;
         }
 
-        $available_at_ts = strtotime((string) $checkin_completed_at . ' +' . (int) ($day_task['unlock_after_hours'] ?? 0) . ' hours');
+        // TESTING_MODE: Bypass unlock_after_hours cooldown - tasks available immediately
+        $unlock_hours = (defined('TESTING_MODE') && TESTING_MODE) ? 0 : (int) ($day_task['unlock_after_hours'] ?? 0);
+        $available_at_ts = strtotime((string) $checkin_completed_at . ' +' . $unlock_hours . ' hours');
         $metadata = [];
         if (($day_task['verification_mode'] ?? '') === 'boosthub') {
             $boost_task = taskHubSelectRandomBoostTask((int) $user_id, $db);
@@ -558,26 +641,29 @@ function taskHubGetDayCompletionInfo($user_id, $mission_day, PDO $db = null) {
         }
     }
 
-    $boost_required_reward = taskHubGetBoostRequirementByDay((int) $mission_day);
-    if ($boost_required_reward > 0) {
-        $started_at_value = $day_started_at_ts > 0 ? date('Y-m-d H:i:s', $day_started_at_ts) : null;
-        $has_boost = false;
-        if (!empty($started_at_value)) {
-            $boost_stmt = $db->prepare("
-                SELECT COUNT(*) AS total
-                FROM user_task_logs utl
-                INNER JOIN mini_tasks mt ON mt.id = utl.task_id
-                WHERE utl.user_id = ?
-                  AND utl.status = 'completed'
-                  AND mt.task_group = 'boosthub'
-                  AND ROUND(mt.reward, 2) = ?
-                  AND COALESCE(utl.task_completed_at, utl.completed_at) >= ?
-            ");
-            $boost_stmt->execute([(int) $user_id, round((float) $boost_required_reward, 2), (string) $started_at_value]);
-            $has_boost = ((int) ($boost_stmt->fetch()['total'] ?? 0)) > 0;
-        }
-        if (!$has_boost) {
-            $all_completed = false;
+    // TESTING_MODE: Skip BoostHub gateway requirement
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        $boost_required_reward = taskHubGetBoostRequirementByDay((int) $mission_day);
+        if ($boost_required_reward > 0) {
+            $started_at_value = $day_started_at_ts > 0 ? date('Y-m-d H:i:s', $day_started_at_ts) : null;
+            $has_boost = false;
+            if (!empty($started_at_value)) {
+                $boost_stmt = $db->prepare("
+                    SELECT COUNT(*) AS total
+                    FROM user_task_logs utl
+                    INNER JOIN mini_tasks mt ON mt.id = utl.task_id
+                    WHERE utl.user_id = ?
+                      AND utl.status = 'completed'
+                      AND mt.task_group = 'boosthub'
+                      AND ROUND(mt.reward, 2) = ?
+                      AND COALESCE(utl.task_completed_at, utl.completed_at) >= ?
+                ");
+                $boost_stmt->execute([(int) $user_id, round((float) $boost_required_reward, 2), (string) $started_at_value]);
+                $has_boost = ((int) ($boost_stmt->fetch()['total'] ?? 0)) > 0;
+            }
+            if (!$has_boost) {
+                $all_completed = false;
+            }
         }
     }
 
@@ -653,8 +739,11 @@ function syncTaskHubDayProgress($user_id, PDO $db = null) {
             break;
         }
 
-        if (time() < $next_reset) {
-            break;
+        // TESTING_MODE: Skip server reset wait - advance to next day immediately
+        if (!defined('TESTING_MODE') || !TESTING_MODE) {
+            if (time() < $next_reset) {
+                break;
+            }
         }
 
         $current_day++;
@@ -674,13 +763,16 @@ function getTaskHubState($user_id, PDO $db = null) {
         throw new RuntimeException('User account not found.');
     }
 
-    if (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
-        return [
-            'access' => 'closed',
-            'message' => 'TaskHub is available for Beginner accounts only.',
-            'current_day' => (int) ($user['current_day'] ?? 1),
-            'status' => 'completed',
-        ];
+    // TESTING_MODE: Skip level check so testers can access TaskHub
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        if (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
+            return [
+                'access' => 'closed',
+                'message' => 'TaskHub is available for Beginner accounts only.',
+                'current_day' => (int) ($user['current_day'] ?? 1),
+                'status' => 'completed',
+            ];
+        }
     }
 
     $current_day = max(1, min(TASKHUB_TOTAL_DAYS, (int) ($user['current_day'] ?? 1)));
@@ -715,16 +807,18 @@ function getTaskHubState($user_id, PDO $db = null) {
         $status_message = 'Progress paused until completion';
     }
 
-    $build_task_payload = static function (array $task_row, $log, $active_day, PDO $inner_db) use ($profile_complete) {
+    $build_task_payload = static function (array $task_row, $log, $active_day, PDO $inner_db) use ($profile_complete, $user_id) {
         $metadata = !empty($log['metadata']) ? (json_decode((string) $log['metadata'], true) ?: []) : [];
         $available_at_ts = !empty($log['task_available_at']) ? strtotime((string) $log['task_available_at']) : 0;
         $countdown = $available_at_ts > time() ? max(0, $available_at_ts - time()) : 0;
 
+        // TESTING_MODE: Ignore unlock timers - show all pending tasks as available
+        $is_testing = defined('TESTING_MODE') && TESTING_MODE;
         $task_status = 'locked';
         $task_message = 'Complete previous tasks to continue';
         if ($log) {
             $task_status = (string) ($log['status'] ?? 'locked');
-            if ($task_status === 'pending' && (!$active_day || $available_at_ts <= time())) {
+            if ($task_status === 'pending' && (!$active_day || $available_at_ts <= time() || $is_testing)) {
                 $task_status = 'available';
                 $task_message = 'Ready';
             } elseif ($task_status === 'pending') {
@@ -754,6 +848,13 @@ function getTaskHubState($user_id, PDO $db = null) {
         }
 
         $definition = getTaskHubMissionTaskDefinitionByKey((string) ($task_row['task_key'] ?? ''));
+        // Shuffle quiz choices deterministically so correct answer isn't always at index 0.
+        // Seed uses user_id + task_key so the shuffle is consistent across requests.
+        $quiz_data = $definition['quiz'] ?? [];
+        if (!empty($quiz_data)) {
+            $seed = (string) $user_id . '_' . (string) ($task_row['task_key'] ?? '');
+            $quiz_data = shuffleQuizChoices($quiz_data, $seed);
+        }
         return [
             'id' => (int) $task_row['id'],
             'task_key' => (string) $task_row['task_key'],
@@ -777,7 +878,7 @@ function getTaskHubState($user_id, PDO $db = null) {
             'learning_title' => $definition['learning_title'] ?? '',
             'learning_url' => $definition['learning_url'] ?? '',
             'learning_opened' => !empty($metadata['learning_opened']),
-            'quiz' => $definition['quiz'] ?? [],
+            'quiz' => $quiz_data,
             'profile_complete' => ($task_row['verification_mode'] ?? '') === 'profile' ? $profile_complete : null,
         ];
     };
@@ -1023,14 +1124,8 @@ function taskHubCompleteInstantTask($user_id, array $task_row, array $log_row, a
         $wallet_update->execute([$wallet_address, (int) $user_id]);
     }
 
-    if ((string) ($task_row['task_key'] ?? '') === 'day2_ui_exploration') {
-        $metadata = !empty($log_row['metadata']) ? (json_decode((string) $log_row['metadata'], true) ?: []) : [];
-        if (empty($metadata['learning_opened'])) {
-            throw new RuntimeException('Please open the UI exploration page before completing this task.');
-        }
-    }
-
     $reward = getTaskHubRewardAmountForTask((int) $user_id, $task_row, $log_row, $db);
+
     if ($reward <= 0) {
         throw new RuntimeException('TaskHub phase1 reward cap reached.');
     }
@@ -1070,24 +1165,77 @@ function taskHubCompleteInstantTask($user_id, array $task_row, array $log_row, a
     return $entry;
 }
 
+/**
+ * Validates a single quiz answer (used for real-time per-question checking).
+ * Returns success only if ALL answers so far are correct.
+ * NOTE: Must shuffle quiz choices the same way as getTaskHubState() so
+ * the answer indices match what the frontend received.
+ */
+function taskHubValidateSingleQuizAnswer($user_id, array $task_row, array $log_row, array $answers, PDO $db = null): bool {
+    $definition = getTaskHubMissionTaskDefinitionByKey((string) ($task_row['task_key'] ?? ''));
+    $questions = $definition['quiz'] ?? [];
+    if (empty($questions)) {
+        return false;
+    }
+
+    // Shuffle the same way as getTaskHubState() so answer indices match.
+    // Use the same seed: user_id + task_key
+    $seed = (string) $user_id . '_' . (string) ($task_row['task_key'] ?? '');
+    $questions = shuffleQuizChoices($questions, $seed);
+
+    // Find the last answered question (ignore -1 / unanswered)
+    $last_answered = -1;
+    foreach ($answers as $idx => $val) {
+        if ((int) $val >= 0) {
+            $last_answered = (int) $idx;
+        }
+    }
+
+    foreach ($questions as $index => $question) {
+        if ($index > $last_answered) {
+            // Don't check unanswered questions
+            break;
+        }
+        $user_answer = (int) ($answers[$index] ?? -1);
+        $correct_answer = (int) ($question['answer'] ?? -2);
+        if ($user_answer !== $correct_answer) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 function taskHubSubmitQuizTask($user_id, array $task_row, array $log_row, array $answers, PDO $db = null) {
     $db = $db ?: getDBConnection();
     $log_metadata = !empty($log_row['metadata']) ? (json_decode((string) $log_row['metadata'], true) ?: []) : [];
-    if (empty($log_metadata['learning_opened'])) {
-        throw new RuntimeException('Please open and review the learning page before submitting this quiz.');
-    }
 
     $definition = getTaskHubMissionTaskDefinitionByKey((string) ($task_row['task_key'] ?? ''));
+
     $questions = $definition['quiz'] ?? [];
     if (empty($questions)) {
         throw new RuntimeException('Quiz definition not found.');
     }
 
+    // Shuffle the same way as getTaskHubState() so answer indices match.
+    // Use the same seed: user_id + task_key
+    $questions = shuffleQuizChoices($questions, (string) $user_id . '_' . (string) ($task_row['task_key'] ?? ''));
+
     $score = 0;
+    $detail = [];
     foreach ($questions as $index => $question) {
-        if ((int) ($answers[$index] ?? -1) === (int) ($question['answer'] ?? -2)) {
+        $user_answer = (int) ($answers[$index] ?? -1);
+        $correct_answer = (int) ($question['answer'] ?? -2);
+        $is_correct = $user_answer === $correct_answer;
+        if ($is_correct) {
             $score++;
         }
+        $detail[] = [
+            'question' => $question['question'],
+            'correct' => $is_correct,
+            'correct_answer' => $question['choices'][$correct_answer] ?? 'Unknown',
+            'user_answer' => $user_answer >= 0 && isset($question['choices'][$user_answer]) ? $question['choices'][$user_answer] : '(none)',
+        ];
     }
 
     $attempt_stmt = $db->prepare("
@@ -1109,10 +1257,26 @@ function taskHubSubmitQuizTask($user_id, array $task_row, array $log_row, array 
             'score' => (int) $score,
             'metadata' => ['last_score' => (int) $score, 'required_score' => (int) ($task_row['min_quiz_score'] ?? 0)],
         ], $db);
-        throw new RuntimeException('Pass the quiz to proceed.');
+        throw new QuizFailedException('Pass the quiz to proceed. Score: ' . $score . '/' . count($questions), $detail);
     }
 
     return taskHubCompleteInstantTask((int) $user_id, $task_row, $log_row, ['quiz_score' => $score], $db);
+}
+
+/**
+ * Exception that carries quiz detail (which questions were correct/wrong).
+ */
+class QuizFailedException extends RuntimeException {
+    private array $detail;
+
+    public function __construct(string $message, array $detail = []) {
+        parent::__construct($message);
+        $this->detail = $detail;
+    }
+
+    public function getDetail(): array {
+        return $this->detail;
+    }
 }
 
 function taskHubSubmitManualTask($user_id, array $task_row, array $log_row, array $payload = [], PDO $db = null) {
@@ -1167,6 +1331,9 @@ function taskHubSubmitManualTask($user_id, array $task_row, array $log_row, arra
         throw new RuntimeException('Proof is required for this task.');
     }
 
+    // IMPORTANT: Manual/proof tasks must always go through admin review,
+    // even when TESTING_MODE is enabled.
+
     taskHubUpdateLog((int) $log_row['id'], [
         'status' => 'submitted',
         'proof_data' => $proof,
@@ -1193,15 +1360,21 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
         throw new RuntimeException('User account not found.');
     }
 
-    if (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
-        throw new RuntimeException('TaskHub is available for Beginner accounts only.');
+    // TESTING_MODE: Skip level check
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        if (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
+            throw new RuntimeException('TaskHub is available for Beginner accounts only.');
+        }
     }
 
     enforceUserModuleAccess($user, 'taskhub');
 
-    $signals = getUserSecuritySignals((int) $user_id, $db);
-    if (!empty($signals['is_suspicious'])) {
-        throw new RuntimeException('Suspicious activity detected. Try again later.');
+    // TESTING_MODE: Skip security signals check (IP/device farming detection)
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        $signals = getUserSecuritySignals((int) $user_id, $db);
+        if (!empty($signals['is_suspicious'])) {
+            throw new RuntimeException('Suspicious activity detected. Try again later.');
+        }
     }
 
     syncTaskHubDayProgress((int) $user_id, $db);
@@ -1220,8 +1393,11 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
         throw new RuntimeException('TaskHub task not found.');
     }
 
-    if ((int) ($task_row['mission_day'] ?? 0) !== (int) ($user['current_day'] ?? 1)) {
-        throw new RuntimeException('Complete previous tasks to continue.');
+    // TESTING_MODE: Skip day progression check - testers can do all days
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        if ((int) ($task_row['mission_day'] ?? 0) !== (int) ($user['current_day'] ?? 1)) {
+            throw new RuntimeException('Complete previous tasks to continue.');
+        }
     }
 
     $log_row = getTaskHubLatestLog((int) $user_id, (int) $task_row['id'], (int) ($task_row['mission_day'] ?? 0), $db);
@@ -1229,25 +1405,23 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
         throw new RuntimeException('This task is still locked.');
     }
 
-    if ((string) ($log_row['status'] ?? '') === 'submitted') {
-        throw new RuntimeException('This task is awaiting manual review.');
+    // TESTING_MODE: Allow re-submission even if previously submitted
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        if ((string) ($log_row['status'] ?? '') === 'submitted') {
+            throw new RuntimeException('This task is awaiting manual review.');
+        }
     }
 
-    $available_at_ts = !empty($log_row['task_available_at']) ? strtotime((string) $log_row['task_available_at']) : 0;
-    if ($available_at_ts > time()) {
-        throw new RuntimeException('Next task unlocks in ' . taskHubFormatDuration(max(0, $available_at_ts - time())) . '.');
-    }
-
-    $definition = getTaskHubMissionTaskDefinitionByKey((string) ($task_row['task_key'] ?? ''));
-    $requires_learning_open = !empty($definition['learning_url']);
-    if ($requires_learning_open) {
-        $log_metadata = !empty($log_row['metadata']) ? (json_decode((string) $log_row['metadata'], true) ?: []) : [];
-        if (empty($log_metadata['learning_opened'])) {
-            throw new RuntimeException('Please open and validate the learning page before submitting this task.');
+    // TESTING_MODE: Skip unlock timer cooldown check
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        $available_at_ts = !empty($log_row['task_available_at']) ? strtotime((string) $log_row['task_available_at']) : 0;
+        if ($available_at_ts > time()) {
+            throw new RuntimeException('Next task unlocks in ' . taskHubFormatDuration(max(0, $available_at_ts - time())) . '.');
         }
     }
 
     if (($task_row['verification_mode'] ?? '') === 'quiz') {
+
         return taskHubSubmitQuizTask((int) $user_id, $task_row, $log_row, $payload['answers'] ?? [], $db);
     }
 
@@ -1257,6 +1431,127 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
 
     return taskHubCompleteInstantTask((int) $user_id, $task_row, $log_row, $payload, $db);
 }
+
+/**
+ * ============================================================
+ * LEARNING SESSION MANAGEMENT (Secure Backend Validation)
+ * ============================================================
+ */
+
+/**
+ * Ensures the taskhub_learning_sessions table exists.
+ */
+function ensureTaskHubLearningSessionsSchema(PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS taskhub_learning_sessions (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id INT UNSIGNED NOT NULL,
+            task_id INT UNSIGNED NOT NULL,
+            task_key VARCHAR(80) NOT NULL,
+            session_token VARCHAR(128) NOT NULL,
+            start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_heartbeat TIMESTAMP NULL DEFAULT NULL,
+            active_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+            required_seconds INT UNSIGNED NOT NULL DEFAULT 30,
+            interruption_count INT UNSIGNED NOT NULL DEFAULT 0,
+            max_scroll_depth INT UNSIGNED NOT NULL DEFAULT 0,
+            status ENUM('active','paused','invalid','completed') NOT NULL DEFAULT 'active',
+            validation_failed_reason VARCHAR(255) DEFAULT NULL,
+            completed_at TIMESTAMP NULL DEFAULT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_learning_sessions_user (user_id),
+            KEY idx_learning_sessions_task (task_key),
+            KEY idx_learning_sessions_token (session_token),
+            KEY idx_learning_sessions_status (status),
+            KEY idx_learning_sessions_user_task (user_id, task_key, status),
+            KEY idx_learning_sessions_heartbeat (last_heartbeat)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+}
+
+/**
+ * Generates a cryptographically secure session token.
+ */
+function taskHubGenerateSessionToken(): string {
+    return bin2hex(random_bytes(32)); // 64-char hex token
+}
+
+/**
+ * Creates a new learning session for a user/task.
+ * Returns the session token.
+ */
+function taskHubCreateLearningSession(int $user_id, int $task_id, string $task_key, int $required_seconds = 30, PDO $db = null): string {
+    $db = $db ?: getDBConnection();
+    ensureTaskHubLearningSessionsSchema($db);
+
+    // Invalidate any existing active sessions for this user+task
+    $db->prepare("UPDATE taskhub_learning_sessions SET status = 'invalid', validation_failed_reason = 'new_session_created' WHERE user_id = ? AND task_key = ? AND status IN ('active', 'paused')")
+       ->execute([$user_id, $task_key]);
+
+    $token = taskHubGenerateSessionToken();
+    $stmt = $db->prepare("
+        INSERT INTO taskhub_learning_sessions (user_id, task_id, task_key, session_token, required_seconds, status)
+        VALUES (?, ?, ?, ?, ?, 'active')
+    ");
+    $stmt->execute([$user_id, $task_id, $task_key, $token, $required_seconds]);
+
+    return $token;
+}
+
+/**
+ * Processes a heartbeat for a learning session.
+ * Returns the updated session data or null if invalid.
+ */
+function taskHubProcessHeartbeat(string $session_token, int $reported_active_seconds, bool $is_visible, bool $is_focused, int $scroll_depth, PDO $db = null): ?array {
+    $db = $db ?: getDBConnection();
+    ensureTaskHubLearningSessionsSchema($db);
+
+    $stmt = $db->prepare("SELECT * FROM taskhub_learning_sessions WHERE session_token = ? LIMIT 1");
+    $stmt->execute([$session_token]);
+    $session = $stmt->fetch();
+
+    if (!$session) {
+        return null;
+    }
+
+    if (!in_array((string) ($session['status'] ?? ''), ['active', 'paused'], true)) {
+        return null;
+    }
+
+    // Calculate server-side active time
+    $now = time();
+    $start_ts = strtotime((string) ($session['start_time'] ?? 'now'));
+    $last_hb_ts = $session['last_heartbeat'] ? strtotime((string) $session['last_heartbeat']) : $start_ts;
+    $elapsed = $now - $last_hb_ts;
+    $trusted_elapsed = min($elapsed, 10);
+    $new_active_seconds = (int) ($session['active_seconds'] ?? 0) + $trusted_elapsed;
+
+    $current_max_depth = max((int) ($session['max_scroll_depth'] ?? 0), min(100, (int) $scroll_depth));
+    $status = $is_visible && $is_focused ? 'active' : 'paused';
+
+    $db->prepare("UPDATE taskhub_learning_sessions SET last_heartbeat = NOW(), active_seconds = ?, max_scroll_depth = ?, status = ? WHERE id = ?")
+       ->execute([$new_active_seconds, $current_max_depth, $status, (int) $session['id']]);
+
+    $stmt = $db->prepare("SELECT * FROM taskhub_learning_sessions WHERE id = ?");
+    $stmt->execute([(int) $session['id']]);
+    return $stmt->fetch() ?: null;
+}
+
+
+/**
+ * Reports an interruption (tab close, refresh, navigation away).
+ */
+function taskHubReportInterruption(string $session_token, string $reason = 'tab_closed', PDO $db = null): void {
+    $db = $db ?: getDBConnection();
+    ensureTaskHubLearningSessionsSchema($db);
+
+    $db->prepare("UPDATE taskhub_learning_sessions SET status = 'invalid', validation_failed_reason = ?, interruption_count = interruption_count + 1 WHERE session_token = ? AND status IN ('active', 'paused')")
+       ->execute([$reason, $session_token]);
+}
+
 
 function reviewTaskHubSubmission($log_id, $approve, PDO $db = null) {
     $db = $db ?: getDBConnection();

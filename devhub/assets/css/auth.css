@@ -1,5 +1,6 @@
 /* ========================================
-   CoinRex DevHub Auth Pages (Login + Register)
+   DevHub Premium Auth Pages (Login + Register)
+   Uses .devhub-theme variables from theme.css
    ======================================== */
 
 * {
@@ -10,7 +11,7 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+    background: var(--dh-page-bg);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -51,7 +52,7 @@ body {
 .logo-text h1 {
     font-size: 28px;
     font-weight: 800;
-    background: linear-gradient(135deg, #ffffff, #60A5FA);
+    background: linear-gradient(135deg, #ffffff, var(--dh-accent-soft));
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
@@ -73,15 +74,15 @@ body {
 }
 
 .auth-header p {
-    color: #94a3b8;
+    color: var(--dh-text-muted);
     font-size: 14px;
     margin-top: 8px;
 }
 
 /* Auth Card */
 .auth-card {
-    background: #0f172a;
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--dh-bg-panel);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 24px;
     padding: 40px;
 }
@@ -101,9 +102,9 @@ body {
 }
 
 .success-message {
-    background: rgba(29,78,216,0.12);
-    border: 1px solid rgba(29,78,216,0.22);
-    color: #60A5FA;
+    background: var(--dh-accent-glow);
+    border: 1px solid var(--dh-border-accent);
+    color: var(--dh-accent-soft);
     padding: 12px 16px;
     border-radius: 12px;
     margin-bottom: 24px;
@@ -121,7 +122,7 @@ body {
 .form-group label {
     display: block;
     margin-bottom: 8px;
-    color: #cbd5f5;
+    color: var(--dh-text-secondary);
     font-size: 13px;
     font-weight: 500;
 }
@@ -129,22 +130,22 @@ body {
 .form-group input {
     width: 100%;
     padding: 14px 16px;
-    background: #1e293b;
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--dh-bg-elevated);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 12px;
-    color: white;
+    color: var(--dh-text-primary);
     font-size: 14px;
     transition: all 0.3s;
 }
 
 .form-group input:focus {
     outline: none;
-    border-color: #1D4ED8;
-    box-shadow: 0 0 0 3px rgba(29,78,216,0.12);
+    border-color: var(--dh-accent);
+    box-shadow: 0 0 0 3px var(--dh-accent-glow);
 }
 
 .form-group input::placeholder {
-    color: #64748b;
+    color: var(--dh-text-soft);
 }
 
 /* Password Field with Toggle */
@@ -164,21 +165,21 @@ body {
     transform: translateY(-50%);
     background: none;
     border: none;
-    color: #64748b;
+    color: var(--dh-text-muted);
     cursor: pointer;
     font-size: 18px;
     transition: color 0.2s;
 }
 
 .password-toggle:hover {
-    color: #1D4ED8;
+    color: var(--dh-accent);
 }
 
-/* Register Button */
+/* Auth Button */
 .auth-btn {
     width: 100%;
     padding: 14px;
-    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    background: var(--dh-gradient-accent);
     border: none;
     border-radius: 40px;
     color: #000000;
@@ -195,7 +196,7 @@ body {
 
 .auth-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(29,78,216,0.30);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.30);
 }
 
 /* Links */
@@ -203,13 +204,13 @@ body {
     text-align: center;
     margin-top: 24px;
     padding-top: 20px;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    color: #94a3b8;
+    border-top: 1px solid var(--dh-border-soft);
+    color: var(--dh-text-muted);
     font-size: 14px;
 }
 
 .auth-links a {
-    color: #1D4ED8;
+    color: var(--dh-accent);
     text-decoration: none;
     font-weight: 500;
 }
@@ -224,7 +225,7 @@ body {
 }
 
 .back-link a {
-    color: #64748b;
+    color: var(--dh-text-muted);
     text-decoration: none;
     font-size: 13px;
     display: inline-flex;
@@ -234,7 +235,7 @@ body {
 }
 
 .back-link a:hover {
-    color: #1D4ED8;
+    color: var(--dh-accent);
 }
 
 /* Responsive */

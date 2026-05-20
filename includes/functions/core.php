@@ -577,48 +577,51 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
         $boosthub_proof_data = $proof;
     }
 
-    $signals = getUserSecuritySignals((int) $user_id, $db);
-    if (!empty($signals['is_suspicious'])) {
-        logMiniTaskAction($user_id, $task_id, 'blocked', $db);
-        throw new RuntimeException('Task completion is temporarily blocked for security review.');
-    }
-
-    $task_stats = getUserMiniTaskStats((int) $user_id, $db);
-    if ($task_stats['completed_today'] >= BEGINNER_GLOBAL_TASKS_PER_DAY) {
-        logMiniTaskAction($user_id, $task_id, 'blocked', $db);
-        throw new RuntimeException('Daily task limit reached for your account.');
-    }
-
-    $recent_stmt = $db->prepare("
-        SELECT completed_at
-        FROM user_task_logs
-        WHERE user_id = ?
-          AND task_id = ?
-          AND status = 'completed'
-        ORDER BY completed_at DESC
-        LIMIT 1
-    ");
-    $recent_stmt->execute([(int) $user_id, (int) $task_id]);
-    $last_completion = $recent_stmt->fetch()['completed_at'] ?? null;
-    if ($last_completion) {
-        $elapsed = time() - strtotime((string) $last_completion);
-        if ($elapsed < (int) ($task['cooldown_seconds'] ?? 86400)) {
+    // TESTING_MODE: Skip security signals, daily limit, cooldown, and anti-farming checks
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        $signals = getUserSecuritySignals((int) $user_id, $db);
+        if (!empty($signals['is_suspicious'])) {
             logMiniTaskAction($user_id, $task_id, 'blocked', $db);
-            throw new RuntimeException('Task cooldown is still active.');
+            throw new RuntimeException('Task completion is temporarily blocked for security review.');
         }
-    }
 
-    $rapid_stmt = $db->prepare("
-        SELECT COUNT(*) AS total
-        FROM user_task_logs
-        WHERE user_id = ?
-          AND completed_at >= DATE_SUB(NOW(), INTERVAL ? SECOND)
-    ");
-    $rapid_stmt->execute([(int) $user_id, (int) ANTI_FARM_RAPID_ACTION_WINDOW_SECONDS]);
-    $rapid_actions = (int) ($rapid_stmt->fetch()['total'] ?? 0);
-    if ($rapid_actions > 0) {
-        logMiniTaskAction($user_id, $task_id, 'blocked', $db);
-        throw new RuntimeException('Please slow down before claiming another task reward.');
+        $task_stats = getUserMiniTaskStats((int) $user_id, $db);
+        if ($task_stats['completed_today'] >= BEGINNER_GLOBAL_TASKS_PER_DAY) {
+            logMiniTaskAction($user_id, $task_id, 'blocked', $db);
+            throw new RuntimeException('Daily task limit reached for your account.');
+        }
+
+        $recent_stmt = $db->prepare("
+            SELECT completed_at
+            FROM user_task_logs
+            WHERE user_id = ?
+              AND task_id = ?
+              AND status = 'completed'
+            ORDER BY completed_at DESC
+            LIMIT 1
+        ");
+        $recent_stmt->execute([(int) $user_id, (int) $task_id]);
+        $last_completion = $recent_stmt->fetch()['completed_at'] ?? null;
+        if ($last_completion) {
+            $elapsed = time() - strtotime((string) $last_completion);
+            if ($elapsed < (int) ($task['cooldown_seconds'] ?? 86400)) {
+                logMiniTaskAction($user_id, $task_id, 'blocked', $db);
+                throw new RuntimeException('Task cooldown is still active.');
+            }
+        }
+
+        $rapid_stmt = $db->prepare("
+            SELECT COUNT(*) AS total
+            FROM user_task_logs
+            WHERE user_id = ?
+              AND completed_at >= DATE_SUB(NOW(), INTERVAL ? SECOND)
+        ");
+        $rapid_stmt->execute([(int) $user_id, (int) ANTI_FARM_RAPID_ACTION_WINDOW_SECONDS]);
+        $rapid_actions = (int) ($rapid_stmt->fetch()['total'] ?? 0);
+        if ($rapid_actions > 0) {
+            logMiniTaskAction($user_id, $task_id, 'blocked', $db);
+            throw new RuntimeException('Please slow down before claiming another task reward.');
+        }
     }
 
     try {

@@ -1,10 +1,11 @@
 /* ========================================
-   CoinRex Footer Styles
+   DevHub Premium Footer
+   Uses .devhub-theme variables from theme.css
    ======================================== */
 
 .devhub-footer {
-    background: linear-gradient(180deg, #0f172a 0%, #0a0f1a 100%);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--dh-gradient-surface);
+    border-top: 1px solid var(--dh-border-subtle);
     padding: 40px 0 20px;
     margin-top: 40px;
     width: 100%;
@@ -29,7 +30,7 @@
     justify-content: center;
     gap: 15px;
     padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--dh-border-subtle);
 }
 
 .footer-logo {
@@ -39,14 +40,14 @@
 }
 
 .footer-brand-text h4 {
-    color: white;
+    color: var(--dh-text-primary);
     font-size: 1.3rem;
     font-weight: 700;
     margin: 0;
 }
 
 .footer-brand-text span {
-    color: #64748b;
+    color: var(--dh-text-muted);
     font-size: 0.75rem;
 }
 
@@ -59,7 +60,7 @@
 }
 
 .footer-links a {
-    color: #94a3b8;
+    color: var(--dh-text-muted);
     text-decoration: none;
     font-size: 0.9rem;
     transition: all 0.2s;
@@ -69,7 +70,7 @@
 }
 
 .footer-links a:hover {
-    color: #1D4ED8;
+    color: var(--dh-accent);
     transform: translateY(-2px);
 }
 
@@ -80,14 +81,14 @@
     justify-content: center;
     gap: 8px;
     padding-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    color: #64748b;
+    border-top: 1px solid var(--dh-border-subtle);
+    color: var(--dh-text-soft);
     font-size: 0.8rem;
     flex-wrap: wrap;
 }
 
 .footer-copyright i {
-    color: #1D4ED8;
+    color: var(--dh-accent);
 }
 
 /* Back to Top Button */
@@ -97,7 +98,7 @@
     right: 30px;
     width: 45px;
     height: 45px;
-    background: #1D4ED8;
+    background: var(--dh-accent);
     border-radius: 50%;
     display: none;
     align-items: center;
@@ -105,12 +106,12 @@
     cursor: pointer;
     transition: all 0.2s;
     z-index: 999;
-    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.30);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.30);
 }
 
 .back-to-top:hover {
     transform: translateY(-3px);
-    background: #1E40AF;
+    background: var(--dh-accent-dark);
 }
 
 .back-to-top i {

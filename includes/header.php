@@ -67,6 +67,9 @@ $can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
     <meta name="keywords" content="crypto reviews, blockchain projects, verified reviews, earn crypto, coinrex">
     <meta name="author" content="CoinRex">
     
+    <!-- Base URL for JS -->
+    <meta name="base-url" content="<?php echo BASE_URL; ?>">
+    
     <!-- Canonical URL -->
     <link rel="canonical" href="<?php echo BASE_URL . $_SERVER['REQUEST_URI']; ?>">
     
@@ -84,7 +87,6 @@ $can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
 <body data-theme="dark">
 
 <!-- Top Navbar (Desktop + Tablet) -->
-<nav class="nex-nav">
     <div class="nex-container">
         <div class="nex-navbar">
             

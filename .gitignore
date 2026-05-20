@@ -27,3 +27,14 @@ Thumbs.db
 *.gz
 *.rar
 *.sql.bak
+
+# Composer phar binary (installer / runtime)
+/composer.phar
+/tools/composer.phar
+
+# AI assistant working directory (contains API keys)
+.continue/
+
+# Live environment file (contains real credentials)
+.env
+.env.local

@@ -18,257 +18,554 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/reward-pages.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/taskhub-premium.css">
 
-<main class="reward-page">
+<main class="reward-page taskhub-premium">
     <div class="reward-page-shell">
-        <section class="reward-panel">
-            <div>
+
+        <!-- ============================================================
+             HEADER
+             ============================================================ -->
+        <div class="th-header">
+            <div class="th-header-left">
                 <span class="reward-tag">TaskHub</span>
-                <h1>10-day mission board</h1>
-                <div class="page-actions">
-                    <a href="<?php echo BASE_URL; ?>/dashboard.php" class="secondary-btn">Back to Dashboard</a>
-                    <a href="<?php echo BASE_URL; ?>/boosthub.php" class="secondary-btn">Open BoostHub</a>
-                </div>
+                <h1>10-Day Mission Board</h1>
             </div>
-            <div class="reward-balance-box">
-                <span>Current Day</span>
-                <strong id="currentDayValue"><?php echo number_format((int) ($state['current_day'] ?? 1)); ?></strong>
-                <p class="reward-note" id="missionStatusText"><?php echo htmlspecialchars((string) ($state['status_message'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></p>
-                <div class="taskhub-progress-block">
-                    <div class="taskhub-progress-label-row">
-                        <span>Current Day Progress</span>
-                        <strong><?php echo (int) ($state['completed_tasks'] ?? 0); ?>/<?php echo (int) ($state['total_tasks'] ?? 0); ?></strong>
-                    </div>
-                    <div class="taskhub-progress-track" aria-hidden="true">
-                        <span class="taskhub-progress-fill" style="width: <?php echo (int) ($state['current_day_progress_percent'] ?? 0); ?>%;"></span>
-                    </div>
-                </div>
+            <div class="th-header-actions">
+                <a href="<?php echo BASE_URL; ?>/dashboard.php" class="secondary-btn">Dashboard</a>
+                <a href="<?php echo BASE_URL; ?>/boosthub.php" class="secondary-btn">BoostHub</a>
             </div>
-        </section>
+        </div>
 
         <?php if (($state['access'] ?? '') !== 'open'): ?>
-            <section class="task-card">
-                <h3>TaskHub closed</h3>
-                <p><?php echo htmlspecialchars((string) ($state['message'] ?? 'TaskHub is not available for this account.'), ENT_QUOTES, 'UTF-8'); ?></p>
-            </section>
-        <?php else: ?>
-            <section class="reward-grid taskhub-progress-grid">
-                <div class="task-card">
-                    <h3>Progress</h3>
-                    <div class="taskhub-progress-block">
-                        <div class="taskhub-progress-label-row">
-                            <span>Overall Progress</span>
-                            <strong><?php echo (int) ($state['overall_completed_tasks'] ?? 0); ?>/<?php echo (int) ($state['overall_total_tasks'] ?? 0); ?> tasks</strong>
-                        </div>
-                        <div class="taskhub-progress-track" aria-hidden="true">
-                            <span class="taskhub-progress-fill" style="width: <?php echo (int) ($state['overall_progress_percent'] ?? 0); ?>%;"></span>
-                        </div>
-                        <div class="metric-grid">
-                            <div class="mini-metric">
-                                <span>Status</span>
-                                <strong id="progressStatusValue"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string) ($state['status'] ?? 'in_progress'))), ENT_QUOTES, 'UTF-8'); ?></strong>
-                            </div>
-                            <div class="mini-metric">
-                                <span>Mission</span>
-                                <strong><?php echo !empty($state['paused']) ? 'Paused' : 'On Track'; ?></strong>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="taskhub-step-shell" aria-label="Mission days">
-                <div class="taskhub-step-header">
+            <div class="th-hero-card">
+                <div class="th-hero-header">
                     <div>
-                        <span class="reward-tag">Mission Days</span>
-                        <h2>Choose a day</h2>
+                        <span class="th-hero-day-badge"><span class="th-day-num">!</span> Closed</span>
+                        <h2 class="th-hero-title">TaskHub not available</h2>
                     </div>
-                    <p class="reward-note">Only the selected day is shown below.</p>
                 </div>
-                <div class="taskhub-step-strip" id="taskhubDaySelector" role="tablist" aria-label="TaskHub day selector">
-                    <?php foreach (($state['days'] ?? []) as $day): ?>
-                        <button
-                            type="button"
-                            class="taskhub-step-btn <?php echo !empty($day['is_current']) ? 'is-selected' : ''; ?>"
-                            data-day-trigger="<?php echo (int) $day['day']; ?>"
-                            data-day-locked="<?php echo (int) (empty($day['is_current']) && empty($day['is_past'])); ?>"
-                            role="tab"
-                            aria-selected="<?php echo !empty($day['is_current']) ? 'true' : 'false'; ?>"
-                            <?php echo empty($day['is_current']) && empty($day['is_past']) ? 'disabled' : ''; ?>
-                        >
-                            <span class="taskhub-step-kicker">Day <?php echo (int) $day['day']; ?></span>
-                            <strong><?php echo htmlspecialchars((string) ($day['title'] ?? ('Day ' . (int) $day['day'])), ENT_QUOTES, 'UTF-8'); ?></strong>
-                        </button>
-                    <?php endforeach; ?>
+                <div class="th-hero-body">
+                    <p class="th-task-description"><?php echo htmlspecialchars((string) ($state['message'] ?? 'TaskHub is not available for this account.'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
-            </section>
+            </div>
+        <?php else: ?>
 
-            <section class="taskhub-days-grid" id="taskhubDaysGrid">
-                <?php foreach (($state['days'] ?? []) as $day): ?>
-                    <?php if (empty($day['is_current']) && empty($day['is_past'])): ?>
-                        <?php continue; ?>
-                    <?php endif; ?>
-                    <article
-                        class="taskhub-day-card taskhub-day-<?php echo htmlspecialchars((string) $day['status'], ENT_QUOTES, 'UTF-8'); ?>"
-                        data-day-panel="<?php echo (int) $day['day']; ?>"
-                        <?php echo !empty($day['is_current']) ? '' : 'hidden'; ?>
+        <!-- ============================================================
+             DAY STEPPER (Days 1-10)
+             ============================================================ -->
+        <div class="th-day-stepper" role="tablist" aria-label="Mission days">
+            <?php 
+            $day_titles_map = [
+                1 => 'Welcome',
+                2 => 'Explore', 
+                3 => 'Privacy',
+                4 => 'Roadmap',
+                5 => 'DevHub',
+                6 => 'Review',
+                7 => 'Filter',
+                8 => 'Wallet',
+                9 => 'Momentum',
+                10 => 'Mystery',
+            ];
+            foreach (($state['days'] ?? []) as $day): ?>
+                <?php
+                $is_current = !empty($day['is_current']);
+                $is_past = !empty($day['is_past']);
+                $is_future = empty($is_current) && empty($is_past);
+                $dot_class = $is_current ? 'is-active' : ($is_past ? 'is-completed' : 'is-locked');
+                $day_name = $day_titles_map[(int) $day['day']] ?? '';
+                ?>
+                <div class="th-day-step" data-th-step>
+                    <button
+                        type="button"
+                        class="th-day-dot <?php echo $dot_class; ?>"
+                        data-th-day="<?php echo (int) $day['day']; ?>"
+                        role="tab"
+                        aria-selected="<?php echo $is_current ? 'true' : 'false'; ?>"
+                        <?php echo $is_future ? 'disabled' : ''; ?>
+                        title="Day <?php echo (int) $day['day']; ?>: <?php echo htmlspecialchars((string) ($day['title'] ?? $day_name), ENT_QUOTES, 'UTF-8'); ?>"
                     >
-                        <div class="taskhub-day-head">
-                            <div>
-                                <span class="taskhub-day-label">Day <?php echo (int) $day['day']; ?></span>
-                                <h3><?php echo htmlspecialchars((string) ($day['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></h3>
+                        <?php echo $is_past ? '✓' : (int) $day['day']; ?>
+                    </button>
+                    <span class="th-day-step-label"><?php echo htmlspecialchars($day_name, ENT_QUOTES, 'UTF-8'); ?></span>
+                    <?php if ($day['day'] < 10): ?>
+                        <span class="th-day-connector <?php echo $is_past ? 'is-done' : ''; ?>"></span>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- ============================================================
+             DAY PANELS (hidden by default, shown via JS)
+             ============================================================ -->
+        <?php foreach (($state['days'] ?? []) as $day): ?>
+            <?php if (empty($day['is_current']) && empty($day['is_past'])): ?>
+                <?php continue; ?>
+            <?php endif; ?>
+
+            <div
+                data-th-panel="<?php echo (int) $day['day']; ?>"
+                <?php echo !empty($day['is_current']) ? '' : 'hidden'; ?>
+            >
+                <!-- ============================================================
+                     HERO CARD — Single Task Focus
+                     ============================================================ -->
+                <div class="th-hero-card" data-hero-card="<?php echo (int) $day['day']; ?>">
+
+                    <!-- Timer Overlay (if day is locked with countdown) -->
+                    <?php if (!empty($day['countdown_seconds']) && empty($day['is_current'])): ?>
+                        <div class="th-timer-overlay" data-th-timer data-th-timer="<?php echo (int) $day['countdown_seconds']; ?>">
+                            <div class="th-timer-icon">⏳</div>
+                            <span class="th-timer-label">Next Day</span>
+                            <span class="th-timer-count" data-th-timer-count><?php echo htmlspecialchars(taskHubFormatDuration((int) $day['countdown_seconds']), ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="th-timer-sub" data-th-timer-sub>until Day <?php echo (int) $day['day']; ?> unlocks</span>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Hero Card Header -->
+                    <div class="th-hero-header">
+                        <div>
+                            <span class="th-hero-day-badge">
+                                <span class="th-day-num"><?php echo (int) $day['day']; ?></span>
+                                <?php echo htmlspecialchars((string) ($day['title'] ?? ('Day ' . (int) $day['day'])), ENT_QUOTES, 'UTF-8'); ?>
+                            </span>
+                            <h2 class="th-hero-title">
+                                <?php echo htmlspecialchars((string) ($day['title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                            </h2>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span class="th-hero-task-progress">
+                                <?php echo (int) ($day['completed_tasks'] ?? 0); ?>/<?php echo (int) ($day['total_tasks'] ?? 0); ?> tasks
+                            </span>
+                            <span class="th-hero-status-chip <?php echo ($day['status'] ?? '') === 'completed' ? 'is-completed' : (($day['status'] ?? '') === 'locked' ? 'is-locked' : ''); ?>">
+                                <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string) $day['status'])), ENT_QUOTES, 'UTF-8'); ?>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Hero Card Body — Shows current task -->
+                    <div class="th-hero-body">
+                        <?php
+                        // Find the first non-completed task (or the first task if all completed)
+                        $current_task = null;
+                        $current_task_index = 0;
+                        $total_tasks_in_day = count($day['tasks'] ?? []);
+                        $all_completed = true;
+
+                        foreach (($day['tasks'] ?? []) as $tidx => $task) {
+                            if (($task['status'] ?? '') !== 'completed') {
+                                if ($current_task === null) {
+                                    $current_task = $task;
+                                    $current_task_index = $tidx;
+                                }
+                                $all_completed = false;
+                            }
+                        }
+
+                        // If all tasks completed, show summary
+                        if ($all_completed && $total_tasks_in_day > 0):
+                            $day_num = (int) $day['day'];
+                            $next_day_num = $day_num + 1;
+                            $day_name = $day_titles_map[$day_num] ?? '';
+                            $next_day_name = $day_titles_map[$next_day_num] ?? 'Mystery';
+                            $encouragements = [
+                                'Amazing progress! You\'re learning the ropes like a pro.',
+                                'Great job! Every task completed brings you closer to rewards.',
+                                'You\'re on fire! Keep up the excellent work.',
+                                'Fantastic! You\'re mastering the CoinRex platform.',
+                                'Well done! Consistency is the key to success.',
+                            ];
+                            $encouragement = $encouragements[array_rand($encouragements)];
+                        ?>
+                            <div class="th-completed-summary" data-day-complete="<?php echo $day_num; ?>">
+                                <div class="th-completed-icon">🎉</div>
+                                <h3>Day <?php echo $day_num; ?>: <?php echo htmlspecialchars($day_name, ENT_QUOTES, 'UTF-8'); ?> Complete!</h3>
+                                <p><?php echo htmlspecialchars($encouragement, ENT_QUOTES, 'UTF-8'); ?></p>
+                                <?php if ($day_num < 10 && !empty($day['countdown_seconds'])): ?>
+                                    <div class="th-next-day-preview">
+                                        <span class="th-next-day-label">Up Next:</span>
+                                        <strong>Day <?php echo $next_day_num; ?>: <?php echo htmlspecialchars($next_day_name, ENT_QUOTES, 'UTF-8'); ?></strong>
+                                    </div>
+                                    <div class="th-timer-count" data-th-day-countdown="<?php echo (int) $day['countdown_seconds']; ?>">
+                                        Unlocks in <?php echo htmlspecialchars(taskHubFormatDuration((int) $day['countdown_seconds']), ENT_QUOTES, 'UTF-8'); ?>
+                                    </div>
+                                <?php elseif ($day_num >= 10): ?>
+                                    <p style="color:var(--th-gold);font-weight:700;margin-top:8px;">🏆 You've completed the entire 10-day mission! Check your rewards!</p>
+                                <?php endif; ?>
                             </div>
-                            <span class="status-chip"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string) $day['status'])), ENT_QUOTES, 'UTF-8'); ?></span>
-                        </div>
+                        <?php elseif ($current_task): ?>
+                            <?php
+                            $task = $current_task;
+                            $is_timed_lock = ($task['status'] ?? '') === 'locked' && !empty($task['countdown_seconds']);
+                            $is_submitted = ($task['status'] ?? '') === 'submitted';
+                            $is_completed = ($task['status'] ?? '') === 'completed';
+                            $is_available = ($task['status'] ?? '') === 'available' || ($task['status'] ?? '') === 'failed';
+                            ?>
+                            <?php
+                            // Determine premium card type based on task_key
+                            $task_key_str = (string) ($task['task_key'] ?? '');
+                            $is_checkin_task = strpos($task_key_str, '_checkin') !== false || strpos($task_key_str, '_check_in') !== false;
+                            $is_social_task = strpos($task_key_str, 'social') !== false || strpos($task_key_str, 'share') !== false;
+                            $is_quiz_task = ($task['verification_mode'] ?? '') === 'quiz';
+                            
+                            $premium_card_class = '';
+                            $premium_badge_icon = '📋';
+                            $premium_badge_text = 'Step ' . ($current_task_index + 1) . ' of ' . $total_tasks_in_day;
+                            $premium_title = '';
+                            $premium_desc = '';
+                            
+                            if ($is_checkin_task) {
+                                $premium_card_class = 'is-checkin';
+                                $premium_badge_icon = '📅';
+                                $premium_badge_text = 'Daily Check-in';
+                                $premium_title = '🔖 Daily Check-in';
+                                $premium_desc = 'Check in to maintain your streak and earn rewards.';
+                            } elseif ($is_social_task) {
+                                $premium_card_class = 'is-social';
+                                $premium_badge_icon = '🌐';
+                                $premium_badge_text = 'Social Task';
+                                $premium_title = '🌐 Social Engagement';
+                                $premium_desc = 'Connect with the community and share your experience.';
+                            } elseif ($is_quiz_task) {
+                                $premium_card_class = 'is-quiz';
+                                $premium_badge_icon = '🧠';
+                                $premium_badge_text = 'Knowledge Quiz';
+                                $premium_title = '🧠 Knowledge Check';
+                                $premium_desc = 'Test your understanding of the platform.';
+                            } else {
+                                // All other tasks get premium treatment too
+                                $verification_mode = (string) ($task['verification_mode'] ?? '');
+                                $task_key_lower = strtolower($task_key_str);
+                                
+                                if (strpos($task_key_lower, 'profile') !== false || $verification_mode === 'profile') {
+                                    $premium_card_class = 'is-profile';
+                                    $premium_badge_icon = '👤';
+                                    $premium_badge_text = 'Profile Setup';
+                                    $premium_title = '👤 Complete Your Profile';
+                                    $premium_desc = 'Set up your profile to unlock rewards and features.';
+                                } elseif (strpos($task_key_lower, 'wallet') !== false || $verification_mode === 'wallet') {
+                                    $premium_card_class = 'is-wallet';
+                                    $premium_badge_icon = '💼';
+                                    $premium_badge_text = 'Wallet Connect';
+                                    $premium_title = '💼 Connect Your Wallet';
+                                    $premium_desc = 'Link your wallet to prepare for future withdrawals.';
+                                } elseif (strpos($task_key_lower, 'txhash') !== false || strpos($task_key_lower, 'volume') !== false || strpos($task_key_lower, 'hold') !== false || $verification_mode === 'manual') {
+                                    $premium_card_class = 'is-proof';
+                                    $premium_badge_icon = '📎';
+                                    $premium_badge_text = 'Proof Submission';
+                                    $premium_title = '📎 Submit Proof';
+                                    $premium_desc = 'Provide evidence of your activity to earn rewards.';
+                                } elseif (strpos($task_key_lower, 'mystery') !== false || $verification_mode === 'mystery') {
+                                    $premium_card_class = 'is-mystery';
+                                    $premium_badge_icon = '🎁';
+                                    $premium_badge_text = 'Mystery Box';
+                                    $premium_title = '🎁 Mystery Reward';
+                                    $premium_desc = 'Pick a box to reveal your bonus reward!';
+                                } elseif (strpos($task_key_lower, 'boosthub') !== false || $verification_mode === 'boosthub_redirect') {
+                                    $premium_card_class = 'is-boosthub';
+                                    $premium_badge_icon = '⚡';
+                                    $premium_badge_text = 'BoostHub Task';
+                                    $premium_title = '⚡ BoostHub Challenge';
+                                    $premium_desc = 'Complete a challenge in BoostHub to earn rewards.';
+                                } else {
+                                    // Default premium card for any other task
+                                    $premium_card_class = 'is-mission';
+                                    $premium_badge_icon = '🎯';
+                                    $premium_badge_text = 'Mission Task';
+                                    $premium_title = '🎯 ' . htmlspecialchars((string) ($task['title'] ?? 'Mission Task'), ENT_QUOTES, 'UTF-8');
+                                    $premium_desc = htmlspecialchars((string) ($task['description'] ?? 'Complete this task to progress through the mission.'), ENT_QUOTES, 'UTF-8');
+                                }
+                            }
+                            ?>
+                            
+                            <div class="th-task-content th-premium-card <?php echo $premium_card_class; ?>" data-task-key="<?php echo htmlspecialchars($task_key_str, ENT_QUOTES, 'UTF-8'); ?>" data-verification-mode="<?php echo htmlspecialchars((string) $task['verification_mode'], ENT_QUOTES, 'UTF-8'); ?>" data-profile-complete="<?php echo ($task['verification_mode'] ?? '') === 'profile' ? (!empty($task['profile_complete']) ? '1' : '0') : ''; ?>">
 
-                        <div class="taskhub-day-meta">
-                            <span><?php echo (int) ($day['completed_tasks'] ?? 0); ?>/<?php echo (int) ($day['total_tasks'] ?? 0); ?> tasks done</span>
-                            <span><?php echo htmlspecialchars((string) ($day['status_message'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
-                            <?php if (!empty($day['countdown_seconds'])): ?>
-                                <span class="taskhub-day-countdown" data-day-countdown-seconds="<?php echo (int) $day['countdown_seconds']; ?>">Unlocks in <?php echo htmlspecialchars(taskHubFormatDuration((int) $day['countdown_seconds']), ENT_QUOTES, 'UTF-8'); ?></span>
-                            <?php endif; ?>
-                        </div>
+                                <!-- Timer Overlay for locked tasks -->
+                                <?php if ($is_timed_lock): ?>
+                                    <div class="th-timer-overlay" data-th-timer data-th-timer="<?php echo (int) ($task['countdown_seconds'] ?? 0); ?>">
+                                        <div class="th-timer-icon">🔒</div>
+                                        <span class="th-timer-label">Next Task</span>
+                                        <span class="th-timer-count" data-th-timer-count><?php echo htmlspecialchars(taskHubFormatDuration((int) $task['countdown_seconds']), ENT_QUOTES, 'UTF-8'); ?></span>
+                                        <span class="th-timer-sub" data-th-timer-sub>until this task unlocks</span>
+                                    </div>
+                                <?php endif; ?>
 
-                        <div class="taskhub-task-list">
-                            <?php foreach (($day['tasks'] ?? []) as $task): ?>
-                                <?php $collapse_task = !empty($day['is_current']) && ($task['status'] ?? '') === 'completed'; ?>
-                                <?php $is_timed_lock = ($task['status'] ?? '') === 'locked' && !empty($task['countdown_seconds']); ?>
-                                <div class="taskhub-task-row <?php echo $collapse_task ? 'is-condensed' : ''; ?> <?php echo $is_timed_lock ? 'is-timer-locked' : ''; ?>" data-task-key="<?php echo htmlspecialchars((string) $task['task_key'], ENT_QUOTES, 'UTF-8'); ?>" data-verification-mode="<?php echo htmlspecialchars((string) $task['verification_mode'], ENT_QUOTES, 'UTF-8'); ?>" data-profile-complete="<?php echo ($task['verification_mode'] ?? '') === 'profile' ? (!empty($task['profile_complete']) ? '1' : '0') : ''; ?>">
-                                    <div class="taskhub-task-copy">
-                                        <div class="taskhub-task-title-row">
-                                            <span class="taskhub-task-mark <?php echo ($task['status'] ?? '') === 'completed' ? 'is-complete' : (($task['status'] ?? '') === 'locked' ? 'is-locked' : ''); ?>">
-                                                <?php echo ($task['status'] ?? '') === 'completed' ? '&#10003;' : ((int) ($task['mission_step'] ?? 0) + 1); ?>
-                                            </span>
-                                            <div>
-                                                <strong><?php echo htmlspecialchars((string) $task['title'], ENT_QUOTES, 'UTF-8'); ?></strong>
-                                                <?php if (!$is_timed_lock): ?>
-                                                    <span><?php echo htmlspecialchars((string) ($task['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
-                                                <?php endif; ?>
-                                            </div>
+                                <!-- ============================================================
+                                     PREMIUM BADGE (shown for ALL task types)
+                                     ============================================================ -->
+                                <div class="th-premium-badge">
+                                    <span class="th-premium-badge-icon"><?php echo $premium_badge_icon; ?></span>
+                                    <?php echo $premium_badge_text; ?>
+                                </div>
+                                <h3 class="th-premium-title"><?php echo $premium_title; ?></h3>
+                                <p class="th-premium-desc"><?php echo htmlspecialchars((string) ($task['description'] ?? $premium_desc), ENT_QUOTES, 'UTF-8'); ?></p>
+
+                                <?php if ($is_checkin_task): ?>
+                                    <!-- === CHECK-IN SPECIFIC: Streak display === -->
+                                    <div class="th-premium-streak">
+                                        <span class="th-premium-streak-days"><?php echo (int) ($day['day'] ?? 1); ?></span>
+                                        <div>
+                                            <span class="th-premium-streak-label">Day Streak</span>
                                         </div>
-                                        <?php if ($is_timed_lock): ?>
-                                            <div class="taskhub-unlock-banner">
-                                                <span class="taskhub-unlock-kicker">Next Task</span>
-                                                <strong class="task-countdown" data-countdown-seconds="<?php echo (int) ($task['countdown_seconds'] ?? 0); ?>">Will unlock in <?php echo htmlspecialchars(taskHubFormatDuration((int) $task['countdown_seconds']), ENT_QUOTES, 'UTF-8'); ?></strong>
-                                            </div>
-                                        <?php elseif (!$collapse_task): ?>
-                                            <div class="task-meta">
-                                                <span>Reward: <?php echo number_format((float) ($task['reward'] ?? 0), 2); ?> $REX</span>
-                                                <span class="task-message"><?php echo htmlspecialchars((string) ($task['status_message'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
-                                                <span class="task-countdown" data-countdown-seconds="<?php echo (int) ($task['countdown_seconds'] ?? 0); ?>"><?php echo !empty($task['countdown_seconds']) ? 'Next task unlocks in ' . htmlspecialchars(taskHubFormatDuration((int) $task['countdown_seconds']), ENT_QUOTES, 'UTF-8') : ''; ?></span>
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if (!$collapse_task && !$is_timed_lock && !empty($task['learning_title'])): ?>
-                                            <div class="taskhub-inline-actions taskhub-learn-gate" data-learning-gate data-task-key="<?php echo htmlspecialchars((string) $task['task_key'], ENT_QUOTES, 'UTF-8'); ?>" data-learning-opened="<?php echo !empty($task['learning_opened']) ? '1' : '0'; ?>">
-                                                <span class="reward-note"><?php echo htmlspecialchars((string) $task['learning_title'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                                <?php if (!empty($task['learning_url'])): ?>
-                                                    <a
-                                                        href="<?php echo htmlspecialchars((string) $task['learning_url'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                        class="secondary-btn taskhub-mini-btn"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        data-learning-open
-                                                    >Open & Validate</a>
-                                                <?php endif; ?>
-                                                <span class="taskhub-learn-status" data-learning-status><?php echo !empty($task['learning_opened']) ? 'Learning validated' : 'Not opened'; ?></span>
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if (($task['task_key'] ?? '') === 'day1_social_follow' && !empty($day['is_current']) && !$collapse_task && !$is_timed_lock): ?>
-                                            <div class="taskhub-social-proof">
-                                                <div class="taskhub-social-links">
-                                                    <a href="https://x.com" class="taskhub-social-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-x-twitter"></i><span>X</span></a>
-                                                    <a href="https://t.me" class="taskhub-social-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-telegram-plane"></i><span>Telegram</span></a>
-                                                </div>
-                                                <p class="taskhub-social-note">Follow one of the official social channels, then share your personal or official handle below. Our team will manually review the follow proof.</p>
-                                                <div class="taskhub-social-field-grid">
-                                                    <input type="text" class="task-social-input" data-x-handle placeholder="X username or URL">
-                                                    <input type="text" class="task-social-input" data-telegram-handle placeholder="Telegram username or URL">
-                                                </div>
-                                            </div>
-                                        <?php endif; ?>
+                                        <div class="th-premium-streak-bar">
+                                            <div class="th-premium-streak-fill" style="width:<?php echo min(100, ((int) ($day['day'] ?? 1) / 10) * 100); ?>%;"></div>
+                                        </div>
                                     </div>
 
-                                    <?php if (($task['verification_mode'] ?? '') === 'quiz' && !empty($task['quiz']) && !empty($day['is_current']) && !$collapse_task && !$is_timed_lock): ?>
-                                        <div class="task-quiz" data-quiz-block <?php echo empty($task['learning_opened']) ? 'hidden' : ''; ?>>
+                                <?php elseif ($is_social_task): ?>
+                                    <!-- === SOCIAL SPECIFIC: Platform links + inputs === -->
+                                    <?php if (($task['task_key'] ?? '') === 'day1_social_follow' && !$is_timed_lock && !$is_submitted && !$is_completed): ?>
+                                        <div class="th-premium-platforms">
+                                            <a href="https://x.com" class="th-premium-platform" target="_blank" rel="noopener noreferrer"><span class="th-premium-platform-icon">𝕏</span> X (Twitter)</a>
+                                            <a href="https://t.me" class="th-premium-platform" target="_blank" rel="noopener noreferrer"><span class="th-premium-platform-icon">✈</span> Telegram</a>
+                                        </div>
+                                        <p style="color:var(--th-text-muted);font-size:12px;margin:0 0 12px;line-height:1.5;">Follow one of the official social channels, then share your handle below.</p>
+                                        <div class="th-premium-inputs">
+                                            <input type="text" class="th-premium-input" data-x-handle placeholder="X username or URL">
+                                            <input type="text" class="th-premium-input" data-telegram-handle placeholder="Telegram username or URL">
+                                        </div>
+                                    <?php elseif (($task['task_key'] ?? '') === 'day3_share_experience' && !$is_timed_lock && !$is_submitted && !$is_completed): ?>
+                                        <div class="th-premium-platforms">
+                                            <a href="https://x.com" class="th-premium-platform" target="_blank" rel="noopener noreferrer"><span class="th-premium-platform-icon">𝕏</span> X</a>
+                                            <a href="https://facebook.com" class="th-premium-platform" target="_blank" rel="noopener noreferrer"><span class="th-premium-platform-icon">f</span> Facebook</a>
+                                            <a href="https://www.binance.com/en/square" class="th-premium-platform" target="_blank" rel="noopener noreferrer"><span class="th-premium-platform-icon">📊</span> Binance Square</a>
+                                            <a href="https://medium.com" class="th-premium-platform" target="_blank" rel="noopener noreferrer"><span class="th-premium-platform-icon">M</span> Medium</a>
+                                            <a href="https://reddit.com" class="th-premium-platform" target="_blank" rel="noopener noreferrer"><span class="th-premium-platform-icon">R</span> Reddit</a>
+                                        </div>
+                                        <div class="th-premium-inputs">
+                                            <select class="th-premium-input" data-share-platform style="appearance:auto;padding:0 10px;">
+                                                <option value="">Select platform</option>
+                                                <option value="x">X (Twitter)</option>
+                                                <option value="facebook">Facebook</option>
+                                                <option value="binance_square">Binance Square</option>
+                                                <option value="medium">Medium</option>
+                                                <option value="reddit">Reddit</option>
+                                            </select>
+                                            <input type="url" class="th-premium-input" data-share-proof-url placeholder="Paste your public post URL">
+                                        </div>
+                                    <?php endif; ?>
+
+                                <?php elseif ($is_quiz_task): ?>
+                                    <?php
+                                        $has_learning_url = !empty($task['learning_url']);
+                                        $quiz_unlocked = !empty($task['learning_opened']) || !$has_learning_url;
+                                        $required_quiz_score = (int) ($task['min_quiz_score'] ?? count($task['quiz'] ?? []));
+                                        if ($required_quiz_score <= 0) {
+                                            $required_quiz_score = count($task['quiz'] ?? []);
+                                        }
+                                    ?>
+                                    <!-- === QUIZ SPECIFIC: Quiz info banner === -->
+                                    <div class="th-premium-quiz-info">
+                                        <span class="th-premium-quiz-info-icon">📝</span>
+                                        <div class="th-premium-quiz-info-text">
+                                            <strong><?php echo count($task['quiz'] ?? []); ?> Questions</strong>
+                                            <span>Score at least <?php echo $required_quiz_score; ?>/<?php echo count($task['quiz'] ?? []); ?> to earn the reward</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Learning Gate -->
+                                    <?php if (!$is_timed_lock && !$is_submitted && !$is_completed && !empty($task['learning_title']) && $has_learning_url): ?>
+                                        <div class="th-learning-gate <?php echo !empty($task['learning_opened']) ? 'is-validated' : 'is-locked'; ?>" data-learning-gate data-task-key="<?php echo htmlspecialchars((string) $task['task_key'], ENT_QUOTES, 'UTF-8'); ?>" data-learning-opened="<?php echo !empty($task['learning_opened']) ? '1' : '0'; ?>">
+                                            <span class="th-learning-label">📖 <?php echo htmlspecialchars((string) $task['learning_title'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                            <a href="<?php echo htmlspecialchars((string) $task['learning_url'], ENT_QUOTES, 'UTF-8'); ?>" class="th-learning-btn" target="_blank" rel="noopener noreferrer" data-learning-open>Open & Validate</a>
+                                            <span class="th-learning-status" data-learning-status><?php echo !empty($task['learning_opened']) ? 'Learning validated ✓' : 'Not opened'; ?></span>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <!-- Beginner-friendly quiz instructions -->
+                                    <?php if (!$is_timed_lock && !$is_submitted && !$is_completed && !empty($task['quiz'])): ?>
+                                        <div class="th-quiz-instructions">
+                                            <span class="th-quiz-instructions-icon">📖</span>
+                                            <div class="th-quiz-instructions-text">
+                                                <strong>Read first, then answer.</strong> Review the material above, then answer each question below. You must get all questions right to earn the reward. Click <strong>"Review Material"</strong> to re-read the content anytime.
+                                            </div>
+                                        </div>
+
+                                        <div class="th-quiz-block" data-quiz-block data-min-score="<?php echo (int) $required_quiz_score; ?>" <?php echo $quiz_unlocked ? '' : 'hidden'; ?>>
+
+                                            <div class="th-quiz-progress">
+                                                <div class="th-quiz-progress-track">
+                                                    <div class="th-quiz-progress-fill" data-quiz-progress-fill style="width:0%;"></div>
+                                                </div>
+                                                <div class="th-quiz-progress-info">
+                                                    <span class="th-quiz-progress-label" data-quiz-progress-label>Question 1 of <?php echo count($task['quiz']); ?></span>
+                                                    <span class="th-quiz-progress-pct" data-quiz-progress-pct>0%</span>
+                                                </div>
+                                            </div>
                                             <?php foreach ($task['quiz'] as $question_index => $question): ?>
-                                                <div class="task-quiz-question" data-quiz-question data-question-index="<?php echo (int) $question_index; ?>" <?php echo $question_index > 0 ? 'hidden' : ''; ?>>
-                                                    <strong><?php echo ($question_index + 1) . '. ' . htmlspecialchars((string) $question['question'], ENT_QUOTES, 'UTF-8'); ?></strong>
-                                                    <?php foreach (($question['choices'] ?? []) as $choice_index => $choice): ?>
-                                                        <label class="checkbox-inline"><input type="radio" name="<?php echo htmlspecialchars((string) $task['task_key'], ENT_QUOTES, 'UTF-8'); ?>_q_<?php echo $question_index; ?>" value="<?php echo $choice_index; ?>" data-correct="<?php echo ((int) ($question['answer'] ?? -1) === $choice_index) ? '1' : '0'; ?>"> <?php echo htmlspecialchars((string) $choice, ENT_QUOTES, 'UTF-8'); ?></label>
-                                                    <?php endforeach; ?>
+                                                <div class="th-quiz-question" data-quiz-question data-question-index="<?php echo (int) $question_index; ?>" <?php echo $question_index > 0 ? 'hidden' : ''; ?>>
+                                                    <div class="th-quiz-q-text"><?php echo ($question_index + 1) . '. ' . htmlspecialchars((string) $question['question'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                                    <div class="th-quiz-choices">
+                                                        <?php foreach (($question['choices'] ?? []) as $choice_index => $choice): ?>
+                                                            <?php $letter = chr(65 + $choice_index); ?>
+                                                            <label class="th-quiz-choice" data-choice>
+                                                                <input type="radio" name="<?php echo htmlspecialchars((string) $task['task_key'], ENT_QUOTES, 'UTF-8'); ?>_q_<?php echo $question_index; ?>" value="<?php echo $choice_index; ?>" data-correct="<?php echo ((int) ($question['answer'] ?? -1) === $choice_index) ? '1' : '0'; ?>" hidden>
+                                                                <span class="th-quiz-choice-marker"><?php echo $letter; ?></span>
+                                                                <span class="th-quiz-choice-text"><?php echo htmlspecialchars((string) $choice, ENT_QUOTES, 'UTF-8'); ?></span>
+                                                            </label>
+                                                        <?php endforeach; ?>
+                                                    </div>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>
                                     <?php endif; ?>
 
-                                        <?php if (($task['task_key'] ?? '') === 'day3_share_experience' && !empty($day['is_current']) && !$collapse_task && !$is_timed_lock): ?>
-                                            <div class="taskhub-social-proof">
-                                                <div class="taskhub-social-links">
-                                                    <a href="https://x.com" class="taskhub-social-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-x-twitter"></i><span>X (Twitter)</span></a>
-                                                    <a href="https://facebook.com" class="taskhub-social-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f"></i><span>Facebook</span></a>
-                                                    <a href="https://www.binance.com/en/square" class="taskhub-social-link" target="_blank" rel="noopener noreferrer"><i class="fas fa-chart-line"></i><span>Binance Square</span></a>
-                                                    <a href="https://medium.com" class="taskhub-social-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-medium"></i><span>Medium</span></a>
-                                                    <a href="https://reddit.com" class="taskhub-social-link" target="_blank" rel="noopener noreferrer"><i class="fab fa-reddit-alien"></i><span>Reddit</span></a>
-                                                </div>
-                                                <div class="taskhub-social-field-grid">
-                                                    <select class="task-social-input" data-share-platform>
-                                                        <option value="">Select platform</option>
-                                                        <option value="x">X (Twitter)</option>
-                                                        <option value="facebook">Facebook</option>
-                                                        <option value="binance_square">Binance Square</option>
-                                                        <option value="medium">Medium</option>
-                                                        <option value="reddit">Reddit</option>
-                                                    </select>
-                                                    <input type="url" class="task-social-input" data-share-proof-url placeholder="Paste your public post URL">
-                                                </div>
+                                <?php elseif (($task['verification_mode'] ?? '') === 'manual' && !$is_timed_lock && !$is_submitted && !$is_completed): ?>
+                                    <!-- === PROOF SPECIFIC: Manual proof input — beginner-friendly === -->
+                                    <div class="th-proof-section">
+                                        <div class="th-proof-header">
+                                            <span class="th-proof-icon">📎</span>
+                                            <div class="th-proof-header-text">
+                                                <strong>Submit Your Proof</strong>
+                                                <span>Provide evidence of your activity for manual review</span>
                                             </div>
-                                        <?php elseif (($task['verification_mode'] ?? '') === 'manual' && !empty($day['is_current']) && !$collapse_task && !$is_timed_lock && ($task['task_key'] ?? '') !== 'day1_social_follow'): ?>
-                                            <textarea class="task-proof-input" rows="4" placeholder="Paste proof link and your official/personal handle for manual review"></textarea>
-                                    <?php endif; ?>
+                                        </div>
+                                        <div class="th-proof-tips">
+                                            <div class="th-proof-tip">
+                                                <span class="th-proof-tip-icon">🔗</span>
+                                                <span>Paste a transaction hash (TX ID), screenshot URL, or any public proof link</span>
+                                            </div>
+                                            <div class="th-proof-tip">
+                                                <span class="th-proof-tip-icon">👤</span>
+                                                <span>Include your username or handle so we can verify</span>
+                                            </div>
+                                            <div class="th-proof-tip">
+                                                <span class="th-proof-tip-icon">✅</span>
+                                                <span>Make sure the transaction is worth at least <strong>10 USDT</strong></span>
+                                            </div>
+                                        </div>
+                                        <div class="th-proof-input-wrap">
+                                            <textarea class="th-premium-input th-premium-textarea task-proof-input" rows="3" placeholder="e.g. https://etherscan.io/tx/0x... or your exchange username"></textarea>
+                                        </div>
+                                    </div>
 
-                                    <?php if (($task['verification_mode'] ?? '') === 'wallet' && !empty($day['is_current']) && !$collapse_task && !$is_timed_lock): ?>
-                                        <input type="text" class="task-wallet-input" placeholder="Wallet address">
-                                    <?php endif; ?>
 
-                                    <?php if (!empty($day['is_current']) && !$collapse_task && !$is_timed_lock): ?>
-                                        <div class="page-actions">
-                                            <?php if (($task['verification_mode'] ?? '') === 'boosthub_redirect'): ?>
-                                                <a href="<?php echo BASE_URL; ?>/boosthub.php" class="secondary-btn">Open BoostHub</a>
-                                            <?php endif; ?>
-                                            <button
-                                                type="button"
-                                                class="primary-btn task-submit-btn"
-                                                data-submit-task
-                                                <?php echo in_array((string) $task['status'], ['completed', 'submitted', 'locked'], true) || ($task['verification_mode'] ?? '') === 'boosthub_redirect' ? 'disabled' : ''; ?>
-                                            >
+                                <?php elseif (($task['verification_mode'] ?? '') === 'wallet' && !$is_timed_lock && !$is_submitted && !$is_completed): ?>
+                                    <!-- === WALLET SPECIFIC: Wallet input === -->
+                                    <input type="text" class="th-premium-input task-wallet-input" placeholder="Enter your wallet address">
+
+                                <?php elseif (($task['verification_mode'] ?? '') === 'mystery' && !$is_timed_lock && !$is_submitted && !$is_completed): ?>
+                                    <!-- === MYSTERY SPECIFIC: Mystery boxes === -->
+                                    <div class="th-mystery-area">
+                                        <p>🎁 Pick a mystery box to reveal your reward!</p>
+                                        <div class="th-mystery-boxes">
+                                            <?php for ($b = 0; $b < 3; $b++): ?>
+                                                <div class="th-mystery-box" data-box-index="<?php echo $b; ?>">
+                                                    <div class="th-mystery-box-inner">
+                                                        <div class="th-mystery-box-front">
+                                                            <span class="th-mystery-box-icon">🎁</span>
+                                                            <span class="th-mystery-box-label">Pick Me!</span>
+                                                        </div>
+                                                        <div class="th-mystery-box-back">
+                                                            <span class="th-mystery-box-icon">💰</span>
+                                                            <span class="th-mystery-box-reward" data-box-reward>0 $REX</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php endfor; ?>
+                                        </div>
+                                        <div class="th-mystery-result" id="mysteryResult" hidden>
+                                            <div class="th-mystery-result-icon">🎉</div>
+                                            <strong id="mysteryResultText">You won 0 $REX!</strong>
+                                            <p id="mysteryResultSub">Click Claim to add to your balance.</p>
+                                        </div>
+                                    </div>
+
+                                <?php elseif (($task['verification_mode'] ?? '') === 'boosthub_redirect' && !$is_timed_lock && !$is_submitted && !$is_completed): ?>
+                                    <!-- === BOOSTHUB SPECIFIC: Redirect link === -->
+                                    <a href="<?php echo BASE_URL; ?>/boosthub.php" class="th-premium-btn" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;margin-top:12px;">
+                                        ⚡ Open BoostHub
+                                    </a>
+
+                                <?php elseif (!$is_timed_lock && !$is_submitted && !$is_completed && !empty($task['learning_title'])): ?>
+                                    <!-- === LEARNING GATE (for non-quiz tasks like day2_ui_exploration) === -->
+                                    <div class="th-learning-gate <?php echo !empty($task['learning_opened']) ? 'is-validated' : 'is-locked'; ?>" data-learning-gate data-task-key="<?php echo htmlspecialchars((string) $task['task_key'], ENT_QUOTES, 'UTF-8'); ?>" data-learning-opened="<?php echo !empty($task['learning_opened']) ? '1' : '0'; ?>">
+                                        <span class="th-learning-label">📖 <?php echo htmlspecialchars((string) $task['learning_title'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                        <?php if (!empty($task['learning_url'])): ?>
+                                            <a href="<?php echo htmlspecialchars((string) $task['learning_url'], ENT_QUOTES, 'UTF-8'); ?>" class="th-learning-btn" target="_blank" rel="noopener noreferrer" data-learning-open>Open & Validate</a>
+                                        <?php endif; ?>
+                                        <span class="th-learning-status" data-learning-status><?php echo !empty($task['learning_opened']) ? 'Learning validated ✓' : 'Not opened'; ?></span>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- Reward Badge (shown for all task types) -->
+                                <div class="th-premium-reward">
+                                    💰 +<?php echo number_format((float) ($task['reward'] ?? 0), 2); ?> $REX
+                                </div>
+
+                                <!-- Status Message -->
+                                <?php if (!empty($task['status_message'])): ?>
+                                    <p style="color:var(--th-text-muted);font-size:13px;margin-top:12px;"><?php echo htmlspecialchars((string) $task['status_message'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                <?php endif; ?>
+
+                                <!-- Premium Footer with Submit Button -->
+                                <div class="th-premium-footer">
+                                    <span class="th-premium-step">Step <?php echo $current_task_index + 1; ?> of <?php echo $total_tasks_in_day; ?></span>
+                                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                                        <?php if (($task['verification_mode'] ?? '') === 'boosthub_redirect' && !$is_completed): ?>
+                                            <a href="<?php echo BASE_URL; ?>/boosthub.php" class="th-premium-btn">Open BoostHub</a>
+                                        <?php endif; ?>
+                                        <?php if (!$is_timed_lock && !$is_completed): ?>
+                                            <button type="button" class="th-premium-btn <?php echo $is_submitted ? 'is-done' : ''; ?>" data-submit-task <?php echo $is_submitted ? 'disabled' : ''; ?>>
                                                 <?php
-                                                if (($task['status'] ?? '') === 'submitted') {
-                                                    echo 'Awaiting Review';
-                                                } elseif (($task['status'] ?? '') === 'completed') {
-                                                    echo 'Completed';
+                                                if ($is_submitted) {
+                                                    echo '✓ Submitted';
+                                                } elseif (($task['verification_mode'] ?? '') === 'mystery') {
+                                                    echo 'Claim Reward';
+                                                } elseif ($is_checkin_task) {
+                                                    echo '✅ Check In Now';
+                                                } elseif ($is_quiz_task) {
+                                                    echo 'Submit Quiz →';
                                                 } else {
-                                                    echo 'Submit';
+                                                    echo 'Submit Task →';
                                                 }
                                                 ?>
                                             </button>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if (($task['verification_mode'] ?? '') === 'mystery'): ?>
-                                    <div class="taskhub-inline-actions">
-                                        <span class="reward-note">Mystery Reward Box</span>
-                                        <span style="font-size:24px;" aria-hidden="true">🎁</span>
+                                        <?php elseif ($is_completed): ?>
+                                            <button type="button" class="th-premium-btn is-done" disabled>✓ Completed</button>
+                                        <?php endif; ?>
                                     </div>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
-            </section>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <!-- ============================================================
+             PROGRESS SUMMARY (below hero card)
+             ============================================================ -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;">
+            <div style="background:var(--th-surface);border:1px solid var(--th-border);border-radius:var(--th-radius);padding:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span style="font-size:12px;color:var(--th-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Overall Progress</span>
+                    <strong style="font-size:13px;color:var(--th-text-primary);"><?php echo (int) ($state['overall_completed_tasks'] ?? 0); ?>/<?php echo (int) ($state['overall_total_tasks'] ?? 0); ?></strong>
+                </div>
+                <div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
+                    <span style="display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--th-blue),#60a5fa);width:<?php echo (int) ($state['overall_progress_percent'] ?? 0); ?>%;transition:width 0.5s ease;"></span>
+                </div>
+            </div>
+            <div style="background:var(--th-surface);border:1px solid var(--th-border);border-radius:var(--th-radius);padding:16px;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <span style="font-size:12px;color:var(--th-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Status</span>
+                    <strong style="display:block;margin-top:4px;font-size:14px;color:var(--th-text-primary);" id="progressStatusValue"><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string) ($state['status'] ?? 'in_progress'))), ENT_QUOTES, 'UTF-8'); ?></strong>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:12px;color:var(--th-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Mission</span>
+                    <strong style="display:block;margin-top:4px;font-size:14px;color:<?php echo !empty($state['paused']) ? 'var(--th-gold)' : 'var(--th-green)'; ?>;"><?php echo !empty($state['paused']) ? '⏸ Paused' : '▶ On Track'; ?></strong>
+                </div>
+            </div>
+        </div>
+
         <?php endif; ?>
     </div>
 </main>
 
+<!-- ============================================================
+     MODAL
+     ============================================================ -->
 <div class="taskhub-modal" id="taskhubModal" hidden>
     <div class="taskhub-modal-backdrop" data-modal-close></div>
     <div class="taskhub-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="taskhubModalTitle">
@@ -283,274 +580,9 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<script>
-(function() {
-    const submitUrl = <?php echo json_encode(BASE_URL . '/api/submit_taskhub_task.php'); ?>;
-    const learnMarkUrl = <?php echo json_encode(BASE_URL . '/api/mark_taskhub_learning.php'); ?>;
-    const dayTriggers = Array.from(document.querySelectorAll('[data-day-trigger]'));
-    const dayPanels = Array.from(document.querySelectorAll('[data-day-panel]'));
-    const modal = document.getElementById('taskhubModal');
-    const modalTitle = document.getElementById('taskhubModalTitle');
-    const modalMessage = document.getElementById('taskhubModalMessage');
-    const modalAction = document.getElementById('taskhubModalAction');
+<?php require_once __DIR__ . '/includes/taskhub/greeting-modal.php'; ?>
+<?php require_once __DIR__ . '/includes/taskhub/mystery-box.php'; ?>
 
-    function closeModal() {
-        if (!modal) {
-            return;
-        }
-        modal.hidden = true;
-        modalAction.onclick = null;
-    }
-
-    function showModal(title, message, onConfirm) {
-        if (!modal || !modalTitle || !modalMessage || !modalAction) {
-            return;
-        }
-        modalTitle.textContent = title;
-        modalMessage.textContent = message;
-        modal.hidden = false;
-        modalAction.onclick = function() {
-            closeModal();
-            if (typeof onConfirm === 'function') {
-                onConfirm();
-            }
-        };
-    }
-
-    document.querySelectorAll('[data-modal-close]').forEach((element) => {
-        element.addEventListener('click', closeModal);
-    });
-
-    function formatDuration(totalSeconds) {
-        const seconds = Math.max(0, Number(totalSeconds) || 0);
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const remainingSeconds = seconds % 60;
-        const parts = [];
-
-        if (hours > 0) {
-            parts.push(hours + 'h');
-        }
-        if (hours > 0 || minutes > 0) {
-            parts.push(minutes + 'm');
-        }
-        parts.push(remainingSeconds + 's');
-        return parts.join(' ');
-    }
-
-    function selectDay(dayNumber) {
-        dayTriggers.forEach((trigger) => {
-            const isSelected = Number(trigger.dataset.dayTrigger) === dayNumber;
-            trigger.classList.toggle('is-selected', isSelected);
-            trigger.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-        });
-
-        dayPanels.forEach((panel) => {
-            panel.hidden = Number(panel.dataset.dayPanel) !== dayNumber;
-        });
-    }
-
-    dayTriggers.forEach((trigger) => {
-        trigger.addEventListener('click', function() {
-            if (trigger.disabled) {
-                return;
-            }
-            selectDay(Number(trigger.dataset.dayTrigger));
-        });
-    });
-
-    function tickCountdown(selector, prefix, readyText) {
-        document.querySelectorAll(selector).forEach((element) => {
-            let seconds = Number(element.dataset.dayCountdownSeconds || element.dataset.countdownSeconds || 0);
-            if (seconds <= 0) {
-                return;
-            }
-            seconds -= 1;
-            if (element.dataset.dayCountdownSeconds !== undefined) {
-                element.dataset.dayCountdownSeconds = String(seconds);
-            } else {
-                element.dataset.countdownSeconds = String(seconds);
-            }
-            element.textContent = seconds > 0 ? prefix + formatDuration(seconds) : readyText;
-        });
-    }
-
-    async function postForm(body) {
-        const response = await fetch(submitUrl, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-            body: new URLSearchParams(body),
-        });
-        return response.json();
-    }
-
-    async function markLearningOpened(taskKey) {
-        const response = await fetch(learnMarkUrl, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-            body: new URLSearchParams({ task_key: taskKey }),
-        });
-        return response.json();
-    }
-
-    document.querySelectorAll('[data-learning-gate]').forEach((gate) => {
-        const opener = gate.querySelector('[data-learning-open]');
-        const status = gate.querySelector('[data-learning-status]');
-        const taskKey = gate.dataset.taskKey || '';
-        if (!opener || !status || !taskKey) {
-            return;
-        }
-
-        opener.addEventListener('click', async () => {
-            window.setTimeout(async () => {
-                try {
-                    const data = await markLearningOpened(taskKey);
-                    if (data.success) {
-                        gate.dataset.learningOpened = '1';
-                        gate.setAttribute('data-learning-opened', '1');
-                        status.textContent = 'Learning validated';
-                        const row = gate.closest('[data-task-key]');
-                        const quizBlock = row ? row.querySelector('[data-quiz-block]') : null;
-                        if (quizBlock) {
-                            quizBlock.hidden = false;
-                            const questions = Array.from(quizBlock.querySelectorAll('[data-quiz-question]'));
-                            questions.forEach((question, idx) => {
-                                question.hidden = idx !== 0;
-                            });
-                        }
-                    }
-                } catch (e) {
-                    // no-op; backend will enforce validation anyway
-                }
-            }, 1200);
-        });
-    });
-
-    document.querySelectorAll('[data-submit-task]').forEach((button) => {
-        button.addEventListener('click', async function() {
-            const row = button.closest('[data-task-key]');
-            if (!row) {
-                return;
-            }
-
-            const taskKey = row.dataset.taskKey || '';
-            const verificationMode = row.dataset.verificationMode || 'instant';
-            const payload = { task_key: taskKey };
-
-            if (verificationMode === 'profile' && row.dataset.profileComplete === '0') {
-                showModal('TaskHub', 'First complete your profile.', function() {
-                    window.location.href = <?php echo json_encode(BASE_URL . '/profile.php'); ?>;
-                });
-                return;
-            }
-
-            if (verificationMode === 'manual') {
-                if (taskKey === 'day1_social_follow') {
-                    const xInput = row.querySelector('[data-x-handle]');
-                    const telegramInput = row.querySelector('[data-telegram-handle]');
-                    payload.x_handle = xInput ? xInput.value : '';
-                    payload.telegram_handle = telegramInput ? telegramInput.value : '';
-                } else {
-                    if (taskKey === 'day3_share_experience') {
-                        const platformInput = row.querySelector('[data-share-platform]');
-                        const proofUrlInput = row.querySelector('[data-share-proof-url]');
-                        payload.platform = platformInput ? platformInput.value : '';
-                        payload.proof = proofUrlInput ? proofUrlInput.value : '';
-                    } else {
-                        const proofInput = row.querySelector('.task-proof-input');
-                        payload.proof = proofInput ? proofInput.value : '';
-                    }
-                }
-            }
-
-            if (verificationMode === 'wallet') {
-                const walletInput = row.querySelector('.task-wallet-input');
-                payload.wallet_address = walletInput ? walletInput.value : '';
-            }
-
-            if (verificationMode === 'quiz') {
-                const gate = row.querySelector('[data-learning-gate]');
-                if (gate && gate.dataset.learningOpened !== '1') {
-                    showModal('TaskHub Quiz', 'Please open the learning page first, then continue the quiz.');
-                    return;
-                }
-
-                const answers = [];
-                row.querySelectorAll('[data-quiz-block] .task-quiz-question').forEach((question, index) => {
-                    const selected = question.querySelector('input[type="radio"]:checked');
-                    answers[index] = selected ? Number(selected.value) : -1;
-                });
-                payload.answers_json = JSON.stringify(answers);
-            }
-
-            button.disabled = true;
-            button.textContent = 'Submitting...';
-
-            try {
-                const data = await postForm(payload);
-                if (!data.success) {
-                    showModal('TaskHub', data.message || 'Task submission failed.', function() {
-                        button.disabled = false;
-                        button.textContent = 'Submit';
-                    });
-                    return;
-                }
-                showModal('TaskHub', data.message || 'Task submitted successfully.', function() {
-                    window.location.reload();
-                });
-            } catch (error) {
-                showModal('TaskHub', 'Task submission failed.', function() {
-                    button.disabled = false;
-                    button.textContent = 'Submit';
-                });
-            }
-        });
-    });
-
-    document.querySelectorAll('[data-quiz-block]').forEach((quizBlock) => {
-        const questions = Array.from(quizBlock.querySelectorAll('[data-quiz-question]'));
-        questions.forEach((question, index) => {
-            question.querySelectorAll('input[type="radio"]').forEach((radio) => {
-                radio.addEventListener('change', () => {
-                    const isCorrect = radio.dataset.correct === '1';
-                    if (!isCorrect) {
-                        showModal('TaskHub Quiz', 'Wrong answer. Please try again to continue.');
-                        radio.checked = false;
-                        return;
-                    }
-                });
-            });
-
-            question.querySelectorAll('input[type="radio"]').forEach((radio) => {
-                radio.addEventListener('change', () => {
-                    if (radio.dataset.correct !== '1') {
-                        showModal('TaskHub Quiz', 'Wrong answer. Please try again to continue.');
-                        radio.checked = false;
-                        return;
-                    }
-                    const nextQuestion = questions[index + 1];
-                    if (nextQuestion) {
-                        question.hidden = true;
-                        nextQuestion.hidden = false;
-                        nextQuestion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
-                });
-            });
-        });
-    });
-
-    window.setInterval(() => {
-        tickCountdown('[data-countdown-seconds]', 'Next task unlocks in ', 'Ready');
-        tickCountdown('[data-day-countdown-seconds]', 'Unlocks in ', 'Unlocked');
-    }, 1000);
-
-    const selectedTrigger = document.querySelector('[data-day-trigger].is-selected');
-    if (selectedTrigger) {
-        selectDay(Number(selectedTrigger.dataset.dayTrigger));
-    }
-})();
-</script>
+<script src="<?php echo ASSETS_URL; ?>/js/taskhub-premium.js"></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

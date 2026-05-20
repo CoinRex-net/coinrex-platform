@@ -1,3 +1,8 @@
+/* ========================================
+   DevHub Premium Review Insights
+   Uses .devhub-theme variables from theme.css
+   ======================================== */
+
 .review-insights-wrapper {
     max-width: 1180px;
     margin: 0 auto;
@@ -5,8 +10,8 @@
 }
 
 .review-insights-head {
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--dh-bg-panel);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 18px;
     padding: 22px;
     margin-bottom: 18px;
@@ -14,18 +19,18 @@
 
 .review-insights-head h1 {
     margin: 0 0 8px;
-    color: #f8fafc;
+    color: var(--dh-text-primary);
     font-size: 28px;
 }
 
 .review-insights-head h1 i {
-    color: #60A5FA;
+    color: var(--dh-accent-soft);
     margin-right: 8px;
 }
 
 .review-insights-head p {
     margin: 0;
-    color: #94a3b8;
+    color: var(--dh-text-muted);
 }
 
 .review-insights-stats {
@@ -36,21 +41,21 @@
 }
 
 .insight-stat {
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--dh-bg-panel);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 16px;
     padding: 16px;
 }
 
 .insight-stat h3 {
     margin: 0 0 6px;
-    color: #60A5FA;
+    color: var(--dh-accent-soft);
     font-size: 30px;
 }
 
 .insight-stat p {
     margin: 0;
-    color: #94a3b8;
+    color: var(--dh-text-muted);
 }
 
 .review-filters {
@@ -58,8 +63,8 @@
     grid-template-columns: 1fr 1fr auto;
     gap: 12px;
     align-items: end;
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--dh-bg-panel);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 16px;
     padding: 14px;
     margin-bottom: 16px;
@@ -68,22 +73,22 @@
 .review-filters label {
     display: grid;
     gap: 6px;
-    color: #cbd5e1;
+    color: var(--dh-text-secondary);
     font-size: 13px;
     font-weight: 600;
 }
 
 .review-filters select {
     width: 100%;
-    background: #111827;
-    border: 1px solid #334155;
-    color: #e2e8f0;
+    background: var(--dh-bg-card);
+    border: 1px solid var(--dh-border-soft);
+    color: var(--dh-text-primary);
     border-radius: 10px;
     padding: 10px 12px;
 }
 
 .btn-filter {
-    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    background: var(--dh-gradient-accent);
     color: #fff;
     border: 0;
     border-radius: 12px;
@@ -98,8 +103,8 @@
 }
 
 .insight-card {
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--dh-bg-panel);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 18px;
     padding: 16px;
 }
@@ -114,12 +119,12 @@
 
 .insight-card-top h3 {
     margin: 0 0 6px;
-    color: #f8fafc;
+    color: var(--dh-text-primary);
 }
 
 .insight-project {
     margin: 0;
-    color: #94a3b8;
+    color: var(--dh-text-muted);
     font-size: 13px;
 }
 
@@ -147,7 +152,7 @@
     display: inline-flex;
     border-radius: 999px;
     padding: 4px 10px;
-    background: rgba(29, 78, 216, 0.16);
+    background: var(--dh-accent-glow);
     color: #93C5FD;
     font-weight: 700;
     font-size: 12px;
@@ -156,13 +161,13 @@
 .insight-body h4,
 .insight-columns h5 {
     margin: 0 0 6px;
-    color: #e2e8f0;
+    color: var(--dh-text-primary);
 }
 
 .insight-body p,
 .insight-columns p {
     margin: 0;
-    color: #cbd5e1;
+    color: var(--dh-text-secondary);
     line-height: 1.6;
 }
 
@@ -174,30 +179,30 @@
 }
 
 .insight-columns > div {
-    background: rgba(17, 24, 39, 0.85);
-    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: var(--dh-bg-card);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 12px;
     padding: 12px;
 }
 
 .insight-foot {
     margin-top: 12px;
-    color: #94a3b8;
+    color: var(--dh-text-muted);
     font-size: 12px;
 }
 
 .insights-empty {
     text-align: center;
     padding: 34px 18px;
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--dh-bg-panel);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 16px;
-    color: #94a3b8;
+    color: var(--dh-text-muted);
 }
 
 .insights-empty i {
     font-size: 28px;
-    color: #60A5FA;
+    color: var(--dh-accent-soft);
     margin-bottom: 10px;
 }
 
@@ -207,8 +212,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--dh-bg-panel);
+    border: 1px solid var(--dh-border-soft);
     border-radius: 14px;
     padding: 12px;
 }
@@ -219,7 +224,7 @@
     justify-content: center;
     border-radius: 10px;
     padding: 8px 12px;
-    background: rgba(29, 78, 216, 0.18);
+    background: var(--dh-accent-glow);
     color: #bfdbfe;
     text-decoration: none;
     font-weight: 600;
@@ -231,7 +236,7 @@
 }
 
 .page-indicator {
-    color: #cbd5e1;
+    color: var(--dh-text-secondary);
     font-size: 13px;
 }
 

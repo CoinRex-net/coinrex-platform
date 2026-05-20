@@ -104,6 +104,15 @@ $is_production = in_array($coinrex_env, ['production', 'prod'], true);
 
 define('ENVIRONMENT', $is_production ? 'production' : 'development');
 
+// ============================================================
+// TESTING MODE FLAG
+// ============================================================
+// Set to true to bypass cooldowns, day progression, security
+// signals, and daily task limits for testing purposes.
+// Set to false to restore all production validations.
+// ============================================================
+define('TESTING_MODE', false);
+
 // Error Reporting
 if ($is_production) {
     error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);

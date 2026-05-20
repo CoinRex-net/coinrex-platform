@@ -15,41 +15,44 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
         return ['status' => 'closed', 'message' => 'User account not found.', 'task' => null, 'unlock_at' => null, 'countdown_seconds' => 0];
     }
 
-    $profile_complete = isUserProfileComplete($user);
-    $account_age_days = max(0, (int) floor((time() - strtotime((string) ($user['created_at'] ?? 'now'))) / 86400));
-    if (!$profile_complete || $account_age_days < 3) {
-        $missing_profile_parts = [];
-        if (trim((string) ($user['full_name'] ?? '')) === '') {
-            $missing_profile_parts[] = 'full name';
-        }
-        if (trim((string) ($user['username'] ?? '')) === '') {
-            $missing_profile_parts[] = 'username';
-        }
-        if (trim((string) ($user['country'] ?? '')) === '') {
-            $missing_profile_parts[] = 'country';
-        }
-        if (trim((string) ($user['avatar'] ?? '')) === '') {
-            $missing_profile_parts[] = 'avatar';
-        }
-        if (empty($user['profile_completed_at'])) {
-            $missing_profile_parts[] = 'profile completion timestamp';
-        }
+    // TESTING_MODE: Skip profile completeness and account age checks
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        $profile_complete = isUserProfileComplete($user);
+        $account_age_days = max(0, (int) floor((time() - strtotime((string) ($user['created_at'] ?? 'now'))) / 86400));
+        if (!$profile_complete || $account_age_days < 3) {
+            $missing_profile_parts = [];
+            if (trim((string) ($user['full_name'] ?? '')) === '') {
+                $missing_profile_parts[] = 'full name';
+            }
+            if (trim((string) ($user['username'] ?? '')) === '') {
+                $missing_profile_parts[] = 'username';
+            }
+            if (trim((string) ($user['country'] ?? '')) === '') {
+                $missing_profile_parts[] = 'country';
+            }
+            if (trim((string) ($user['avatar'] ?? '')) === '') {
+                $missing_profile_parts[] = 'avatar';
+            }
+            if (empty($user['profile_completed_at'])) {
+                $missing_profile_parts[] = 'profile completion timestamp';
+            }
 
-        $reasons = [];
-        if (!empty($missing_profile_parts)) {
-            $reasons[] = 'complete profile: ' . implode(', ', $missing_profile_parts);
-        }
-        if ($account_age_days < 3) {
-            $reasons[] = 'wait ' . (3 - $account_age_days) . ' more day(s) for account age';
-        }
+            $reasons = [];
+            if (!empty($missing_profile_parts)) {
+                $reasons[] = 'complete profile: ' . implode(', ', $missing_profile_parts);
+            }
+            if ($account_age_days < 3) {
+                $reasons[] = 'wait ' . (3 - $account_age_days) . ' more day(s) for account age';
+            }
 
-        return [
-            'status' => 'closed',
-            'message' => 'BoostHub locked: ' . implode('; ', $reasons) . '.',
-            'task' => null,
-            'unlock_at' => null,
-            'countdown_seconds' => 0,
-        ];
+            return [
+                'status' => 'closed',
+                'message' => 'BoostHub locked: ' . implode('; ', $reasons) . '.',
+                'task' => null,
+                'unlock_at' => null,
+                'countdown_seconds' => 0,
+            ];
+        }
     }
 
     $pending_stmt = $db->prepare("
@@ -98,26 +101,29 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
         ];
     }
 
-    $last_completed_stmt = $db->prepare("
-        SELECT MAX(COALESCE(utl.task_completed_at, utl.completed_at)) AS completed_at
-        FROM user_task_logs utl
-        INNER JOIN mini_tasks mt ON mt.id = utl.task_id
-        WHERE utl.user_id = ?
-          AND utl.status = 'completed'
-          AND mt.task_group = 'boosthub'
-    ");
-    $last_completed_stmt->execute([$user_id]);
-    $last_completed_at = (string) ($last_completed_stmt->fetch()['completed_at'] ?? '');
-    if ($last_completed_at !== '') {
-        $unlock_ts = strtotime($last_completed_at . ' +24 hours');
-        if ($unlock_ts > time()) {
-            return [
-                'status' => 'locked',
-                'message' => 'Next task unlocks after 24 hours.',
-                'task' => null,
-                'unlock_at' => date('Y-m-d H:i:s', $unlock_ts),
-                'countdown_seconds' => max(0, $unlock_ts - time()),
-            ];
+    // TESTING_MODE: Skip 24h cooldown between BoostHub tasks
+    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+        $last_completed_stmt = $db->prepare("
+            SELECT MAX(COALESCE(utl.task_completed_at, utl.completed_at)) AS completed_at
+            FROM user_task_logs utl
+            INNER JOIN mini_tasks mt ON mt.id = utl.task_id
+            WHERE utl.user_id = ?
+              AND utl.status = 'completed'
+              AND mt.task_group = 'boosthub'
+        ");
+        $last_completed_stmt->execute([$user_id]);
+        $last_completed_at = (string) ($last_completed_stmt->fetch()['completed_at'] ?? '');
+        if ($last_completed_at !== '') {
+            $unlock_ts = strtotime($last_completed_at . ' +24 hours');
+            if ($unlock_ts > time()) {
+                return [
+                    'status' => 'locked',
+                    'message' => 'Next task unlocks after 24 hours.',
+                    'task' => null,
+                    'unlock_at' => date('Y-m-d H:i:s', $unlock_ts),
+                    'countdown_seconds' => max(0, $unlock_ts - time()),
+                ];
+            }
         }
     }
 

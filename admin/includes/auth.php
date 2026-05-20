@@ -192,6 +192,7 @@ function requireAdminPageAccess($active_page) {
         'reward-users' => 'manage_rewards',
         'referrals' => 'manage_rewards',
         'task-management' => 'manage_tasks',
+        'quiz-manager' => 'manage_tasks',
         'taskhub-review' => 'moderate_tasks',
         'boosthub-management' => 'moderate_tasks',
         'boosthub' => 'moderate_tasks',

@@ -1,18 +1,19 @@
 /* ========================================
-   DevHub Sidebar - Complete Version
+   DevHub Premium Sidebar
+   Uses .devhub-theme variables from theme.css
    ======================================== */
 
 /* Sidebar Container */
 .devhub-sidebar {
     width: 280px;
-    background: #0a0f1a;
+    background: var(--dh-bg-deep);
     height: 100vh;
     position: fixed;
     left: 0;
     top: 0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid var(--dh-border-subtle);
     z-index: 1200;
     transform: translateX(0);
     transition: transform 0.3s ease;
@@ -24,7 +25,7 @@
     align-items: center;
     gap: 12px;
     padding: 28px 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--dh-border-subtle);
 }
 
 .dh-logo img {
@@ -35,13 +36,13 @@
 .dh-logo div span {
     font-size: 1.5rem;
     font-weight: 700;
-    color: white;
+    color: var(--dh-text-primary);
     line-height: 1.2;
 }
 
 .dh-logo div small {
     font-size: 0.7rem;
-    color: #64748b;
+    color: var(--dh-text-muted);
     display: block;
     margin-top: 2px;
 }
@@ -61,7 +62,7 @@
     gap: 12px;
     padding: 12px 16px;
     border-radius: 12px;
-    color: #94a3b8;
+    color: var(--dh-text-muted);
     text-decoration: none;
     font-weight: 500;
     transition: all 0.2s;
@@ -72,19 +73,20 @@
 }
 
 .dh-menu:hover {
-    background: rgba(29, 78, 216, 0.12);
-    color: #1D4ED8;
+    background: var(--dh-accent-glow);
+    color: var(--dh-accent);
 }
 
 .dh-menu.active {
-    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    background: var(--dh-gradient-accent);
     color: white;
+    box-shadow: var(--dh-shadow-glow-strong);
 }
 
 /* Bottom Section */
 .dh-bottom {
     padding: 20px 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--dh-border-subtle);
 }
 
 /* Social Icons */
@@ -102,8 +104,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    color: #94a3b8;
+    background: var(--dh-bg-elevated);
+    color: var(--dh-text-muted);
     text-decoration: none;
     transition: all 0.2s;
 }
@@ -136,7 +138,7 @@
     z-index: 1201;
     width: 45px;
     height: 45px;
-    background: #1D4ED8;
+    background: var(--dh-accent);
     border: 0;
     border-radius: 12px;
     color: white;
@@ -145,7 +147,7 @@
     justify-content: center;
     cursor: pointer;
     transition: left 0.3s ease;
-    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.30);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.30);
 }
 
 /* Sidebar Overlay */

@@ -43,6 +43,36 @@ try {
         }
     }
 
+    // Handle single-question validation (quiz_validate_single mode)
+    if (!empty($_POST['quiz_validate_single'])) {
+        $db = getDBConnection();
+        $task_stmt = $db->prepare("
+            SELECT *
+            FROM mini_tasks
+            WHERE task_key = ?
+              AND task_group = 'mission'
+              AND is_active = 1
+            LIMIT 1
+        ");
+        $task_stmt->execute([(string) $task_key]);
+        $task_row = $task_stmt->fetch();
+        if (!$task_row) {
+            apiErrorResponse(422, 'Task not found.');
+        }
+
+        $log_row = getTaskHubLatestLog((int) $user_id, (int) $task_row['id'], (int) ($task_row['mission_day'] ?? 0), $db);
+        if (!$log_row) {
+            apiErrorResponse(422, 'Task not found.');
+        }
+
+        $is_correct = taskHubValidateSingleQuizAnswer((int) $user_id, $task_row, $log_row, $payload['answers'] ?? [], $db);
+        if ($is_correct) {
+            apiSuccessResponse(['message' => 'Correct answer!']);
+        } else {
+            apiErrorResponse(422, 'Wrong answer. Try again.');
+        }
+    }
+
     $result = submitTaskHubTask($user_id, $task_key, $payload);
     $state = getTaskHubState($user_id);
 
@@ -52,6 +82,8 @@ try {
         'state' => $state,
         'balance' => number_format(getRewardLedgerBalance($user_id, 'available'), 8, '.', ''),
     ]);
+} catch (QuizFailedException $e) {
+    apiErrorResponse(422, $e->getMessage(), ['detail' => $e->getDetail()]);
 } catch (Throwable $e) {
     apiErrorResponse(422, $e->getMessage());
 }

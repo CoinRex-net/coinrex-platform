@@ -20,6 +20,21 @@
     --color-bg-elevated: #12254a;
     --color-bg-hover: #16305f;
     --color-bg-overlay: rgba(0, 0, 0, 0.85);
+    --color-bg-card: rgba(13, 27, 52, 0.92);
+    --color-bg-card-elevated: rgba(16, 35, 73, 0.72);
+    --color-bg-dark-soft: rgba(15, 23, 42, 0.68);
+    --color-bg-dark-mid: rgba(15, 23, 42, 0.56);
+    --color-bg-dark-strong: rgba(30, 41, 59, 0.92);
+    --color-bg-darkest: rgba(2, 6, 23, 0.72);
+    --color-bg-darkest-soft: rgba(2, 6, 23, 0.36);
+    --color-bg-inset: #111827;
+    --color-bg-inset-light: #1e293b;
+    --color-bg-dark-panel: #0f172a;
+    --color-bg-dark-box: #0b1220;
+    --color-bg-sidebar: #0a0f1a;
+    --color-bg-topbar: #0f172a;
+    --color-border-slate-medium: rgba(148, 163, 184, 0.18);
+    --color-border-slate-strong: rgba(148, 163, 184, 0.12);
 
     /* Text */
     --color-text-primary: #ffffff;
@@ -31,6 +46,11 @@
     --color-text-body-soft: rgba(255, 255, 255, 0.88);
     --color-text-body-muted: rgba(255, 255, 255, 0.84);
     --color-text-caption: rgba(255, 255, 255, 0.82);
+    --color-text-heading: #f8fafc;
+    --color-text-soft-muted: #9fb1c9;
+    --color-text-caption-alt: #91a4bd;
+    --color-text-admin-secondary: #e2e8f0;
+    --color-text-admin-muted: #cbd5e1;
 
     /* Borders */
     --color-border-light: rgba(212, 175, 55, 0.10);
@@ -39,6 +59,11 @@
     --color-border-glass: rgba(255, 255, 255, 0.18);
     --color-border-glass-soft: rgba(255, 255, 255, 0.14);
     --color-border-slate-soft: rgba(148, 163, 184, 0.14);
+    --color-border-card: rgba(212, 175, 55, 0.14);
+    --color-border-subtle: rgba(255, 255, 255, 0.05);
+    --color-border-dark: #1f2937;
+    --color-border-dark-soft: #243244;
+    --color-border-ad: #263244;
 
     /* Inputs */
     --color-input-bg: #ffffff;
@@ -173,6 +198,65 @@
     --color-secondary-dark: #1E3A8A;
     --color-secondary-light: #38BDF8;
     --color-border-medium: rgba(59, 130, 246, 0.28);
+}
+
+/* ========================================
+   DevHub Premium Theme
+   Developer-focused comfort theme
+   ======================================== */
+
+.devhub-theme {
+    /* DevHub deep background - code-editor dark */
+    --dh-bg-deep: #080c18;
+    --dh-bg-surface: #0d1322;
+    --dh-bg-elevated: #111b31;
+    --dh-bg-hover: #162140;
+    --dh-bg-glass: rgba(13, 19, 34, 0.85);
+    --dh-bg-card: #111c31;
+    --dh-bg-panel: rgba(15, 23, 42, 0.95);
+
+    /* DevHub text */
+    --dh-text-primary: #e8edf5;
+    --dh-text-secondary: #94a9c9;
+    --dh-text-muted: #64748b;
+    --dh-text-soft: #5b7293;
+    --dh-text-code: #7ec8e3;
+
+    /* DevHub accent palette */
+    --dh-accent: #3b82f6;
+    --dh-accent-dark: #1e40af;
+    --dh-accent-soft: #60a5fa;
+    --dh-accent-glow: rgba(59, 130, 246, 0.22);
+    --dh-accent-green: #22c55e;
+    --dh-accent-purple: #a78bfa;
+    --dh-accent-amber: #f59e0b;
+    --dh-accent-red: #ef4444;
+
+    /* DevHub borders */
+    --dh-border-subtle: rgba(148, 163, 184, 0.07);
+    --dh-border-soft: rgba(148, 163, 184, 0.12);
+    --dh-border-medium: rgba(148, 163, 184, 0.18);
+    --dh-border-accent: rgba(59, 130, 246, 0.25);
+    --dh-border-accent-strong: rgba(59, 130, 246, 0.35);
+
+    /* DevHub shadows */
+    --dh-shadow-sm: 0 4px 12px rgba(2, 6, 23, 0.25);
+    --dh-shadow-card: 0 8px 32px rgba(2, 6, 23, 0.4);
+    --dh-shadow-elevated: 0 12px 40px rgba(2, 8, 23, 0.5);
+    --dh-shadow-glow: 0 0 24px rgba(59, 130, 246, 0.10);
+    --dh-shadow-glow-strong: 0 0 30px rgba(59, 130, 246, 0.18);
+
+    /* DevHub gradients */
+    --dh-gradient-accent: linear-gradient(135deg, #3b82f6, #1e40af);
+    --dh-gradient-surface: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(10, 15, 26, 0.95));
+    --dh-gradient-card: linear-gradient(180deg, rgba(17, 28, 49, 0.98), rgba(12, 19, 35, 0.96));
+    --dh-gradient-glass: linear-gradient(165deg, rgba(13, 19, 34, 0.92), rgba(8, 12, 24, 0.88));
+
+    /* DevHub page background */
+    --dh-page-bg:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.06), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.04), transparent 30%),
+        linear-gradient(180deg, #080c18 0%, #0a0f1a 100%);
 }
 
 html {

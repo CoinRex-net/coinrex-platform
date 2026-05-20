@@ -196,6 +196,14 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 <img src="<?php echo ASSETS_URL; ?>/images/logo.png" alt="CoinRex" class="auth-logo-img">
                 <p class="auth-tagline"><?php echo SITE_TAGLINE; ?></p>
             </div>
+
+            <div class="auth-intro">
+                <span class="auth-kicker"><i class="fas fa-shield-halved"></i> Secure Access</span>
+                <h1><?php echo $active_tab === 'register' ? 'Create your CoinRex account' : 'Welcome back to CoinRex'; ?></h1>
+                <p><?php echo $active_tab === 'register'
+                    ? 'Start earning rewards, track your activity, and join the CoinRex community with a fast and secure signup flow.'
+                    : 'Sign in to continue earning, manage your reviews, and stay connected with your CoinRex dashboard.'; ?></p>
+            </div>
             
             <!-- Error/Success Messages -->
             <?php if($error): ?>
@@ -416,51 +424,6 @@ require_once dirname(__DIR__) . '/includes/header.php';
         </div>
     </div>
 </main>
-
-<style>
-.auth-message {
-    padding: 12px 16px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-}
-
-.auth-message.error {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-}
-
-.auth-message.success {
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.3);
-    color: #22c55e;
-}
-
-.auth-info {
-    text-align: center;
-    margin-top: 20px;
-    padding: 12px;
-    background: rgba(34, 197, 94, 0.05);
-    border-radius: 12px;
-    font-size: 13px;
-    color: #22c55e;
-}
-
-.auth-info i {
-    margin-right: 8px;
-}
-
-.auth-submit:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

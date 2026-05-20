@@ -85,10 +85,11 @@ if ($needs_auth && isLoggedIn()) {
     <link rel="icon" type="image/x-icon" href="<?php echo BASE_URL; ?>/devhub/assets/images/favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/theme.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/devhub/assets/css/devhub.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/devhub/assets/css/sidebar.css">
 </head>
-<body>
+<body class="devhub-theme">
     <!-- Mobile Menu Button -->
     <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open menu">
         <i class="fas fa-bars"></i>
