@@ -20,6 +20,13 @@ $audiences = [
     'promoter' => ['label' => 'Promoter', 'icon' => 'fa-bullhorn'],
 ];
 
+$audienceHints = [
+    'user' => 'Report issues, ask general questions, or share feedback about the platform.',
+    'developer' => 'Technical inquiries, API access, DevHub integration, or bug reports.',
+    'project_owner' => 'Project listing, verification, updates, or partnership opportunities.',
+    'promoter' => 'Marketing collaborations, affiliate programs, or promotional campaigns.',
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireAppCsrf((string) ($_POST['csrf_token'] ?? ''));
 
@@ -57,530 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
-<style>
-.contact-premium-page {
-    background: var(--theme-public-page-bg);
-    color: var(--color-text-secondary);
-    padding: 28px 0 72px;
-}
-
-.contact-premium-shell {
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: 0 24px;
-}
-
-.contact-hero-premium {
-    position: relative;
-    overflow: hidden;
-    background: var(--theme-public-hero-bg);
-    border: 1px solid var(--color-border-card);
-    border-radius: 32px;
-    box-shadow: var(--shadow-hero);
-    padding: 34px;
-}
-
-.contact-hero-premium::before,
-.contact-hero-premium::after {
-    content: "";
-    position: absolute;
-    border-radius: 999px;
-    pointer-events: none;
-}
-
-.contact-hero-premium::before {
-    width: 260px;
-    height: 260px;
-    top: -110px;
-    right: -80px;
-    background: radial-gradient(circle, rgba(96, 165, 250, 0.24) 0%, rgba(96, 165, 250, 0) 72%);
-}
-
-.contact-hero-premium::after {
-    width: 220px;
-    height: 220px;
-    bottom: -120px;
-    left: -60px;
-    background: radial-gradient(circle, rgba(212, 175, 55, 0.18) 0%, rgba(212, 175, 55, 0) 72%);
-}
-
-.contact-hero-grid {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
-    gap: 26px;
-    align-items: stretch;
-}
-
-.contact-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: var(--theme-kicker-bg);
-    border: 1px solid var(--theme-kicker-border);
-    color: var(--color-accent-soft);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
-
-.contact-hero-copy h1 {
-    margin: 18px 0 14px;
-    color: var(--color-text-primary);
-    font-size: clamp(2.2rem, 4vw, 4rem);
-    line-height: 1.02;
-    letter-spacing: -0.03em;
-}
-
-.contact-hero-copy p {
-    margin: 0;
-    max-width: 640px;
-    color: var(--color-text-muted);
-    font-size: 0.98rem;
-    line-height: 1.55;
-}
-
-.contact-hero-highlights {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 22px;
-}
-
-.contact-highlight-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 14px;
-    border-radius: 16px;
-    background: var(--theme-glass-bg-strong);
-    border: 1px solid var(--theme-glass-border);
-    color: var(--color-text-primary);
-    font-size: 0.94rem;
-}
-
-.contact-highlight-pill i {
-    color: var(--color-accent-light);
-}
-
-.contact-hero-side {
-    display: grid;
-    gap: 14px;
-}
-
-.contact-side-card {
-    background: var(--theme-public-info-card);
-    border: 1px solid var(--color-border-slate-soft);
-    border-radius: 24px;
-    padding: 22px;
-    box-shadow: var(--shadow-card);
-}
-
-.contact-side-card strong,
-.contact-stat-value {
-    color: var(--color-text-primary);
-}
-
-.contact-side-card p,
-.contact-side-card li,
-.contact-stat-label {
-    color: var(--color-text-muted);
-}
-
-.contact-stat-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.contact-stat {
-    padding: 16px;
-    border-radius: 18px;
-    background: rgba(2, 6, 23, 0.28);
-    border: 1px solid var(--color-border-slate-soft);
-}
-
-.contact-stat-value {
-    display: block;
-    font-size: 1.25rem;
-    font-weight: 800;
-    margin-bottom: 4px;
-}
-
-.contact-support-list {
-    list-style: none;
-    margin: 14px 0 0;
-    padding: 0;
-    display: grid;
-    gap: 12px;
-}
-
-.contact-support-list li {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-}
-
-.contact-support-list i {
-    margin-top: 3px;
-    color: var(--color-primary-light);
-}
-
-.contact-content-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
-    gap: 22px;
-    margin-top: 22px;
-}
-
-.contact-panel {
-    background: var(--theme-public-info-card);
-    border: 1px solid var(--color-border-slate-soft);
-    border-radius: 28px;
-    padding: 28px;
-    box-shadow: var(--shadow-panel);
-}
-
-.contact-panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 22px;
-}
-
-.contact-panel-header h2,
-.contact-sidebar-title {
-    margin: 0;
-    color: var(--color-text-primary);
-}
-
-.contact-panel-header p,
-.contact-sidebar-copy,
-.contact-note-copy,
-.contact-field-help {
-    margin: 6px 0 0;
-    color: var(--color-text-muted);
-}
-
-.contact-field-help {
-    font-size: 0.86rem;
-}
-
-.contact-badge {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 999px;
-    background: rgba(29, 78, 216, 0.12);
-    border: 1px solid rgba(96, 165, 250, 0.24);
-    color: var(--color-info-soft);
-    font-size: 0.85rem;
-    font-weight: 700;
-}
-
-.contact-alert {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    border-radius: 18px;
-    padding: 16px 18px;
-    margin-bottom: 18px;
-    border: 1px solid transparent;
-}
-
-.contact-alert i {
-    margin-top: 2px;
-}
-
-.contact-alert strong {
-    display: block;
-    color: var(--color-text-primary);
-    margin-bottom: 4px;
-}
-
-.contact-alert p {
-    margin: 0;
-    color: inherit;
-}
-
-.contact-alert-success {
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.22);
-    color: #bbf7d0;
-}
-
-.contact-alert-error {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.22);
-    color: var(--color-danger-soft);
-}
-
-.contact-form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-}
-
-.contact-field,
-.contact-field-full {
-    display: grid;
-    gap: 8px;
-}
-
-.contact-field-full {
-    grid-column: 1 / -1;
-}
-
-.contact-field label {
-    color: var(--color-text-primary);
-    font-weight: 700;
-    font-size: 0.95rem;
-}
-
-.contact-required {
-    color: var(--color-accent-light);
-}
-
-.contact-field input,
-.contact-field select,
-.contact-field textarea,
-.contact-field-full input,
-.contact-field-full select,
-.contact-field-full textarea {
-    width: 100%;
-    border-radius: 16px;
-    padding: 14px 16px;
-    background: var(--color-input-bg);
-    color: var(--color-input-text);
-    border: 2px solid var(--color-input-border);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.contact-field textarea,
-.contact-field-full textarea {
-    resize: vertical;
-    min-height: 180px;
-}
-
-.contact-field input:focus,
-.contact-field select:focus,
-.contact-field textarea:focus,
-.contact-field-full input:focus,
-.contact-field-full select:focus,
-.contact-field-full textarea:focus {
-    outline: none;
-    border-color: var(--color-input-focus);
-    box-shadow: 0 0 0 4px var(--color-input-focus-ring);
-}
-
-.contact-submit-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    margin-top: 20px;
-    flex-wrap: wrap;
-}
-
-.contact-submit-copy {
-    color: var(--color-text-muted);
-    font-size: 0.92rem;
-    max-width: 420px;
-}
-
-.contact-submit-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    border: none;
-    border-radius: 18px;
-    padding: 15px 22px;
-    font-size: 0.96rem;
-    font-weight: 800;
-    color: var(--color-text-inverse);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    box-shadow: var(--shadow-primary);
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.contact-submit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 18px 34px rgba(29, 78, 216, 0.28);
-}
-
-.contact-sidebar-stack {
-    display: grid;
-    gap: 18px;
-}
-
-.contact-channel-list {
-    display: grid;
-    gap: 14px;
-}
-
-.contact-channel-card {
-    display: flex;
-    gap: 14px;
-    align-items: flex-start;
-    padding: 16px;
-    border-radius: 20px;
-    background: rgba(2, 6, 23, 0.28);
-    border: 1px solid var(--color-border-slate-soft);
-}
-
-.contact-channel-icon {
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    border-radius: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(29, 78, 216, 0.14);
-    color: var(--color-info-soft);
-}
-
-.contact-channel-card strong,
-.contact-meta-card strong {
-    display: block;
-    color: var(--color-text-primary);
-    margin-bottom: 4px;
-}
-
-.contact-meta-card p {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: 0.94rem;
-    line-height: 1.55;
-}
-
-.contact-channel-email {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 2px;
-    font-size: 0.94rem;
-}
-
-.contact-channel-card a,
-.contact-social-card a {
-    color: var(--color-info-soft);
-    text-decoration: none;
-}
-
-.contact-channel-card a:hover,
-.contact-social-card a:hover {
-    color: var(--color-text-primary);
-}
-
-.contact-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.contact-meta-card,
-.contact-note-card,
-.contact-social-card {
-    padding: 18px;
-    border-radius: 20px;
-    background: rgba(2, 6, 23, 0.28);
-    border: 1px solid var(--color-border-slate-soft);
-}
-
-.contact-note-card {
-    background: var(--theme-public-note-bg);
-}
-
-.contact-note-card h3,
-.contact-social-card h3 {
-    margin: 0 0 8px;
-    color: var(--color-text-primary);
-}
-
-.contact-social-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 14px;
-}
-
-.contact-social-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: var(--theme-glass-bg);
-    border: 1px solid var(--theme-glass-border-soft);
-    color: var(--color-text-primary);
-}
-
-@media (max-width: 1100px) {
-    .contact-hero-grid,
-    .contact-content-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .contact-premium-page {
-        padding: 18px 0 56px;
-    }
-
-    .contact-premium-shell {
-        padding: 0 16px;
-    }
-
-    .contact-hero-premium,
-    .contact-panel {
-        border-radius: 24px;
-        padding: 22px;
-    }
-
-    .contact-form-grid,
-    .contact-meta-grid,
-    .contact-stat-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .contact-panel-header,
-    .contact-submit-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .contact-submit-btn {
-        justify-content: center;
-        width: 100%;
-    }
-}
-
-@media (max-width: 520px) {
-    .contact-hero-copy h1 {
-        line-height: 1.08;
-    }
-
-    .contact-highlight-pill,
-    .contact-channel-card,
-    .contact-meta-card,
-    .contact-note-card,
-    .contact-social-link {
-        border-radius: 16px;
-    }
-}
-</style>
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/contact.css">
 
 <main class="contact-premium-page">
     <div class="contact-premium-shell">
+        <!-- Hero Section -->
         <section class="contact-hero-premium">
             <div class="contact-hero-grid">
                 <div class="contact-hero-copy">
@@ -629,8 +117,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </section>
 
+        <!-- Content Grid: Form + Sidebar -->
         <section class="contact-content-grid">
-            <div class="contact-panel">
+            <div class="contact-panel contact-fade-in">
                 <div class="contact-panel-header">
                     <div>
                         <h2>Send a message</h2>
@@ -640,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <?php if ($success !== ''): ?>
-                    <div class="contact-alert contact-alert-success">
+                    <div class="contact-alert contact-alert-success" id="contactSuccessAlert">
                         <i class="fas fa-circle-check"></i>
                         <div>
                             <strong>Message delivered</strong>
@@ -650,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <?php if ($error !== ''): ?>
-                    <div class="contact-alert contact-alert-error">
+                    <div class="contact-alert contact-alert-error" id="contactErrorAlert">
                         <i class="fas fa-circle-exclamation"></i>
                         <div>
                             <strong>Please review your submission</strong>
@@ -659,18 +148,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
-                <form method="POST" action="">
+                <form method="POST" action="" id="contactForm" novalidate>
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(appCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
 
                     <div class="contact-form-grid">
                         <div class="contact-field">
                             <label for="contact-name">Full name <span class="contact-required">*</span></label>
-                            <input id="contact-name" type="text" name="name" value="<?php echo htmlspecialchars($form['name'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Enter your full name" required>
+                            <input id="contact-name" type="text" name="name" value="<?php echo htmlspecialchars($form['name'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Enter your full name" required autocomplete="name">
                         </div>
 
                         <div class="contact-field">
                             <label for="contact-email">Email address <span class="contact-required">*</span></label>
-                            <input id="contact-email" type="email" name="email" value="<?php echo htmlspecialchars($form['email'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="you@example.com" required>
+                            <input id="contact-email" type="email" name="email" value="<?php echo htmlspecialchars($form['email'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="you@example.com" required autocomplete="email">
                         </div>
 
                         <div class="contact-field contact-field-full">
@@ -680,32 +169,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <option value="<?php echo htmlspecialchars($audienceKey, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $form['audience'] === $audienceKey ? 'selected' : ''; ?>><?php echo htmlspecialchars($audienceMeta['label'], ENT_QUOTES, 'UTF-8'); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <span class="contact-field-help"><i class="fas fa-arrow-right"></i> Choose the closest match.</span>
+                            <div id="contactAudienceHint" class="contact-audience-hint">
+                                <i class="fas fa-arrow-right"></i>
+                                <span><?php echo htmlspecialchars($audienceHints[$form['audience']] ?? $audienceHints['user'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
                         </div>
 
                         <div class="contact-field contact-field-full">
                             <label for="contact-subject">Subject <span class="contact-required">*</span></label>
-                            <input id="contact-subject" type="text" name="subject" value="<?php echo htmlspecialchars($form['subject'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Briefly summarize your request" required>
+                            <input id="contact-subject" type="text" name="subject" value="<?php echo htmlspecialchars($form['subject'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Briefly summarize your request" required minlength="5">
                         </div>
 
                         <div class="contact-field contact-field-full">
                             <label for="contact-message">Message <span class="contact-required">*</span></label>
-                            <textarea id="contact-message" name="message" rows="7" placeholder="Include the full context, project details, links, or issue summary here." required><?php echo htmlspecialchars($form['message'], ENT_QUOTES, 'UTF-8'); ?></textarea>
-                            <span class="contact-field-help"><i class="fas fa-circle-info"></i> Keep it clear and specific.</span>
+                            <textarea id="contact-message" name="message" rows="7" placeholder="Include the full context, project details, links, or issue summary here." required minlength="20"><?php echo htmlspecialchars($form['message'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                            <div class="contact-char-counter" id="contactCharCounter">0 characters</div>
                         </div>
                     </div>
 
                     <div class="contact-submit-row">
                         <div class="contact-submit-copy"><i class="fas fa-shield-halved"></i> Sent securely to CoinRex.</div>
-                        <button class="contact-submit-btn" type="submit">
-                            <i class="fas fa-paper-plane"></i>
-                            <span>Send to CoinRex</span>
+                        <button class="contact-submit-btn" type="submit" id="contactSubmitBtn">
+                            <span class="btn-spinner"></span>
+                            <span class="btn-text"><i class="fas fa-paper-plane"></i> Send to CoinRex</span>
+                            <span class="btn-loading-text"><i class="fas fa-spinner"></i> Sending...</span>
                         </button>
                     </div>
                 </form>
             </div>
 
-            <aside class="contact-sidebar-stack">
+            <!-- Sidebar -->
+            <aside class="contact-sidebar-stack contact-fade-in">
                 <div class="contact-panel">
                     <h2 class="contact-sidebar-title">Official contact channels</h2>
                     <p class="contact-sidebar-copy">Verified channels only.</p>
@@ -773,7 +267,197 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </aside>
         </section>
+
+        <!-- FAQ Accordion Section -->
+        <section class="contact-faq-section contact-fade-in">
+            <div class="contact-faq-panel">
+                <h2>Frequently asked questions</h2>
+                <p>Quick answers to common inquiries before you reach out.</p>
+
+                <div class="contact-faq-list">
+                    <div class="contact-faq-item">
+                        <button class="contact-faq-question" type="button">
+                            <span>How quickly will I get a response?</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="contact-faq-answer">
+                            <p>We aim to respond to all inquiries within 24 hours during business days (Monday–Friday). Complex issues may require additional time for thorough investigation.</p>
+                        </div>
+                    </div>
+
+                    <div class="contact-faq-item">
+                        <button class="contact-faq-question" type="button">
+                            <span>What information should I include in my message?</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="contact-faq-answer">
+                            <p>Include a clear subject line, detailed description of your issue or request, relevant links (project URLs, transaction hashes), and any steps you've already taken. The more context you provide, the faster we can help.</p>
+                        </div>
+                    </div>
+
+                    <div class="contact-faq-item">
+                        <button class="contact-faq-question" type="button">
+                            <span>How do I choose the right contact type?</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="contact-faq-answer">
+                            <p>Select the option that best matches your role: <strong>User</strong> for general platform questions, <strong>Developer</strong> for API/DevHub inquiries, <strong>Project Owner</strong> for project listings and verification, and <strong>Promoter</strong> for marketing and affiliate partnerships.</p>
+                        </div>
+                    </div>
+
+                    <div class="contact-faq-item">
+                        <button class="contact-faq-question" type="button">
+                            <span>Can I report a scam or suspicious project?</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="contact-faq-answer">
+                            <p>Yes. Please use the contact form and select <strong>User</strong> as your contact type. Include the project name, URL, and any evidence you have. You can also use our dedicated report system for urgent cases.</p>
+                        </div>
+                    </div>
+
+                    <div class="contact-faq-item">
+                        <button class="contact-faq-question" type="button">
+                            <span>Is my information kept private?</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="contact-faq-answer">
+                            <p>Absolutely. All messages are encrypted in transit and stored securely. Your personal information is only used to respond to your inquiry and is never shared with third parties. See our <a href="<?php echo BASE_URL; ?>/privacy.php" style="color:var(--color-info-soft);">Privacy Policy</a> for details.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
 </main>
+
+<script>
+(function() {
+    'use strict';
+
+    // ── Scroll-triggered fade-in ──
+    const fadeElements = document.querySelectorAll('.contact-fade-in');
+    if (fadeElements.length > 0 && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        fadeElements.forEach(function(el) {
+            observer.observe(el);
+        });
+    } else {
+        fadeElements.forEach(function(el) {
+            el.classList.add('is-visible');
+        });
+    }
+
+    // ── FAQ Accordion ──
+    const faqItems = document.querySelectorAll('.contact-faq-item');
+    faqItems.forEach(function(item) {
+        const question = item.querySelector('.contact-faq-question');
+        if (question) {
+            question.addEventListener('click', function() {
+                const isOpen = item.classList.contains('is-open');
+                // Close all other items
+                faqItems.forEach(function(other) {
+                    other.classList.remove('is-open');
+                });
+                // Toggle this one
+                if (!isOpen) {
+                    item.classList.add('is-open');
+                }
+            });
+        }
+    });
+
+    // ── Audience Dynamic Hint ──
+    const audienceSelect = document.getElementById('contact-audience');
+    const audienceHint = document.getElementById('contactAudienceHint');
+    if (audienceSelect && audienceHint) {
+        const hints = <?php echo json_encode($audienceHints, JSON_UNESCAPED_UNICODE); ?>;
+        const hintSpan = audienceHint.querySelector('span');
+
+        audienceSelect.addEventListener('change', function() {
+            const value = this.value;
+            const text = hints[value] || hints['user'];
+            if (hintSpan) {
+                hintSpan.textContent = text;
+            }
+            // Re-trigger animation
+            audienceHint.style.animation = 'none';
+            void audienceHint.offsetHeight; // force reflow
+            audienceHint.style.animation = 'contactFadeIn 0.3s ease';
+        });
+    }
+
+    // ── Character Counter ──
+    const messageField = document.getElementById('contact-message');
+    const charCounter = document.getElementById('contactCharCounter');
+    if (messageField && charCounter) {
+        function updateCharCount() {
+            const len = messageField.value.length;
+            charCounter.textContent = len + ' characters';
+            charCounter.classList.remove('is-warning', 'is-danger');
+            if (len > 1000) {
+                charCounter.classList.add('is-danger');
+            } else if (len > 500) {
+                charCounter.classList.add('is-warning');
+            }
+        }
+        messageField.addEventListener('input', updateCharCount);
+        updateCharCount();
+    }
+
+    // ── Auto-resize textarea ──
+    if (messageField) {
+        function autoResize() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 400) + 'px';
+        }
+        messageField.addEventListener('input', autoResize);
+    }
+
+    // ── Form Submit Loading State ──
+    const contactForm = document.getElementById('contactForm');
+    const submitBtn = document.getElementById('contactSubmitBtn');
+    if (contactForm && submitBtn) {
+        contactForm.addEventListener('submit', function() {
+            // Basic client-side validation
+            const name = document.getElementById('contact-name');
+            const email = document.getElementById('contact-email');
+            const subject = document.getElementById('contact-subject');
+            const message = document.getElementById('contact-message');
+
+            let valid = true;
+            [name, email, subject, message].forEach(function(field) {
+                if (field && !field.value.trim()) {
+                    valid = false;
+                    field.style.borderColor = 'var(--color-danger)';
+                    setTimeout(function() {
+                        field.style.borderColor = '';
+                    }, 2000);
+                }
+            });
+
+            if (valid) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('is-loading');
+            }
+        });
+    }
+
+    // ── Input field focus border reset ──
+    document.querySelectorAll('.contact-field input, .contact-field select, .contact-field textarea, .contact-field-full input, .contact-field-full select, .contact-field-full textarea').forEach(function(input) {
+        input.addEventListener('input', function() {
+            this.style.borderColor = '';
+        });
+    });
+
+})();
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
