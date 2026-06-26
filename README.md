@@ -18,8 +18,8 @@
 - **Reward system** - Ledger-based rewards with claim snapshots and referral bonuses.
 - **TaskHub / BoostHub** - Guided participation and earning for beginner accounts.
 - **Trust progression** - Beginner, Pro, and Expert levels with weighted trust.
-- **Review eligibility** - Wallet nonce and verification endpoints for wallet-aware review checks.
-- **Rex Signer** - Pairing, approval request, claim transaction, session, realtime auth, and asset APIs.
+- **On-chain review eligibility** - Wallet nonce, wallet verification, and eligibility checks for token-aware review access.
+- **RexLink / Rex Signer** - Wallet linking sessions, pairing QR flows, approval requests, claim transaction approvals, realtime auth, and asset APIs.
 - **Sponsored and launch flows** - Sponsored token/project management, early airdrop, launch control, and roadmap pages.
 - **Admin moderation** - User, project, review, reward, quiz, roadmap, launch, and security management.
 - **DevHub** - Developer and project-side workflows, applications, project editing, notifications, and widget integrations.
@@ -110,7 +110,26 @@ mkdir -p uploads devhub/logs
 | DevHub | Developer onboarding, project submission/editing, notifications, review visibility, and widget integration docs |
 | APIs | TaskHub, rewards, notifications, learning sessions, review eligibility, admin quiz/BoostHub, Rex Signer, and `/api/v1` endpoints |
 | Web3 | CoinRex token, claim distributor contracts, Amoy deployment scripts, claim signing, and Rex Signer approval/session flows |
-| Realtime | WebSocket/event server used by Rex Signer and other realtime features |
+| Realtime | WebSocket/event server used by RexLink linking, Rex Signer approvals, and other realtime features |
+
+## RexLink, WebSockets, and On-Chain Eligibility
+
+CoinRex includes a wallet-linked trust layer for actions that need wallet ownership, realtime approval, or on-chain context.
+
+| Capability | Implementation |
+| --- | --- |
+| RexLink wallet linking | Pairing sessions, QR payloads, session completion, revocation, and login-from-session APIs under `api/rex-signer/` |
+| WebSocket approval flow | `realtime/server.js` plus Rex Signer realtime auth endpoints for live pairing and approval updates |
+| Claim approvals | Claim approval request creation, wallet-side approval decisions, signed claim transaction completion, and distributor funding/deployment scripts |
+| On-chain review eligibility | Wallet nonce generation, wallet verification, and eligibility checks under `api/review-eligibility/` |
+| Smart contracts | `contracts/CoinRexToken.sol`, `contracts/RexClaimDistributor.sol`, Hardhat tests, and Amoy deployment scripts |
+
+Key API groups:
+
+- `api/rex-signer/create_pairing.php`, `complete_pairing.php`, `pairing_qr.php`, `sessions.php`, and `revoke_session.php` manage RexLink pairing and sessions.
+- `api/rex-signer/create_approval_request.php`, `approval_requests.php`, `approval_decision.php`, and `realtime_auth.php` support realtime wallet approvals over WebSockets.
+- `api/rex-signer/create_claim_approval.php` and `complete_claim_tx.php` support wallet-approved reward claim transactions.
+- `api/review-eligibility/wallet_nonce.php`, `verify_wallet.php`, and `check.php` support on-chain/wallet-aware review eligibility.
 
 ## Development Checks
 
