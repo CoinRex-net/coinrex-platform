@@ -10,7 +10,7 @@ require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/functions.php';
 
 if (isLoggedIn()) {
-    redirect(BASE_URL . '/dashboard.php');
+    redirect(BASE_URL . '/public/dashboard.php');
 }
 
 $error = '';
@@ -41,8 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reset_otp'])) {
             if ($result['success']) {
                 $pending_user = getPendingPasswordResetUser();
                 $otp_verified = false;
-                $success = 'A 6-digit OTP has been sent to your registered email address.';
-                $info = 'Use the code from your inbox to verify your identity before choosing a new password.';
+                $success = 'OTP sent to your registered email.';
+                $info = '';
             } else {
                 $error = $result['message'];
             }
@@ -62,8 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_otp'])) {
             if ($result['success']) {
                 $pending_user = getPendingPasswordResetUser();
                 $otp_verified = false;
-                $success = 'A fresh 6-digit OTP has been sent to ' . $pending_user['email'] . '.';
-                $info = 'Enter the latest OTP from your inbox to continue.';
+                $success = 'New OTP sent.';
+                $info = '';
             } else {
                 $error = $result['message'];
             }
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_otp'])) {
         if ($result['success']) {
             $pending_user = $result['user'] ?? $pending_user;
             $otp_verified = true;
-            $success = 'Identity verified. You can now set a new password.';
+            $success = 'OTP verified.';
             $info = '';
         } else {
             $error = $result['message'];
@@ -124,24 +124,25 @@ require_once dirname(__DIR__) . '/includes/header.php';
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/verify_email.css">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/forgot.css">
 
-<main class="auth-main verify-main forgot-main">
-    <div class="auth-container verify-container forgot-container">
-        <div class="auth-bg-decoration">
+<main class="auth-main auth-main-split forgot-main">
+    <div class="auth-container auth-shell forgot-shell">
+        <div class="auth-bg-decoration" aria-hidden="true">
             <div class="gradient-orb orb-1"></div>
             <div class="gradient-orb orb-2"></div>
             <div class="gradient-orb orb-3"></div>
         </div>
 
-        <div class="auth-card verify-card forgot-card">
+        <div class="auth-card auth-split-card forgot-split-card">
+            <section class="auth-panel forgot-panel">
             <div class="auth-logo verify-logo">
-                <img src="<?php echo ASSETS_URL; ?>/images/logo.png" alt="CoinRex" class="auth-logo-img">
+                <img src="<?php echo ASSETS_URL; ?>/images/shield-logo.png" alt="CoinRex" class="auth-logo-img auth-shield-mark">
                 <p class="auth-tagline"><?php echo SITE_TAGLINE; ?></p>
             </div>
 
             <div class="verify-heading forgot-heading">
                 <span class="verify-badge"><i class="fas fa-unlock-keyhole"></i> Account Recovery</span>
-                <h1>Forgot Password</h1>
-                <p>Find your account, verify it with a 6-digit OTP, and create a secure new password.</p>
+                <h1>Reset your password</h1>
+                <p>Verify the OTP and set a new password.</p>
             </div>
 
             <?php if ($error): ?>
@@ -165,35 +166,17 @@ require_once dirname(__DIR__) . '/includes/header.php';
             </div>
             <?php endif; ?>
 
-            <section class="verify-guide forgot-guide">
-                <div class="guide-item">
-                    <span class="guide-step">1</span>
-                    <div>
-                        <strong>Find your account</strong>
-                        <p>Enter the email address or username linked to your CoinRex account.</p>
-                    </div>
-                </div>
-                <div class="guide-item">
-                    <span class="guide-step">2</span>
-                    <div>
-                        <strong>Verify with OTP</strong>
-                        <p>We will send a 6-digit OTP to your registered email so we know it is really you.</p>
-                    </div>
-                </div>
-                <div class="guide-item">
-                    <span class="guide-step">3</span>
-                    <div>
-                        <strong>Set a fresh password</strong>
-                        <p>Choose a strong password with the same security rules used during registration.</p>
-                    </div>
-                </div>
+            <section class="forgot-progress" aria-label="Password reset progress">
+                <span class="is-active"><i class="fas fa-user-magnifying-glass"></i> Find</span>
+                <span class="<?php echo $pending_user ? 'is-active' : ''; ?>"><i class="fas fa-key"></i> Verify</span>
+                <span class="<?php echo $otp_verified ? 'is-active' : ''; ?>"><i class="fas fa-lock"></i> Reset</span>
             </section>
 
             <?php if (!$pending_user): ?>
             <section class="forgot-section">
                 <div class="section-head">
                     <h2>Find Your Account</h2>
-                    <p>Use either your email address or your username. If the account exists, we will send the OTP to the registered email.</p>
+                    <p>Email or username.</p>
                 </div>
 
                 <form method="POST" class="forgot-lookup-form">
@@ -222,7 +205,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                     <span class="verify-email-label">Recovery Email</span>
                     <strong><?php echo htmlspecialchars((string) $pending_user['email'], ENT_QUOTES, 'UTF-8'); ?></strong>
                 </div>
-                <div class="verify-email-meta">
+                <div class="verify-email-status">
                     <span><i class="fas fa-user"></i> @<?php echo htmlspecialchars((string) $pending_user['username'], ENT_QUOTES, 'UTF-8'); ?></span>
                     <span><i class="fas fa-keyboard"></i> <?php echo $otp_attempts_left; ?> attempt(s) left</span>
                 </div>
@@ -232,7 +215,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
             <section class="forgot-section">
                 <div class="section-head">
                     <h2>Verify OTP</h2>
-                    <p>Enter or paste the 6-digit OTP we sent to your registered email.</p>
+                    <p>Enter the 6-digit code.</p>
                 </div>
 
                 <form method="POST" class="verify-form" id="resetOtpForm" autocomplete="one-time-code">
@@ -256,7 +239,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                     <div class="verify-form-footer">
                         <div class="verify-tip">
                             <i class="fas fa-bolt"></i>
-                            <span>Tip: paste the full OTP and we will fill all six boxes automatically.</span>
+                            <span>Paste code</span>
                         </div>
 
                         <button type="submit" name="verify_otp" class="auth-submit verify-submit">
@@ -290,7 +273,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                     <?php if ($resend_remaining > 0): ?>
                         You can request a new OTP in <?php echo (int) $resend_remaining; ?> second(s).
                     <?php else: ?>
-                        Need a new code? You can resend it now.
+                        You can resend now.
                     <?php endif; ?>
                 </p>
             </section>
@@ -298,7 +281,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
             <section class="forgot-section">
                 <div class="section-head">
                     <h2>Create New Password</h2>
-                    <p>Your identity is verified. Choose a strong new password to secure your account.</p>
+                    <p>Use a strong password.</p>
                 </div>
 
                 <form method="POST" class="forgot-reset-form" id="passwordResetForm">
@@ -365,6 +348,61 @@ require_once dirname(__DIR__) . '/includes/header.php';
             </section>
             <?php endif; ?>
             <?php endif; ?>
+            </section>
+
+            <aside class="auth-story auth-visual-zone forgot-visual-zone" aria-label="CoinRex account recovery snapshot">
+                <div class="auth-network-scene">
+                    <div class="auth-network-grid" aria-hidden="true"></div>
+                    <div class="auth-chain-line auth-chain-line-a" aria-hidden="true"></div>
+                    <div class="auth-chain-line auth-chain-line-b" aria-hidden="true"></div>
+                    <div class="auth-chain-line auth-chain-line-c" aria-hidden="true"></div>
+
+                    <div class="auth-network-node auth-node-a" aria-hidden="true"></div>
+                    <div class="auth-network-node auth-node-b" aria-hidden="true"></div>
+                    <div class="auth-network-node auth-node-c" aria-hidden="true"></div>
+                    <div class="auth-network-node auth-node-d" aria-hidden="true"></div>
+
+                    <div class="auth-core-snapshot">
+                        <img src="<?php echo ASSETS_URL; ?>/images/circle-icon.png" alt="CoinRex" class="auth-core-logo">
+                    </div>
+
+                    <div class="auth-floating-shot auth-shot-proof">
+                        <i class="fas fa-user-lock"></i>
+                        <span>Recover</span>
+                    </div>
+
+                    <div class="auth-floating-shot auth-shot-review">
+                        <i class="fas fa-envelope-circle-check"></i>
+                        <span>OTP</span>
+                    </div>
+
+                    <div class="auth-floating-shot auth-shot-reward">
+                        <i class="fas fa-shield-halved"></i>
+                        <span>Secure</span>
+                    </div>
+
+                    <div class="auth-floating-shot auth-shot-rexlink">
+                        <img src="<?php echo ASSETS_URL; ?>/images/rexlink-logo.png" alt="RexLink">
+                        <span>Access</span>
+                    </div>
+
+                    <div class="auth-mini-panel auth-mini-panel-top">
+                        <span class="auth-mini-dot"></span>
+                        <strong>Recovery</strong>
+                    </div>
+
+                    <div class="auth-mini-panel auth-mini-panel-bottom">
+                        <img src="<?php echo ASSETS_URL; ?>/images/shield-logo.png" alt="">
+                        <strong>Password Gate</strong>
+                    </div>
+                </div>
+
+                <div class="auth-visual-ticker" aria-label="Password recovery steps">
+                    <span>Account Found</span>
+                    <span>OTP Verified</span>
+                    <span>Password Reset</span>
+                </div>
+            </aside>
         </div>
     </div>
 </main>
@@ -393,7 +431,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         otpValue.value = otpSlots.map(function (input) {
-            return getOtpDigits(input.value).slice(0, 1);
+            const digit = getOtpDigits(input.value).slice(0, 1);
+            input.classList.toggle('is-filled', digit !== '');
+            return digit;
         }).join('');
     }
 
@@ -490,13 +530,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const updateTimer = function () {
             if (remaining > 0) {
-                resendTimer.textContent = 'You can request a new OTP in ' + remaining + ' second(s).';
+                resendTimer.textContent = 'Resend in ' + remaining + 's';
                 if (resendButton) {
                     resendButton.disabled = true;
                 }
                 remaining -= 1;
             } else {
-                resendTimer.textContent = 'Need a new code? You can resend it now.';
+                resendTimer.textContent = 'You can resend now.';
                 if (resendButton) {
                     resendButton.disabled = false;
                 }

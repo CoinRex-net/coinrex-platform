@@ -1,5 +1,49 @@
 {
+    "name": "coinrex/coinrex-platform",
+    "description": "CoinRex Platform — Crypto project reviews, proof-based trust workflows, rewards, and admin moderation.",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "CoinRex Team",
+            "homepage": "https://coinrex.net"
+        }
+    ],
     "require": {
+        "php": ">=8.1",
+        "dompdf/dompdf": "^3.1",
+        "erusev/parsedown": "^1.8",
         "phpmailer/phpmailer": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "squizlabs/php_codesniffer": "^3.7",
+        "phpstan/phpstan": "^1.10",
+        "phpstan/phpstan-strict-rules": "^1.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "CoinRex\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CoinRex\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "phpcs": "phpcs --standard=phpcs.xml.dist",
+        "phpcbf": "phpcbf --standard=phpcs.xml.dist",
+        "phpstan": "phpstan analyse --configuration=phpstan.neon.dist",
+        "check": [
+            "@phpcs",
+            "@phpstan",
+            "@test"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
     }
 }

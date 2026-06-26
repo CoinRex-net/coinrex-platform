@@ -1,5 +1,7 @@
 # CoinRex Security Review
 
+> **📌 Quick Reference:** For vulnerability reporting and security policy, see [SECURITY.md](../SECURITY.md) in the project root.
+
 ## Current Security Mechanisms
 
 ## 1) Password Security

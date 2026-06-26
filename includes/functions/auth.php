@@ -1,6 +1,56 @@
 <?php
 /** Auto-split from legacy functions.php */
 
+function validateReviewerRegistrationSubmission($full_name, $email, $password, $confirm_password, $referral_code = null, $terms_accepted = false) {
+    $full_name = sanitize($full_name);
+    $email = normalizeEmail($email);
+    $password = (string) $password;
+    $confirm_password = (string) $confirm_password;
+    $referral_code = normalizeReferralCode($referral_code);
+    $password_validation = validatePasswordPolicy($password);
+    $referral_validation = validateReferralCode($referral_code);
+
+    if (empty($full_name) || empty($email) || empty($password)) {
+        return ['valid' => false, 'message' => 'Please fill in all required fields'];
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['valid' => false, 'message' => 'Invalid email address'];
+    }
+
+    if (isDisposableEmail($email)) {
+        return ['valid' => false, 'message' => 'Temporary email addresses are not allowed'];
+    }
+
+    if (getUserByEmail($email)) {
+        return ['valid' => false, 'message' => 'Email already registered'];
+    }
+
+    if (!$password_validation['is_valid']) {
+        return ['valid' => false, 'message' => 'Password must be at least 9 characters and include an uppercase letter, a number, and a special character'];
+    }
+
+    if ($password !== $confirm_password) {
+        return ['valid' => false, 'message' => 'Passwords do not match'];
+    }
+
+    if (!$referral_validation['valid']) {
+        return ['valid' => false, 'message' => $referral_validation['message']];
+    }
+
+    if (!$terms_accepted) {
+        return ['valid' => false, 'message' => 'Please accept the Terms of Service'];
+    }
+
+    return [
+        'valid' => true,
+        'message' => '',
+        'full_name' => $full_name,
+        'email' => $email,
+        'referral_code' => $referral_code !== '' ? $referral_code : null,
+    ];
+}
+
 function establishAuthenticatedSession($user, $remember = false) {
     $db = getDBConnection();
     ensureRememberMeSchema($db);
@@ -244,7 +294,7 @@ function restoreRememberedSession() {
     $stmt->execute([$token_hash]);
     $user = $stmt->fetch();
 
-    if (!$user || ($user['status'] ?? '') !== 'active' || (int) ($user['email_verified'] ?? 0) !== 1) {
+    if (!$user || !userAuthIdentityVerified($user)) {
         clearRememberMeTokenByCookie($db);
         return false;
     }
@@ -252,6 +302,23 @@ function restoreRememberedSession() {
     establishAuthenticatedSession($user, false);
     issueRememberMeToken((int) $user['id'], $db);
     return true;
+}
+
+function userAuthIdentityVerified(array $user) {
+    if (($user['status'] ?? '') !== 'active') {
+        return false;
+    }
+
+    if (!empty($user['security_suspended'])) {
+        return false;
+    }
+
+    $provider = strtolower(trim((string) ($user['auth_provider'] ?? 'email')));
+    if ($provider === 'rex_signer' || $provider === 'hybrid') {
+        return !empty($user['wallet_address']) && !empty($user['wallet_verified_at']);
+    }
+
+    return (int) ($user['email_verified'] ?? 0) === 1;
 }
 
 function loginUser($email, $password, $remember = false) {
@@ -266,6 +333,10 @@ function loginUser($email, $password, $remember = false) {
     
     if ($user['status'] !== 'active') {
         return ['success' => false, 'message' => 'Your account is ' . $user['status']];
+    }
+
+    if ((int) ($user['login_attempts'] ?? 0) >= ANTI_FARM_MAX_LOGIN_ATTEMPTS) {
+        return ['success' => false, 'message' => 'Too many failed login attempts. Please reset your password or contact support.'];
     }
     
     if (!verifyPassword($password, $user['password'])) {
@@ -316,16 +387,11 @@ function isLoggedIn() {
         }
 
         $db = getDBConnection();
-        $stmt = $db->prepare("
-            SELECT id, status, email_verified, last_active
-            FROM users
-            WHERE id = ?
-            LIMIT 1
-        ");
+        $stmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch();
 
-        if (!$user || ($user['status'] ?? '') !== 'active' || (int) ($user['email_verified'] ?? 0) !== 1) {
+        if (!$user || !userAuthIdentityVerified($user)) {
             logoutUser();
             return false;
         }
@@ -343,11 +409,78 @@ function isLoggedIn() {
     return restoreRememberedSession();
 }
 
+function revokeRexSignerSessionsForLogout(PDO $db, int $user_id, int $preferred_session_id = 0): void {
+    if ($user_id <= 0 || !function_exists('tableExists') || !tableExists('rex_signer_sessions')) {
+        return;
+    }
+
+    $params = [$user_id];
+    $session_filter = '';
+    if ($preferred_session_id > 0) {
+        $session_filter = ' AND id = ?';
+        $params[] = $preferred_session_id;
+    }
+
+    $select = $db->prepare("
+        SELECT id
+        FROM rex_signer_sessions
+        WHERE user_id = ?
+          AND status = 'active'
+          AND expires_at > NOW()
+          {$session_filter}
+    ");
+    $select->execute($params);
+    $session_ids = array_map('intval', array_column($select->fetchAll(), 'id'));
+
+    if (empty($session_ids) && $preferred_session_id > 0) {
+        $select = $db->prepare("
+            SELECT id
+            FROM rex_signer_sessions
+            WHERE user_id = ?
+              AND status = 'active'
+              AND expires_at > NOW()
+        ");
+        $select->execute([$user_id]);
+        $session_ids = array_map('intval', array_column($select->fetchAll(), 'id'));
+    }
+
+    if (empty($session_ids)) {
+        return;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($session_ids), '?'));
+    $update = $db->prepare("
+        UPDATE rex_signer_sessions
+        SET status = 'revoked',
+            revoked_at = NOW(),
+            revoke_reason = 'CoinRex logout'
+        WHERE user_id = ?
+          AND id IN ({$placeholders})
+          AND status = 'active'
+    ");
+    $update->execute(array_merge([$user_id], $session_ids));
+
+    if (function_exists('tableExists') && tableExists('rex_signer_approval_requests')) {
+        $cancel = $db->prepare("
+            UPDATE rex_signer_approval_requests
+            SET status = 'cancelled',
+                decided_at = COALESCE(decided_at, NOW()),
+                decision_note = 'RexLink session ended by CoinRex logout.'
+            WHERE user_id = ?
+              AND session_id IN ({$placeholders})
+              AND status = 'pending'
+        ");
+        $cancel->execute(array_merge([$user_id], $session_ids));
+    }
+}
+
 function logoutUser() {
     $db = getDBConnection();
 
     if (isset($_SESSION['user_id'])) {
-        clearRememberMeTokenForUser((int) $_SESSION['user_id'], $db);
+        $user_id = (int) $_SESSION['user_id'];
+        clearRememberMeTokenForUser($user_id, $db);
+        revokeRexSignerSessionsForLogout($db, $user_id, (int) ($_SESSION['rex_signer_login_session_id'] ?? 0));
     } else {
         clearRememberMeTokenByCookie($db);
     }

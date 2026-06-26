@@ -442,6 +442,222 @@
     flex-wrap: wrap;
 }
 
+.eligibility-setup-card {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px;
+    margin: 8px 0 16px;
+    border: 1px solid var(--dh-border-soft);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.72));
+    box-shadow: 0 16px 36px rgba(2, 6, 23, 0.18);
+}
+
+.eligibility-setup-icon {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid var(--dh-border-accent);
+    border-radius: 14px;
+    background: var(--dh-accent-glow);
+    color: var(--dh-accent-soft);
+    font-size: 18px;
+}
+
+.eligibility-setup-copy {
+    display: grid;
+    gap: 8px;
+    color: var(--dh-text-muted);
+}
+
+.eligibility-kicker {
+    color: var(--dh-accent-soft);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.eligibility-setup-copy strong {
+    color: var(--dh-text-primary);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.eligibility-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.eligibility-chip {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--dh-border-soft);
+    border-radius: 999px;
+    background: var(--dh-bg-elevated);
+    color: var(--dh-text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.eligibility-chip:hover {
+    border-color: var(--dh-accent-soft);
+    background: var(--dh-accent-glow);
+    color: var(--dh-accent-soft);
+    transform: translateY(-1px);
+}
+
+.contract-builder {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0 18px;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.contract-row-head {
+    display: none;
+}
+
+.contract-row:not(.contract-row-head) {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(96px, 0.55fr) minmax(116px, 0.65fr);
+    gap: 10px;
+    align-items: end;
+    padding: 14px;
+    border: 1px solid var(--dh-border-subtle);
+    border-radius: 16px;
+    background: var(--dh-bg-card);
+    max-width: 100%;
+    min-width: 0;
+}
+
+.contract-builder-edit .contract-row:not(.contract-row-head) {
+    grid-template-columns: minmax(150px, 1fr) minmax(96px, 0.55fr) minmax(116px, 0.65fr);
+}
+
+.contract-field {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    min-width: 0;
+}
+
+.contract-address-field {
+    grid-column: 1 / -1;
+}
+
+.contract-primary-toggle {
+    grid-column: 1;
+    grid-row: 3;
+}
+
+.contract-active-toggle {
+    grid-column: 2;
+    grid-row: 3;
+}
+
+.contract-remove-btn {
+    grid-column: 3;
+    grid-row: 3;
+}
+
+.contract-field > span {
+    color: var(--dh-text-soft);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.contract-field input,
+.contract-field select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--dh-border-soft);
+    border-radius: 12px;
+    background: var(--dh-bg-elevated);
+    color: var(--dh-text-primary);
+    outline: none;
+}
+
+.contract-field input:focus,
+.contract-field select:focus {
+    border-color: var(--dh-accent);
+    box-shadow: 0 0 0 3px var(--dh-accent-glow);
+}
+
+.contract-field input[readonly] {
+    color: var(--dh-text-soft);
+    border-style: dashed;
+    cursor: default;
+}
+
+.contract-primary-toggle,
+.contract-active-toggle {
+    min-height: 44px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    border: 1px solid var(--dh-border-soft);
+    border-radius: 12px;
+    background: var(--dh-bg-elevated);
+    color: var(--dh-text-secondary);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.contract-primary-toggle input,
+.contract-active-toggle input {
+    accent-color: var(--dh-accent);
+}
+
+.contract-remove-btn {
+    min-height: 44px;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 12px;
+    border: 1px solid rgba(248, 113, 113, 0.28);
+    border-radius: 12px;
+    background: rgba(127, 29, 29, 0.16);
+    color: #fca5a5;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.contract-remove-btn:hover {
+    border-color: rgba(248, 113, 113, 0.55);
+    background: rgba(127, 29, 29, 0.28);
+    transform: translateY(-1px);
+}
+
+.contract-add-btn {
+    justify-self: start;
+}
+
+.contract-bulk-box {
+    padding: 14px;
+    border: 1px dashed var(--dh-border-soft);
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.34);
+}
+
 .wizard-actions {
     margin-top: 14px;
     display: flex;
@@ -453,7 +669,7 @@
 .btn-secondary,
 .btn-ghost {
     text-decoration: none;
-    border-radius: 40px;
+    border-radius: 12px;
     padding: 11px 20px;
     font-weight: 600;
     font-size: 14px;
@@ -641,6 +857,38 @@
 
     .wizard-card {
         padding: 16px;
+    }
+
+    .eligibility-setup-card {
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .eligibility-setup-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .contract-row-head {
+        display: none;
+    }
+
+    .contract-row:not(.contract-row-head) {
+        grid-template-columns: 1fr;
+        padding: 12px;
+    }
+
+    .contract-address-field,
+    .contract-primary-toggle,
+    .contract-active-toggle,
+    .contract-remove-btn {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .contract-add-btn,
+    .contract-remove-btn {
+        width: 100%;
     }
 
     .wizard-actions {

@@ -7,7 +7,9 @@
 require_once dirname(__DIR__) . '/includes/config.php';
 require_once dirname(__DIR__) . '/includes/functions.php';
 
-ensureRewardClaimSchema();
+if (!defined('COINREX_SKIP_REWARD_SCHEMA_INIT') || !COINREX_SKIP_REWARD_SCHEMA_INIT) {
+    ensureRewardClaimSchema();
+}
 
 function apiJsonResponse($status_code, array $payload) {
     http_response_code((int) $status_code);

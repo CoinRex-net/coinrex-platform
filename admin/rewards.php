@@ -40,124 +40,165 @@ $holder_users_chart = [
     }, $top_rex_holders),
 ];
 ?>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<div class="panel admin-note-card">
-    <div class="admin-section-head">
-        <div>
-            <span class="admin-kicker">Rewards</span>
-            <h2>Rewards Control Center</h2>
-        </div>
-    </div>
-    <div class="admin-metric-grid">
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">Available</span>
-            <strong><?php echo number_format((float) ($ledger_totals['available_total'] ?? 0), 2); ?></strong>
-        </div>
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">Locked</span>
-            <strong><?php echo number_format((float) ($ledger_totals['locked_total'] ?? 0), 2); ?></strong>
-        </div>
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">Pending</span>
-            <strong><?php echo number_format((float) ($ledger_totals['pending_total'] ?? 0), 2); ?></strong>
-        </div>
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">Claimed</span>
-            <strong><?php echo number_format((float) ($ledger_totals['claimed_total'] ?? 0), 2); ?></strong>
-        </div>
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">Open Claims</span>
-            <strong><?php echo number_format((int) ($summary['open_claims'] ?? 0)); ?></strong>
-        </div>
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">Frozen Users</span>
-            <strong><?php echo number_format((int) ($summary['frozen_accounts'] ?? 0)); ?></strong>
-        </div>
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">TaskHub Queue</span>
-            <strong><?php echo number_format((int) ($summary['taskhub_reviews'] ?? 0)); ?></strong>
-        </div>
-        <div class="admin-metric-card">
-            <span class="admin-metric-label">Pending Referrals</span>
-            <strong><?php echo number_format((int) ($summary['referrals_pending'] ?? 0)); ?></strong>
-        </div>
-    </div>
-</div>
+<div class="dashboard-container">
 
-<div class="admin-chart-grid">
-    <div class="panel admin-chart-panel">
-        <div class="admin-section-head">
-            <div>
-                <span class="admin-kicker">Analytics</span>
-                <h3>Reward Flow Overview</h3>
-                <p class="muted">Live comparison of earned, claimed, available, locked, and pending REX.</p>
+    <!-- ====== HEADER ====== -->
+    <div class="dashboard-header">
+        <div class="dashboard-header-left">
+            <div class="dashboard-header-icon"><i class="fas fa-coins"></i></div>
+            <div class="dashboard-header-text">
+                <h1>Rewards Control Center</h1>
+                <p>Monitor REX rewards, claims, ledger, and user balances</p>
             </div>
         </div>
-        <div class="admin-chart-shell">
-            <canvas id="rewardOverviewChart"></canvas>
+        <div class="dashboard-header-badge">
+            <i class="fas fa-database"></i> <?php echo number_format((float) ($ledger_totals['earned_total'] ?? 0), 0); ?> REX
         </div>
     </div>
-    <div class="panel admin-chart-panel">
-        <div class="admin-section-head">
+
+    <!-- ====== SECTION 1: METRICS ====== -->
+    <div class="dashboard-section-divider">
+        <h2><i class="fas fa-chart-bar"></i> Overview <span class="divider-sub">Reward system metrics</span></h2>
+    </div>
+
+    <div class="dashboard-panel">
+        <div class="dashboard-panel-header">
             <div>
-                <span class="admin-kicker">Top 10</span>
-                <h3>Top Claimed Users</h3>
-                <p class="muted">Users with the highest total claimed / withdrawn reward volume.</p>
+                <span class="modal-kicker"><i class="fas fa-coins"></i> Rewards</span>
+                <h3>Reward System Overview</h3>
+                <p class="muted" style="margin:4px 0 0;font-size:12px;">Live snapshot of REX token distribution, claims, and system health.</p>
             </div>
         </div>
-        <div class="admin-chart-shell">
-            <canvas id="topClaimedUsersChart"></canvas>
+        <div class="dashboard-metric-grid">
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-gold"><i class="fas fa-circle"></i></div></div>
+                <span class="metric-value"><?php echo number_format((float) ($ledger_totals['available_total'] ?? 0), 2); ?></span>
+                <span class="metric-label">Available REX</span>
+            </div>
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-orange"><i class="fas fa-lock"></i></div></div>
+                <span class="metric-value"><?php echo number_format((float) ($ledger_totals['locked_total'] ?? 0), 2); ?></span>
+                <span class="metric-label">Locked REX</span>
+            </div>
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-purple"><i class="fas fa-hourglass-half"></i></div></div>
+                <span class="metric-value"><?php echo number_format((float) ($ledger_totals['pending_total'] ?? 0), 2); ?></span>
+                <span class="metric-label">Pending REX</span>
+            </div>
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-green"><i class="fas fa-check-circle"></i></div></div>
+                <span class="metric-value"><?php echo number_format((float) ($ledger_totals['claimed_total'] ?? 0), 2); ?></span>
+                <span class="metric-label">Claimed REX</span>
+            </div>
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-blue"><i class="fas fa-file-invoice"></i></div></div>
+                <span class="metric-value"><?php echo number_format((int) ($summary['open_claims'] ?? 0)); ?></span>
+                <span class="metric-label">Open Claims</span>
+            </div>
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-red"><i class="fas fa-snowflake"></i></div></div>
+                <span class="metric-value"><?php echo number_format((int) ($summary['frozen_accounts'] ?? 0)); ?></span>
+                <span class="metric-label">Frozen Users</span>
+            </div>
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-cyan"><i class="fas fa-tasks"></i></div></div>
+                <span class="metric-value"><?php echo number_format((int) ($summary['taskhub_reviews'] ?? 0)); ?></span>
+                <span class="metric-label">LearnHub Queue</span>
+            </div>
+            <div class="dashboard-metric-card">
+                <div class="metric-top"><div class="metric-icon is-rose"><i class="fas fa-user-friends"></i></div></div>
+                <span class="metric-value"><?php echo number_format((int) ($summary['referrals_pending'] ?? 0)); ?></span>
+                <span class="metric-label">Pending Referrals</span>
+            </div>
         </div>
     </div>
-</div>
 
-<div class="panel admin-chart-panel">
-    <div class="admin-section-head">
-        <div>
-            <span class="admin-kicker">Holders</span>
-            <h3>Top REX Holders</h3>
-            <p class="muted">Ranking by total held balance using available + locked REX.</p>
+    <!-- ====== SECTION 2: CHARTS ====== -->
+    <div class="dashboard-section-divider">
+        <h2><i class="fas fa-chart-pie"></i> Analytics <span class="divider-sub">Reward flow and top users</span></h2>
+    </div>
+
+    <div class="dashboard-split" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="dashboard-panel" style="margin:0;">
+            <div class="dashboard-panel-header">
+                <div>
+                    <span class="modal-kicker"><i class="fas fa-chart-bar"></i> Flow</span>
+                    <h3>Reward Flow Overview</h3>
+                    <p class="muted" style="margin:4px 0 0;font-size:12px;">Live comparison of earned, claimed, available, locked, and pending REX.</p>
+                </div>
+            </div>
+            <div style="padding:16px;min-height:260px;">
+                <canvas id="rewardOverviewChart"></canvas>
+            </div>
+        </div>
+        <div class="dashboard-panel" style="margin:0;">
+            <div class="dashboard-panel-header">
+                <div>
+                    <span class="modal-kicker"><i class="fas fa-trophy"></i> Top 10</span>
+                    <h3>Top Claimed Users</h3>
+                    <p class="muted" style="margin:4px 0 0;font-size:12px;">Users with the highest total claimed / withdrawn reward volume.</p>
+                </div>
+            </div>
+            <div style="padding:16px;min-height:260px;">
+                <canvas id="topClaimedUsersChart"></canvas>
+            </div>
         </div>
     </div>
-    <div class="admin-chart-shell admin-chart-shell-lg">
-        <canvas id="topRexHoldersChart"></canvas>
-    </div>
-</div>
 
-<div class="admin-split-grid reward-admin-grid">
-    <a href="<?php echo ADMIN_BASE_URL; ?>/task-management.php" class="panel admin-nav-panel">
-        <span class="admin-kicker">Tasks</span>
-        <h3>Task Management</h3>
-        <p class="muted">Legacy task pool, limits, and status.</p>
-    </a>
-    <a href="<?php echo ADMIN_BASE_URL; ?>/boosthub.php" class="panel admin-nav-panel">
-        <span class="admin-kicker">BoostHub</span>
-        <h3>BoostHub Management</h3>
-        <p class="muted">Boost task creation, rewards, and cooldowns.</p>
-    </a>
-    <a href="<?php echo ADMIN_BASE_URL; ?>/taskhub-review.php" class="panel admin-nav-panel">
-        <span class="admin-kicker">Review</span>
-        <h3>TaskHub Queue</h3>
-        <p class="muted">Approve or reject manual submissions.</p>
-    </a>
-    <a href="<?php echo ADMIN_BASE_URL; ?>/reward-ledger.php" class="panel admin-nav-panel">
-        <span class="admin-kicker">Ledger</span>
-        <h3>Reward Ledger</h3>
-        <p class="muted">Entries, phases, status filters, and claims.</p>
-    </a>
-    <a href="<?php echo ADMIN_BASE_URL; ?>/reward-users.php" class="panel admin-nav-panel">
-        <span class="admin-kicker">Users</span>
-        <h3>Reward Users</h3>
-        <p class="muted">Balances, signals, and reward freezes.</p>
-    </a>
-    <a href="<?php echo ADMIN_BASE_URL; ?>/referrals.php" class="panel admin-nav-panel">
-        <span class="admin-kicker">Referrals</span>
-        <h3>Referral Validation</h3>
-        <p class="muted">Manual qualification control.</p>
-    </a>
-</div>
+    <div class="dashboard-panel" style="margin-top:16px;">
+        <div class="dashboard-panel-header">
+            <div>
+                <span class="modal-kicker"><i class="fas fa-crown"></i> Holders</span>
+                <h3>Top REX Holders</h3>
+                <p class="muted" style="margin:4px 0 0;font-size:12px;">Ranking by total held balance using available + locked REX.</p>
+            </div>
+        </div>
+        <div style="padding:16px;min-height:300px;">
+            <canvas id="topRexHoldersChart"></canvas>
+        </div>
+    </div>
+
+    <!-- ====== SECTION 3: QUICK LINKS ====== -->
+    <div class="dashboard-section-divider">
+        <h2><i class="fas fa-link"></i> Quick Actions <span class="divider-sub">Reward management tools</span></h2>
+    </div>
+
+    <div class="dashboard-actions">
+        <a href="<?php echo ADMIN_BASE_URL; ?>/task-management.php" class="dashboard-action-btn">
+            <i class="fas fa-tasks"></i>
+            <strong>Task Management</strong>
+            <span>Legacy task pool, limits, and status</span>
+        </a>
+        <a href="<?php echo ADMIN_BASE_URL; ?>/boosthub.php" class="dashboard-action-btn">
+            <i class="fas fa-bolt"></i>
+            <strong>BoostHub Management</strong>
+            <span>Boost task creation, rewards, and cooldowns</span>
+        </a>
+        <a href="<?php echo ADMIN_BASE_URL; ?>/taskhub-review.php" class="dashboard-action-btn">
+            <i class="fas fa-clipboard-check"></i>
+            <strong>LearnHub Queue</strong>
+            <span>Approve or reject manual submissions</span>
+        </a>
+        <a href="<?php echo ADMIN_BASE_URL; ?>/reward-ledger.php" class="dashboard-action-btn">
+            <i class="fas fa-book"></i>
+            <strong>Reward Ledger</strong>
+            <span>Entries, phases, status filters, and claims</span>
+        </a>
+        <a href="<?php echo ADMIN_BASE_URL; ?>/reward-users.php" class="dashboard-action-btn">
+            <i class="fas fa-users"></i>
+            <strong>Reward Users</strong>
+            <span>Balances, signals, and reward freezes</span>
+        </a>
+        <a href="<?php echo ADMIN_BASE_URL; ?>/referrals.php" class="dashboard-action-btn">
+            <i class="fas fa-user-friends"></i>
+            <strong>Referral Validation</strong>
+            <span>Manual qualification control</span>
+        </a>
+    </div>
+
+</div><!-- /.dashboard-container -->
 
 <script>
 (function () {

@@ -1,5 +1,5 @@
 <?php
-$page_title = 'TaskHub Review';
+$page_title = 'LearnHub Review';
 $activePage = 'taskhub-review';
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/reward_admin.php';
@@ -12,21 +12,29 @@ $taskhub_review_rows = adminRewardGetTaskhubReviewRows($db);
 ?>
 
 <?php if ($message !== ''): ?>
-    <div class="message <?php echo $message_type === 'error' ? 'message-error' : 'message-success'; ?>">
+    <div class="dashboard-message <?php echo $message_type === 'error' ? 'is-error' : 'is-success'; ?>">
         <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
     </div>
 <?php endif; ?>
 
-<div class="panel">
-    <div class="admin-section-head">
-        <div>
-            <span class="admin-kicker">TaskHub</span>
-            <h2>Manual Review Queue</h2>
-            <p class="muted">Review pending evidence for TaskHub mission tasks.</p>
+<div class="dashboard-header">
+    <div class="dashboard-header-left">
+        <div class="dashboard-header-icon"><i class="fas fa-clipboard-check"></i></div>
+        <div class="dashboard-header-text">
+            <h1>LearnHub Review</h1>
+            <p>Review pending evidence for LearnHub mission tasks and approve or reject submissions.</p>
         </div>
     </div>
-    <div class="table-wrap">
-        <table class="responsive-table">
+    <span class="dashboard-header-badge"><i class="fas fa-circle"></i> LearnHub</span>
+</div>
+
+<div class="dashboard-panel">
+    <div class="dashboard-panel-header">
+        <h3><i class="fas fa-inbox"></i> Manual Review Queue</h3>
+        <span class="panel-badge"><?php echo number_format((int) count($taskhub_review_rows)); ?> pending</span>
+    </div>
+    <div class="dashboard-table-wrap">
+        <table class="dashboard-table">
             <thead>
             <tr>
                 <th>User</th>
@@ -49,6 +57,13 @@ $taskhub_review_rows = adminRewardGetTaskhubReviewRows($db);
                             <strong>Day <?php echo (int) $review_row['mission_day']; ?></strong><br>
                             <span class="muted"><?php echo htmlspecialchars((string) $review_row['title'], ENT_QUOTES, 'UTF-8'); ?></span><br>
                             <span class="muted"><?php echo htmlspecialchars((string) ($review_row['task_key'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                            <?php
+                            $rej_count = (int) ($review_row['rejection_count'] ?? 0);
+                            if ($rej_count > 0):
+                                $rej_class = $rej_count >= 3 ? 'rejection-danger' : ($rej_count >= 2 ? 'rejection-warning' : 'rejection-info');
+                            ?>
+                                <br><span class="rejection-badge <?php echo $rej_class; ?>">Rejected <?php echo $rej_count; ?>x</span>
+                            <?php endif; ?>
                         </td>
                         <td data-label="Proof">
                             <code><?php echo htmlspecialchars((string) ($review_row['proof_data'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></code>
@@ -85,7 +100,10 @@ $taskhub_review_rows = adminRewardGetTaskhubReviewRows($db);
                 <?php endforeach; ?>
             <?php else: ?>
                 <tr>
-                    <td colspan="4">No pending submissions.</td>
+                    <td colspan="4" class="dashboard-empty">
+                        <i class="fas fa-check-circle"></i>
+                        <p>No pending submissions.</p>
+                    </td>
                 </tr>
             <?php endif; ?>
             </tbody>

@@ -55,6 +55,12 @@ function ensureRewardClaimSchema(PDO $db = null) {
     if (!tableHasColumn('users', 'referral_reviewed_by')) {
         $db->exec("ALTER TABLE users ADD COLUMN referral_reviewed_by INT UNSIGNED NULL AFTER referral_reviewed_at");
     }
+    if (!tableHasColumn('users', 'referral_abuse_detected')) {
+        $db->exec("ALTER TABLE users ADD COLUMN referral_abuse_detected TINYINT(1) NOT NULL DEFAULT 0 AFTER referral_reviewed_by");
+    }
+    if (!tableHasColumn('users', 'referral_abuse_reason')) {
+        $db->exec("ALTER TABLE users ADD COLUMN referral_abuse_reason VARCHAR(255) NULL AFTER referral_abuse_detected");
+    }
 
     if (!tableHasColumn('users', 'current_day')) {
         $db->exec("ALTER TABLE users ADD COLUMN current_day TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER reward_frozen");
@@ -187,6 +193,14 @@ function ensureRewardClaimSchema(PDO $db = null) {
         $db->exec("ALTER TABLE mini_tasks ADD COLUMN cta_label VARCHAR(80) NULL AFTER proof_notes");
     }
 
+    if (!tableHasColumn('mini_tasks', 'learning_title')) {
+        $db->exec("ALTER TABLE mini_tasks ADD COLUMN learning_title VARCHAR(255) NOT NULL DEFAULT '' AFTER cta_label");
+    }
+
+    if (!tableHasColumn('mini_tasks', 'learning_url')) {
+        $db->exec("ALTER TABLE mini_tasks ADD COLUMN learning_url VARCHAR(500) NOT NULL DEFAULT '' AFTER learning_title");
+    }
+
     $db->exec("
         CREATE TABLE IF NOT EXISTS user_task_logs (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -269,50 +283,9 @@ function ensureRewardClaimSchema(PDO $db = null) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
 
-    $task_count = (int) ($db->query("SELECT COUNT(*) FROM mini_tasks")->fetchColumn() ?: 0);
-    if ($task_count === 0) {
-        $db->exec("
-            INSERT INTO mini_tasks (title, description, reward, daily_limit, cooldown_seconds, is_active) VALUES
-            ('Daily Check-In', 'Return to CoinRex and keep your beginner streak alive.', 1.0000, 1, 86400, 1),
-            ('Explore Projects', 'Browse listed projects and stay active in the ecosystem.', 1.5000, 1, 86400, 1),
-            ('Profile Warmup', 'Keep your profile active while your account builds trust.', 2.0000, 1, 86400, 1)
-        ");
-    }
-
-    $mission_tasks = getTaskHubMissionDefinitions();
-    foreach ($mission_tasks as $mission_task) {
-        $select_task = $db->prepare("SELECT id FROM mini_tasks WHERE task_key = ? LIMIT 1");
-        $select_task->execute([(string) $mission_task['task_key']]);
-        $existing_task = $select_task->fetch();
-
-        $params = [
-            (string) $mission_task['title'],
-            (string) $mission_task['task_key'],
-            'mission',
-            (int) $mission_task['day'],
-            (int) $mission_task['step'],
-            (float) $mission_task['reward'],
-            (int) $mission_task['daily_limit'],
-            (int) $mission_task['cooldown_seconds'],
-            (int) $mission_task['unlock_after_hours'],
-            (string) $mission_task['verification_mode'],
-            !empty($mission_task['requires_quiz']) ? 1 : 0,
-            !empty($mission_task['requires_manual_review']) ? 1 : 0,
-            (int) ($mission_task['min_quiz_score'] ?? 0),
-            !empty($mission_task['is_active']) ? 1 : 0,
-            (string) $mission_task['description'],
-        ];
-
-        if (!$existing_task) {
-            $insert_task = $db->prepare("
-                INSERT INTO mini_tasks (
-                    title, task_key, task_group, mission_day, mission_step, reward, daily_limit, cooldown_seconds,
-                    unlock_after_hours, verification_mode, requires_quiz, requires_manual_review, min_quiz_score, is_active, description
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $insert_task->execute($params);
-        }
-    }
+    // DB tasks are now the single source of truth.
+    // No hardcoded seeding needed - tasks are managed via admin panel.
+    // If the mini_tasks table is empty, a seed script (tools/seed_taskhub_tasks.php) should be run.
 
     $deprecated_task_keys = [
         'day4_boosthub',
@@ -373,7 +346,7 @@ function getLedgerDisplayBalance($user_id, PDO $db = null) {
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM reward_ledger
         WHERE user_id = ?
-          AND status IN ('available', 'locked', 'claimed')
+          AND status IN ('available', 'locked')
     ");
     $stmt->execute([(int) $user_id]);
     return round((float) ($stmt->fetch()['total'] ?? 0), 8);
@@ -511,7 +484,7 @@ function generateUniqueClaimNonce(PDO $db = null) {
     return $nonce;
 }
 
-function generateClaimSnapshotForUser($user_id, PDO $db = null) {
+function generateClaimSnapshotForUser($user_id, PDO $db = null, $claim_amount = null) {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
 
@@ -544,8 +517,17 @@ function generateClaimSnapshotForUser($user_id, PDO $db = null) {
             throw new RuntimeException('A claim is already prepared for this account.');
         }
 
+        $available_balance = getRewardLedgerBalance($user_id, 'available', $db);
+        $requested_amount = $claim_amount !== null ? round((float) $claim_amount, 8) : $available_balance;
+        if ($requested_amount <= 0) {
+            throw new RuntimeException('Claim amount must be greater than zero.');
+        }
+        if ($requested_amount > $available_balance) {
+            throw new RuntimeException('Claim amount cannot exceed your available REX balance.');
+        }
+
         $ledger_stmt = $db->prepare("
-            SELECT id, amount
+            SELECT id, source, reward_phase, action_type, amount, reference_id, user_level_at_time
             FROM reward_ledger
             WHERE user_id = ?
               AND status = 'available'
@@ -559,18 +541,38 @@ function generateClaimSnapshotForUser($user_id, PDO $db = null) {
             throw new RuntimeException('No available rewards found for claim preparation.');
         }
 
-        $total_amount = 0.0;
-        $ledger_ids = [];
+        $remaining_amount = $requested_amount;
+        $lock_rows = [];
+        $split_row = null;
         foreach ($rows as $row) {
-            $total_amount += (float) ($row['amount'] ?? 0);
-            $ledger_ids[] = (int) $row['id'];
-        }
-        $total_amount = round($total_amount, 8);
+            if ($remaining_amount <= 0) {
+                break;
+            }
 
-        if ($total_amount <= 0) {
-            throw new RuntimeException('Claim amount must be greater than zero.');
+            $row_amount = round((float) ($row['amount'] ?? 0), 8);
+            if ($row_amount <= 0) {
+                continue;
+            }
+
+            if ($row_amount <= $remaining_amount + 0.00000001) {
+                $lock_rows[] = $row;
+                $remaining_amount = round($remaining_amount - $row_amount, 8);
+                continue;
+            }
+
+            $split_row = [
+                'row' => $row,
+                'claim_amount' => $remaining_amount,
+                'remaining_amount' => round($row_amount - $remaining_amount, 8),
+            ];
+            $remaining_amount = 0.0;
         }
 
+        if ($remaining_amount > 0.00000001) {
+            throw new RuntimeException('Claim amount cannot exceed your available REX balance.');
+        }
+
+        $total_amount = $requested_amount;
         $nonce = generateUniqueClaimNonce($db);
         $insert_snapshot = $db->prepare("
             INSERT INTO claim_snapshots (user_id, total_amount, nonce, status)
@@ -578,20 +580,62 @@ function generateClaimSnapshotForUser($user_id, PDO $db = null) {
         ");
         $insert_snapshot->execute([$user_id, $total_amount, $nonce]);
         $snapshot_id = (int) $db->lastInsertId();
+        $snapshot_reference = 'claim_snapshot:' . $snapshot_id;
 
-        $placeholders = implode(',', array_fill(0, count($ledger_ids), '?'));
-        $update_params = array_merge([$user_id], $ledger_ids);
-        $lock_rewards = $db->prepare("
-            UPDATE reward_ledger
-            SET status = 'locked'
-            WHERE user_id = ?
-              AND status = 'available'
-              AND id IN ($placeholders)
-        ");
-        $lock_rewards->execute($update_params);
+        if (!empty($lock_rows)) {
+            $ledger_ids = array_map(static function ($row) {
+                return (int) $row['id'];
+            }, $lock_rows);
+            $placeholders = implode(',', array_fill(0, count($ledger_ids), '?'));
+            $update_params = array_merge([$snapshot_reference, $user_id], $ledger_ids);
+            $lock_rewards = $db->prepare("
+                UPDATE reward_ledger
+                SET status = 'locked',
+                    reference_id = ?
+                WHERE user_id = ?
+                  AND status = 'available'
+                  AND id IN ($placeholders)
+            ");
+            $lock_rewards->execute($update_params);
 
-        if ($lock_rewards->rowCount() !== count($ledger_ids)) {
-            throw new RuntimeException('Unable to lock every reward row for this claim.');
+            if ($lock_rewards->rowCount() !== count($ledger_ids)) {
+                throw new RuntimeException('Unable to lock every reward row for this claim.');
+            }
+        }
+
+        if ($split_row) {
+            $source_row = $split_row['row'];
+            $reduce_row = $db->prepare("
+                UPDATE reward_ledger
+                SET amount = ?
+                WHERE id = ?
+                  AND user_id = ?
+                  AND status = 'available'
+            ");
+            $reduce_row->execute([
+                number_format((float) $split_row['remaining_amount'], 8, '.', ''),
+                (int) $source_row['id'],
+                $user_id,
+            ]);
+            if ($reduce_row->rowCount() !== 1) {
+                throw new RuntimeException('Unable to split the selected reward row.');
+            }
+
+            $insert_locked = $db->prepare("
+                INSERT INTO reward_ledger
+                    (user_id, source, reward_phase, action_type, amount, status, reference_id, user_level_at_time)
+                VALUES
+                    (?, ?, ?, ?, ?, 'locked', ?, ?)
+            ");
+            $insert_locked->execute([
+                $user_id,
+                (string) ($source_row['source'] ?? 'manual'),
+                (string) ($source_row['reward_phase'] ?? 'phase1'),
+                (string) ($source_row['action_type'] ?? 'claim_split'),
+                number_format((float) $split_row['claim_amount'], 8, '.', ''),
+                $snapshot_reference,
+                (string) ($source_row['user_level_at_time'] ?? 'beginner'),
+            ]);
         }
 
         $db->commit();
@@ -651,6 +695,262 @@ function getClaimSnapshotStatus($snapshot_id, $user_id = null, PDO $db = null) {
     ];
 }
 
+function markClaimSnapshotSubmitted($snapshot_id, $user_id, $tx_hash = '', PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRewardClaimSchema($db);
+
+    $snapshot_id = (int) $snapshot_id;
+    $user_id = (int) $user_id;
+    $tx_hash = trim((string) $tx_hash);
+    if ($snapshot_id <= 0 || $user_id <= 0) {
+        throw new InvalidArgumentException('Invalid claim snapshot.');
+    }
+
+    try {
+        $db->beginTransaction();
+
+        $snapshot_stmt = $db->prepare("
+            SELECT id, status
+            FROM claim_snapshots
+            WHERE id = ?
+              AND user_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $snapshot_stmt->execute([$snapshot_id, $user_id]);
+        $snapshot = $snapshot_stmt->fetch();
+        if (!$snapshot) {
+            throw new RuntimeException('Claim snapshot not found.');
+        }
+
+        $was_already_used = (string) ($snapshot['status'] ?? '') === 'used';
+        if (!$was_already_used) {
+            $snapshot_update = $db->prepare("
+                UPDATE claim_snapshots
+                SET status = 'used'
+                WHERE id = ?
+                  AND user_id = ?
+            ");
+            $snapshot_update->execute([$snapshot_id, $user_id]);
+        }
+
+        $snapshot_reference = 'claim_snapshot:' . $snapshot_id;
+        $reference_id = $tx_hash !== '' ? 'claim_tx:' . $tx_hash : $snapshot_reference;
+        $ledger_update = $db->prepare("
+            UPDATE reward_ledger
+            SET status = 'claimed',
+                reference_id = ?
+            WHERE user_id = ?
+              AND status = 'locked'
+              AND reference_id = ?
+        ");
+        $ledger_update->execute([$reference_id, $user_id, $snapshot_reference]);
+
+        if ($ledger_update->rowCount() <= 0 && !$was_already_used) {
+            $legacy_update = $db->prepare("
+                UPDATE reward_ledger
+                SET status = 'claimed',
+                    reference_id = ?
+                WHERE user_id = ?
+                  AND status = 'locked'
+            ");
+            $legacy_update->execute([$reference_id, $user_id]);
+            $claimed_rows = (int) $legacy_update->rowCount();
+        } else {
+            $claimed_rows = (int) $ledger_update->rowCount();
+        }
+
+        $db->commit();
+        syncLegacyRewardCache($user_id, $db);
+
+        return [
+            'snapshot_id' => $snapshot_id,
+            'ledger_rows_claimed' => $claimed_rows,
+        ];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function expireClaimSnapshotForUser($snapshot_id, $user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRewardClaimSchema($db);
+
+    $snapshot_id = (int) $snapshot_id;
+    $user_id = (int) $user_id;
+    if ($snapshot_id <= 0 || $user_id <= 0) {
+        throw new InvalidArgumentException('Invalid claim snapshot.');
+    }
+
+    try {
+        $db->beginTransaction();
+
+        $snapshot_stmt = $db->prepare("
+            SELECT id, status
+            FROM claim_snapshots
+            WHERE id = ?
+              AND user_id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $snapshot_stmt->execute([$snapshot_id, $user_id]);
+        $snapshot = $snapshot_stmt->fetch();
+        if (!$snapshot) {
+            throw new RuntimeException('Claim snapshot not found.');
+        }
+
+        if ((string) ($snapshot['status'] ?? '') === 'used') {
+            $db->commit();
+            return [
+                'snapshot_id' => $snapshot_id,
+                'ledger_rows_released' => 0,
+                'snapshot_status' => 'used',
+            ];
+        }
+
+        $snapshot_update = $db->prepare("
+            UPDATE claim_snapshots
+            SET status = 'expired'
+            WHERE id = ?
+              AND user_id = ?
+              AND status = 'generated'
+        ");
+        $snapshot_update->execute([$snapshot_id, $user_id]);
+
+        $snapshot_reference = 'claim_snapshot:' . $snapshot_id;
+        $release_stmt = $db->prepare("
+            UPDATE reward_ledger
+            SET status = 'available',
+                reference_id = NULL
+            WHERE user_id = ?
+              AND status = 'locked'
+              AND reference_id = ?
+        ");
+        $release_stmt->execute([$user_id, $snapshot_reference]);
+        $released_rows = (int) $release_stmt->rowCount();
+
+        $db->commit();
+        syncLegacyRewardCache($user_id, $db);
+
+        return [
+            'snapshot_id' => $snapshot_id,
+            'ledger_rows_released' => $released_rows,
+            'snapshot_status' => 'expired',
+        ];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function syncSubmittedClaimTransactionsForUser($user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRewardClaimSchema($db);
+
+    $user_id = (int) $user_id;
+    if ($user_id <= 0 || !tableExists('rex_signer_approval_requests')) {
+        return 0;
+    }
+
+    $stmt = $db->prepare("
+        SELECT result_json, tx_hash
+        FROM rex_signer_approval_requests
+        WHERE user_id = ?
+          AND request_type = 'claim'
+          AND status = 'approved'
+          AND tx_hash IS NOT NULL
+          AND tx_hash <> ''
+        ORDER BY id DESC
+        LIMIT 10
+    ");
+    $stmt->execute([$user_id]);
+
+    $synced = 0;
+    foreach ($stmt->fetchAll() as $row) {
+        $result = !empty($row['result_json']) ? json_decode((string) $row['result_json'], true) : [];
+        if (!is_array($result) || empty($result['snapshot_id'])) {
+            continue;
+        }
+
+        try {
+            markClaimSnapshotSubmitted((int) $result['snapshot_id'], $user_id, (string) ($row['tx_hash'] ?? ''), $db);
+            $synced++;
+        } catch (Throwable $e) {
+            continue;
+        }
+    }
+
+    return $synced;
+}
+
+function syncStaleClaimApprovalsForUser($user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRewardClaimSchema($db);
+
+    $user_id = (int) $user_id;
+    if ($user_id <= 0 || !tableExists('rex_signer_approval_requests')) {
+        return 0;
+    }
+
+    $stmt = $db->prepare("
+        SELECT id, result_json, expires_at
+        FROM rex_signer_approval_requests
+        WHERE user_id = ?
+          AND request_type = 'claim'
+          AND status = 'approved'
+          AND (tx_hash IS NULL OR tx_hash = '')
+          AND expires_at <= NOW()
+        ORDER BY id DESC
+        LIMIT 20
+    ");
+    $stmt->execute([$user_id]);
+
+    $released = 0;
+    foreach ($stmt->fetchAll() as $row) {
+        $result = !empty($row['result_json']) ? json_decode((string) $row['result_json'], true) : [];
+        if (!is_array($result) || empty($result['snapshot_id'])) {
+            continue;
+        }
+
+        if (!empty($result['tx_status']) && (string) $result['tx_status'] !== 'pending') {
+            continue;
+        }
+
+        try {
+            $claim_update = expireClaimSnapshotForUser((int) $result['snapshot_id'], $user_id, $db);
+            $result['tx_status'] = 'failed';
+            $result['tx_error'] = 'Claim transaction was not submitted. Add POL for gas, then try again.';
+            $result['tx_reported_at'] = date('c');
+            $result['claim_snapshot_status'] = 'expired';
+            $result['ledger_status'] = 'available';
+            $result['claim_update'] = $claim_update;
+
+            $update = $db->prepare("
+                UPDATE rex_signer_approval_requests
+                SET result_json = ?,
+                    completed_at = COALESCE(completed_at, NOW())
+                WHERE id = ?
+                  AND user_id = ?
+            ");
+            $update->execute([
+                json_encode($result, JSON_UNESCAPED_SLASHES),
+                (int) $row['id'],
+                $user_id,
+            ]);
+            $released++;
+        } catch (Throwable $e) {
+            continue;
+        }
+    }
+
+    return $released;
+}
+
 function getClaimEligibility($user_id, PDO $db = null) {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
@@ -664,13 +964,17 @@ function getClaimEligibility($user_id, PDO $db = null) {
         return ['eligible' => false, 'message' => 'Rewards are temporarily frozen by the admin team for this account.'];
     }
 
+    $testing_claim_mode = defined('TESTING_MODE') && TESTING_MODE;
     $level_state = getUserLevelState($user, $db);
-    if (!in_array((string) ($level_state['level'] ?? 'beginner'), ['pro', 'expert'], true)) {
+    if (!$testing_claim_mode && !in_array((string) ($level_state['level'] ?? 'beginner'), ['pro', 'expert'], true)) {
         return ['eligible' => false, 'message' => 'Claim unlocks once your account reaches Pro level.'];
     }
 
     $balance = getRewardLedgerBalance((int) $user_id, 'available', $db);
-    if ($balance < (float) REWARD_CLAIM_MINIMUM_REX) {
+    if ($testing_claim_mode && $balance <= 0) {
+        return ['eligible' => false, 'message' => 'TESTING_MODE: Add any available REX reward before testing claim.'];
+    }
+    if (!$testing_claim_mode && $balance < (float) REWARD_CLAIM_MINIMUM_REX) {
         return ['eligible' => false, 'message' => 'Minimum claim threshold has not been reached yet.'];
     }
 
@@ -681,7 +985,7 @@ function getClaimEligibility($user_id, PDO $db = null) {
 
     return [
         'eligible' => true,
-        'message' => 'Claim snapshot can be generated.',
+        'message' => $testing_claim_mode ? 'TESTING_MODE: Claim snapshot can be generated for contract testing.' : 'Claim snapshot can be generated.',
         'balance' => number_format($balance, 8, '.', ''),
         'level' => (string) ($level_state['level'] ?? 'beginner'),
     ];
@@ -702,4 +1006,343 @@ function calculateRewardFromFinalScore($final_score, $project_max_reward, $walle
     }
 
     return (int) round($reward, 0);
+}
+
+// ============================================================
+// EARLY ADOPTER AIRDROP FUNCTIONS
+// ============================================================
+
+/**
+ * Ensure the early airdrop schema tables exist.
+ */
+function ensureEarlyAirdropSchema(PDO $db = null) {
+    static $schema_ready = false;
+    if ($schema_ready) {
+        return;
+    }
+    $db = $db ?: getDBConnection();
+
+    if (!tableExists('early_airdrop_pool')) {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS early_airdrop_pool (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                remaining_rex DECIMAL(18,8) NOT NULL DEFAULT 70000000.00000000,
+                total_allocated_signup DECIMAL(18,8) NOT NULL DEFAULT 0,
+                total_allocated_referral DECIMAL(18,8) NOT NULL DEFAULT 0,
+                signup_count INT UNSIGNED NOT NULL DEFAULT 0,
+                referral_count INT UNSIGNED NOT NULL DEFAULT 0,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        // Seed the pool
+        $db->exec("INSERT IGNORE INTO early_airdrop_pool (id, remaining_rex) VALUES (1, " . EARLY_AIRDROP_POOL_TOTAL . ")");
+    }
+
+    if (!tableExists('early_airdrop_claims')) {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS early_airdrop_claims (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                user_id INT UNSIGNED NOT NULL,
+                claim_type ENUM('signup_bonus', 'referral_bonus') NOT NULL,
+                amount DECIMAL(18,8) NOT NULL,
+                reference_id VARCHAR(100) NULL,
+                claimed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_early_claims_user (user_id),
+                KEY idx_early_claims_type (claim_type),
+                KEY idx_early_claims_claimed_at (claimed_at),
+                CONSTRAINT fk_early_claims_user
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    try {
+        $db->exec("ALTER TABLE early_airdrop_claims ADD UNIQUE KEY uq_early_claims_reference (reference_id)");
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), '1061') === false && stripos($e->getMessage(), 'Duplicate key name') === false) {
+            error_log('Could not add early airdrop reference unique key: ' . $e->getMessage());
+        }
+    }
+
+    $schema_ready = true;
+}
+
+/**
+ * Check if the early airdrop pool is still active and has enough funds.
+ */
+function isEarlyAirdropActive(PDO $db = null): bool {
+    $db = $db ?: getDBConnection();
+    ensureEarlyAirdropSchema($db);
+
+    try {
+        $stmt = $db->query("SELECT remaining_rex, is_active FROM early_airdrop_pool WHERE id = 1");
+        $row = $stmt->fetch();
+        if (!$row) {
+            return false;
+        }
+        return (int) ($row['is_active'] ?? 0) === 1 && (float) ($row['remaining_rex'] ?? 0) >= EARLY_AIRDROP_SIGNUP_BONUS;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Get the remaining amount in the early airdrop pool.
+ */
+function getEarlyAirdropPoolRemaining(PDO $db = null): float {
+    $db = $db ?: getDBConnection();
+    ensureEarlyAirdropSchema($db);
+
+    try {
+        $stmt = $db->query("SELECT remaining_rex FROM early_airdrop_pool WHERE id = 1");
+        $row = $stmt->fetch();
+        return $row ? (float) ($row['remaining_rex'] ?? 0) : (float) EARLY_AIRDROP_POOL_TOTAL;
+    } catch (Throwable $e) {
+        return (float) EARLY_AIRDROP_POOL_TOTAL;
+    }
+}
+
+/**
+ * Get the current early airdrop pool state.
+ */
+function getEarlyAirdropPoolState(PDO $db = null): array {
+    $db = $db ?: getDBConnection();
+    ensureEarlyAirdropSchema($db);
+
+    try {
+        $stmt = $db->query("SELECT * FROM early_airdrop_pool WHERE id = 1");
+        $row = $stmt->fetch();
+        if (!$row) {
+            return [
+                'remaining_rex' => EARLY_AIRDROP_POOL_TOTAL,
+                'total_allocated_signup' => 0,
+                'total_allocated_referral' => 0,
+                'signup_count' => 0,
+                'referral_count' => 0,
+                'is_active' => 1,
+            ];
+        }
+        return $row;
+    } catch (Throwable $e) {
+        return [
+            'remaining_rex' => 0,
+            'total_allocated_signup' => 0,
+            'total_allocated_referral' => 0,
+            'signup_count' => 0,
+            'referral_count' => 0,
+            'is_active' => 0,
+        ];
+    }
+}
+
+function unlockPendingEarlyAirdropForUser(int $user_id, PDO $db = null): array {
+    $db = $db ?: getDBConnection();
+    ensureRewardClaimSchema($db);
+
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) {
+        return ['unlocked' => false, 'amount' => 0.0, 'message' => 'Invalid user.'];
+    }
+
+    $user = getUserById($user_id);
+    if (!$user) {
+        return ['unlocked' => false, 'amount' => 0.0, 'message' => 'User account not found.'];
+    }
+
+    $level = normalizeUserLevel($user['level'] ?? 'beginner');
+    if (!in_array($level, ['pro', 'expert'], true)) {
+        return ['unlocked' => false, 'amount' => 0.0, 'message' => 'Airdrop unlocks at Pro level.'];
+    }
+
+    if (!taskHubMissionCompleted($user_id, $db)) {
+        return ['unlocked' => false, 'amount' => 0.0, 'message' => 'Complete all TaskHub days to unlock the early airdrop.'];
+    }
+
+    $pending_stmt = $db->prepare("
+        SELECT id, amount, action_type
+        FROM reward_ledger
+        WHERE user_id = ?
+          AND status = 'pending'
+          AND action_type IN ('early_adopter_airdrop', 'early_adopter_referral')
+        ORDER BY id ASC
+    ");
+    $pending_stmt->execute([$user_id]);
+    $pending_rows = $pending_stmt->fetchAll();
+    if (empty($pending_rows)) {
+        syncLegacyRewardCache($user_id, $db);
+        return ['unlocked' => false, 'amount' => 0.0, 'message' => 'No pending early airdrop rewards.'];
+    }
+
+    $unlocked_amount = 0.0;
+    foreach ($pending_rows as $row) {
+        $amount = round((float) ($row['amount'] ?? 0), 8);
+        if ($amount <= 0) {
+            continue;
+        }
+
+        $claim_type = (string) ($row['action_type'] ?? '') === 'early_adopter_referral'
+            ? 'referral_bonus'
+            : 'signup_bonus';
+
+        if (!deductEarlyAirdropPool($user_id, $claim_type, $amount, $db)) {
+            continue;
+        }
+
+        $update_stmt = $db->prepare("
+            UPDATE reward_ledger
+            SET status = 'available',
+                user_level_at_time = ?
+            WHERE id = ?
+              AND user_id = ?
+              AND status = 'pending'
+        ");
+        $update_stmt->execute([$level, (int) $row['id'], $user_id]);
+        if ($update_stmt->rowCount() > 0) {
+            $unlocked_amount = round($unlocked_amount + $amount, 8);
+        }
+    }
+
+    syncLegacyRewardCache($user_id, $db);
+
+    return [
+        'unlocked' => $unlocked_amount > 0,
+        'amount' => $unlocked_amount,
+        'message' => $unlocked_amount > 0 ? 'Early airdrop unlocked.' : 'No early airdrop rewards were unlocked.',
+    ];
+}
+
+/**
+ * Deduct from the early airdrop pool and log the claim.
+ * Returns true if deduction succeeded, false if pool is insufficient.
+ */
+function deductEarlyAirdropPool(int $user_id, string $claim_type, float $amount, PDO $db = null): bool {
+    $db = $db ?: getDBConnection();
+    ensureEarlyAirdropSchema($db);
+
+    try {
+        $db->beginTransaction();
+
+        // Lock the pool row for update
+        $stmt = $db->query("SELECT remaining_rex, is_active FROM early_airdrop_pool WHERE id = 1 FOR UPDATE");
+        $pool = $stmt->fetch();
+
+        if (!$pool) {
+            $db->rollBack();
+            return false;
+        }
+
+        if ((int) ($pool['is_active'] ?? 0) !== 1) {
+            $db->rollBack();
+            return false;
+        }
+
+        $remaining = (float) ($pool['remaining_rex'] ?? 0);
+        if ($remaining < $amount) {
+            // Deactivate pool since it's exhausted
+            $db->exec("UPDATE early_airdrop_pool SET is_active = 0 WHERE id = 1");
+            $db->rollBack();
+            return false;
+        }
+
+        // Deduct from pool
+        if ($claim_type === 'signup_bonus') {
+            $update_sql = "UPDATE early_airdrop_pool SET 
+                remaining_rex = remaining_rex - ?,
+                total_allocated_signup = total_allocated_signup + ?,
+                signup_count = signup_count + 1
+                WHERE id = 1";
+        } else {
+            $update_sql = "UPDATE early_airdrop_pool SET 
+                remaining_rex = remaining_rex - ?,
+                total_allocated_referral = total_allocated_referral + ?,
+                referral_count = referral_count + 1
+                WHERE id = 1";
+        }
+        $stmt = $db->prepare($update_sql);
+        $stmt->execute([$amount, $amount]);
+
+        // Log the claim
+        $reference_id = 'early_airdrop:' . $claim_type . ':' . $user_id;
+        $existing_claim = $db->prepare("SELECT id FROM early_airdrop_claims WHERE reference_id = ? LIMIT 1");
+        $existing_claim->execute([$reference_id]);
+        if ($existing_claim->fetch()) {
+            $db->rollBack();
+            return false;
+        }
+
+        $stmt = $db->prepare("INSERT INTO early_airdrop_claims (user_id, claim_type, amount, reference_id) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$user_id, $claim_type, $amount, $reference_id]);
+
+        // Check if pool is now exhausted
+        $stmt = $db->query("SELECT remaining_rex FROM early_airdrop_pool WHERE id = 1");
+        $new_remaining = (float) ($stmt->fetch()['remaining_rex'] ?? 0);
+        if ($new_remaining < EARLY_AIRDROP_SIGNUP_BONUS) {
+            $db->exec("UPDATE early_airdrop_pool SET is_active = 0 WHERE id = 1");
+        }
+
+        $db->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        return false;
+    }
+}
+
+/**
+ * Get the pending airdrop amount for a user (status = 'pending' in reward_ledger).
+ */
+function getPendingAirdropAmount(int $user_id, PDO $db = null): float {
+    $db = $db ?: getDBConnection();
+    try {
+        $stmt = $db->prepare("
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM reward_ledger
+            WHERE user_id = ?
+              AND status = 'pending'
+              AND action_type IN ('early_adopter_airdrop', 'early_adopter_referral')
+        ");
+        $stmt->execute([$user_id]);
+        return (float) ($stmt->fetch()['total'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/**
+ * Get the user's TaskHub progress for airdrop unlock display.
+ */
+function getAirdropProgress(int $user_id, PDO $db = null): array {
+    $db = $db ?: getDBConnection();
+    try {
+        $stmt = $db->prepare("SELECT current_day, last_day_completed_at FROM users WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch();
+
+        $current_day = (int) ($user['current_day'] ?? 1);
+        $completed_days = max(0, $current_day - 1);
+        $total_days = TASKHUB_TOTAL_DAYS;
+        $progress = $total_days > 0 ? round(($completed_days / $total_days) * 100, 1) : 0;
+
+        return [
+            'completed_days' => $completed_days,
+            'total_days' => $total_days,
+            'progress' => $progress,
+            'is_completed' => $completed_days >= $total_days,
+        ];
+    } catch (Throwable $e) {
+        return [
+            'completed_days' => 0,
+            'total_days' => TASKHUB_TOTAL_DAYS,
+            'progress' => 0,
+            'is_completed' => false,
+        ];
+    }
 }

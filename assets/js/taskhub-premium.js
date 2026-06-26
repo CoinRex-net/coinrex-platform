@@ -1,8 +1,8 @@
 /**
- * TaskHub Premium — Single-Card Focus Experience
+ * LearnHub Premium — Single-Card Focus Experience
  * Handles: Day stepper, hero card transitions, timer overlay, quiz, learning gate
  * 
- * v2.1 — Auto-load quiz after validation + Review Material button in tip section
+ * v2.1 — Auto-load quiz after validation + Revisit Page button in tip section
  */
 (function() {
     'use strict';
@@ -68,7 +68,14 @@
             headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
             body: new URLSearchParams(body),
         });
-        return response.json();
+        // Try to parse JSON regardless of status code
+        try {
+            const data = await response.json();
+            return data;
+        } catch (e) {
+            // If JSON parsing fails, throw with the HTTP status info
+            throw new Error('Server returned ' + response.status + ' ' + response.statusText + '. Invalid response format.');
+        }
     }
 
     // ============================================================
@@ -201,31 +208,50 @@
         if (!opener || !status || !taskKey) return;
 
         if (gate.dataset.learningOpened === '1') {
-            // Already validated — replace with Review Material button and auto-show quiz
+            // Already validated — replace with Revisit Page button and auto-show quiz
             replaceOpenWithReviewBtn(gate, taskKey);
             autoShowQuiz(gate, taskKey);
+            gate.hidden = true;
             return;
         }
 
         opener.addEventListener('click', function(e) {
             e.preventDefault();
-            startBackendSession(gate, taskKey, learningUrl);
+            const learningWindow = window.open('about:blank', '_blank');
+            if (learningWindow) {
+                try {
+                    learningWindow.document.write('<!doctype html><title>Opening learning...</title><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;color:#e2e8f0;font-family:Arial,sans-serif"><div style="text-align:center;padding:24px"><strong>Opening learning page...</strong><br><span style="color:#94a3b8;font-size:13px">Please wait.</span></div></body>');
+                    learningWindow.document.close();
+                } catch (err) {
+                    // Ignore popup document access failures.
+                }
+            }
+            startBackendSession(gate, taskKey, learningUrl, learningWindow);
         });
     }
 
-    async function startBackendSession(gate, taskKey, learningUrl) {
+    async function startBackendSession(gate, taskKey, learningUrl, learningWindow) {
         const status = gate.querySelector('[data-learning-status]');
         const opener = gate.querySelector('[data-learning-open]');
 
+        gate.classList.remove('is-locked');
+        gate.classList.add('is-reading');
         if (status) {
             status.textContent = '⏳ Opening learning page...';
             status.style.color = 'var(--th-primary)';
             status.style.borderColor = 'rgba(29, 78, 216, 0.3)';
             status.style.background = 'rgba(29, 78, 216, 0.08)';
         }
-        if (opener) opener.disabled = true;
+        if (opener) {
+            opener.classList.add('is-waiting');
+            opener.textContent = 'Waiting...';
+            opener.setAttribute('aria-busy', 'true');
+        }
+        if (status) {
+            status.textContent = 'Waiting...';
+        }
 
-        let sessionToken = null;
+        let sessionData = null;
         try {
             const response = await fetch(learningApi.start, {
                 method: 'POST',
@@ -235,39 +261,137 @@
             });
             const data = await response.json();
             if (data.success) {
-                sessionToken = data.session_token;
+                sessionData = data;
             }
         } catch (e) {
+            if (learningWindow && !learningWindow.closed) {
+                learningWindow.close();
+            }
             if (status) {
                 status.textContent = '⚠ Failed to start session. Please try again.';
                 status.style.color = 'var(--th-red)';
                 status.style.borderColor = 'rgba(239, 68, 68, 0.3)';
                 status.style.background = 'rgba(239, 68, 68, 0.08)';
             }
-            if (opener) opener.disabled = false;
+            if (opener) {
+                opener.disabled = false;
+                opener.classList.remove('is-waiting');
+                opener.textContent = 'Open & Validate';
+                opener.removeAttribute('aria-busy');
+            }
+            gate.classList.remove('is-reading');
+            gate.classList.add('is-locked');
             return;
         }
 
-        if (!sessionToken) {
+        if (!sessionData || !sessionData.session_token) {
+            if (learningWindow && !learningWindow.closed) {
+                learningWindow.close();
+            }
             if (status) {
                 status.textContent = '⚠ Failed to create learning session.';
                 status.style.color = 'var(--th-red)';
                 status.style.borderColor = 'rgba(239, 68, 68, 0.3)';
                 status.style.background = 'rgba(239, 68, 68, 0.08)';
             }
-            if (opener) opener.disabled = false;
+            if (opener) {
+                opener.disabled = false;
+                opener.classList.remove('is-waiting');
+                opener.textContent = 'Open & Validate';
+                opener.removeAttribute('aria-busy');
+            }
+            gate.classList.remove('is-reading');
+            gate.classList.add('is-locked');
             return;
         }
 
+        const sessionToken = sessionData.session_token;
+        const bridgeUrl = sessionData.bridge_url || '';
         gate.dataset.learnSessionToken = sessionToken;
 
-        // Validate immediately (backend requires only 1 second)
-        await validateLearning(gate, taskKey, sessionToken);
+        // Open the learning bridge page in a new tab
+        // The bridge page shows the learning material with a countdown timer
+        // After the timer completes, the user clicks "I've Read It" which calls verify_session.php
+        // The bridge page then sends a postMessage back to this tab
+        const destinationUrl = bridgeUrl || learningUrl;
+        if (destinationUrl) {
+            if (learningWindow && !learningWindow.closed) {
+                learningWindow.location.href = destinationUrl;
+            } else {
+                window.location.href = destinationUrl;
+            }
+        }
 
-        // Show a brief success toast instead of auto-opening a tab
-        showLearningToast('✅ Learning validated! Complete the quiz below.');
+        // Update status to show we're waiting for the user to complete reading
+        if (status) {
+            status.textContent = '📖 Learning page opened — please read the material';
+            status.style.color = 'var(--th-primary)';
+            status.style.borderColor = 'rgba(29, 78, 216, 0.3)';
+            status.style.background = 'rgba(29, 78, 216, 0.08)';
+        }
+        if (opener) {
+            opener.textContent = '⏳ Waiting...';
+            opener.disabled = true;
+            opener.textContent = 'Waiting...';
+            opener.classList.add('is-waiting');
+            opener.setAttribute('aria-busy', 'true');
+        }
+        if (status) {
+            status.textContent = 'Waiting...';
+        }
 
+        // Listen for postMessage from the learning bridge page
+        function handleLearningMessage(event) {
+            if (event.data && event.data.type === 'th-learning-verified' && event.data.sessionToken === sessionToken && event.data.taskKey === taskKey) {
+                window.removeEventListener('message', handleLearningMessage);
+                // Now validate on the backend
+                validateLearning(gate, taskKey, sessionToken);
+            }
+        }
+        window.addEventListener('message', handleLearningMessage);
+
+        // Fallback: also check via polling every 5 seconds in case postMessage fails
+        let pollCount = 0;
+        const pollInterval = setInterval(async function() {
+            pollCount++;
+            // Stop polling after 5 minutes (60 * 5 = 300 seconds / 5 = 60 polls)
+            if (pollCount > 60) {
+                clearInterval(pollInterval);
+                if (opener) {
+                    opener.textContent = '🔄 Try Again';
+                    opener.disabled = false;
+                    opener.classList.remove('is-waiting');
+                    opener.removeAttribute('aria-busy');
+                }
+                if (status) {
+                    status.textContent = '⏰ Timed out — please try again';
+                    status.style.color = 'var(--th-red)';
+                    status.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    status.style.background = 'rgba(239, 68, 68, 0.08)';
+                }
+                gate.classList.remove('is-reading');
+                gate.classList.add('is-locked');
+                return;
+            }
+            try {
+                const checkResp = await fetch(learningApi.validate, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: new URLSearchParams({ task_key: taskKey, session_token: sessionToken }),
+                });
+                const checkData = await checkResp.json();
+                if (checkData.success && checkData.valid) {
+                    clearInterval(pollInterval);
+                    window.removeEventListener('message', handleLearningMessage);
+                    validateLearning(gate, taskKey, sessionToken);
+                }
+            } catch (e) {
+                // Silently retry
+            }
+        }, 5000);
     }
+
 
     async function validateLearning(gate, taskKey, sessionToken) {
         if (!sessionToken) return;
@@ -303,12 +427,12 @@
 
 
             if (quizBlock) {
-                // Replace "Open & Validate" with "Review Material" button
+                // Replace "Open & Validate" with "Revisit Page" button
                 replaceOpenWithReviewBtn(gate, taskKey);
                 // Auto-show quiz questions immediately
                 quizBlock.hidden = false;
+                gate.hidden = true;
                 initQuizBlock(quizBlock);
-                document.dispatchEvent(new CustomEvent('learning-complete', { target: quizBlock }));
             } else {
                 const opener = gate.querySelector('[data-learning-open]');
                 if (opener) {
@@ -351,8 +475,7 @@
     }
 
     /**
-     * Replaces the "Open & Validate" button with a "Review Material" link
-     * and a fallback "Take Quiz" button in case auto-load fails.
+     * Replaces the "Open & Validate" button with a "Revisit Page" link
      */
     function replaceOpenWithReviewBtn(gate, taskKey) {
         const opener = gate.querySelector('[data-learning-open]');
@@ -367,16 +490,16 @@
             reviewHref = learningUrl + separator + 'th_session=' + encodeURIComponent(sessionToken) + '&th_task_key=' + encodeURIComponent(taskKey);
         }
 
-        // Create a wrapper to hold both buttons
+        // Create a wrapper to hold the review material link
         const wrapper = document.createElement('div');
         wrapper.className = 'th-learning-btn-group';
         wrapper.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
 
-        // Review Material link
+        // Revisit Page link
         const reviewBtn = document.createElement('a');
         reviewBtn.className = 'th-learning-btn is-validated';
         reviewBtn.setAttribute('data-review-material', '');
-        reviewBtn.innerHTML = '📖 Review Material';
+        reviewBtn.innerHTML = '📖 Revisit Page';
         reviewBtn.target = '_blank';
         reviewBtn.rel = 'noopener noreferrer';
         reviewBtn.href = reviewHref;
@@ -386,23 +509,6 @@
         }
         wrapper.appendChild(reviewBtn);
 
-        // Fallback "Take Quiz" button — shows quiz if auto-load didn't work
-        const quizFallbackBtn = document.createElement('button');
-        quizFallbackBtn.type = 'button';
-        quizFallbackBtn.className = 'th-learning-btn is-validated';
-        quizFallbackBtn.setAttribute('data-quiz-fallback', '');
-        quizFallbackBtn.innerHTML = '📝 Take Quiz';
-        quizFallbackBtn.addEventListener('click', function() {
-            const parentContainer = gate.parentElement;
-            const quizBlock = parentContainer ? parentContainer.querySelector('[data-quiz-block]') : null;
-            if (quizBlock) {
-                quizBlock.hidden = false;
-                initQuizBlock(quizBlock);
-                document.dispatchEvent(new CustomEvent('learning-complete', { target: quizBlock }));
-            }
-        });
-
-        wrapper.appendChild(quizFallbackBtn);
 
         opener.parentNode.replaceChild(wrapper, opener);
     }
@@ -416,14 +522,14 @@
         const quizBlock = parentContainer ? parentContainer.querySelector('[data-quiz-block]') : null;
         if (quizBlock) {
             quizBlock.hidden = false;
+            gate.hidden = true;
             initQuizBlock(quizBlock);
-            document.dispatchEvent(new CustomEvent('learning-complete', { target: quizBlock }));
         }
     }
 
 
     // ============================================================
-    // QUIZ SYSTEM v2.1 — Interactive with Wrong/Right Feedback + Review Material link
+    // QUIZ SYSTEM v2.1 — Interactive with Wrong/Right Feedback + Revisit Page link
     // ============================================================
     function initQuizBlock(quizBlock) {
         if (!quizBlock || quizBlock.dataset.quizInitialized === '1') return;
@@ -551,16 +657,16 @@
                         feedback.textContent = '✗ Try Again';
                         choice.appendChild(feedback);
 
-                        // Show "Review Material" prompt with a link to the learning page
+                        // Show "Revisit Page" prompt with a link to the learning page
                         let retryPrompt = q.querySelector('[data-retry-prompt]');
                         if (!retryPrompt) {
                             retryPrompt = document.createElement('div');
                             retryPrompt.className = 'th-quiz-retry-prompt';
                             retryPrompt.setAttribute('data-retry-prompt', '');
                             if (reviewUrl) {
-                                retryPrompt.innerHTML = '💡 <strong>Not quite right.</strong> <a href="' + reviewUrl.replace(/&/g, '&') + '" target="_blank" rel="noopener noreferrer" style="color:var(--th-primary-light);text-decoration:underline;font-weight:600;">Review the material</a> and try again.';
+                                retryPrompt.innerHTML = '💡 <strong>Not quite right.</strong> <a href="' + reviewUrl.replace(/&/g, '&') + '" target="_blank" rel="noopener noreferrer" style="color:var(--th-primary-light);text-decoration:underline;font-weight:600;">Revisit Page</a> and try again.';
                             } else {
-                                retryPrompt.innerHTML = '💡 <strong>Not quite right.</strong> Review the material and try again.';
+                                retryPrompt.innerHTML = '💡 <strong>Not quite right.</strong> Open the page again and try again.';
                             }
                             q.appendChild(retryPrompt);
                         }
@@ -579,16 +685,18 @@
             });
         });
 
-        // Handle submit button click
+        // Handle submit button click — directly call handleTaskSubmit
         submitBtn.addEventListener('click', function() {
             if (this.disabled) return;
             const row = quizBlock.closest('[data-task-key]');
             if (!row) return;
-            const mainSubmitBtn = row.querySelector('[data-submit-task]');
-            if (mainSubmitBtn) {
-                mainSubmitBtn.click();
-            }
+            // Create a synthetic button reference for handleTaskSubmit
+            // Use the row itself as the context since it has data-task-key
+            handleTaskSubmit(row);
         });
+
+
+
 
         showQuestion(0);
         updateScorePreview();
@@ -596,14 +704,6 @@
 
     // Initialize any visible quiz blocks on page load
     document.querySelectorAll('[data-quiz-block]:not([hidden])').forEach(initQuizBlock);
-
-    // Listen for learning-complete event to init quiz blocks
-    document.addEventListener('learning-complete', function(e) {
-        const quizBlock = e.target;
-        if (quizBlock && quizBlock.matches('[data-quiz-block]')) {
-            initQuizBlock(quizBlock);
-        }
-    });
 
     // ============================================================
     // INIT LEARNING GATES
@@ -630,10 +730,22 @@
             <div style="font-size:72px;line-height:1;margin-bottom:16px;">✅</div>
             <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;">Task Complete!</div>
             <div style="font-size:15px;color:var(--th-text-muted);line-height:1.6;max-width:300px;margin:0 auto;">${message || 'Task completed successfully!'}</div>
+            <button type="button" class="th-success-continue-btn" style="margin-top:24px;min-height:44px;padding:0 32px;border-radius:12px;background:linear-gradient(135deg,var(--th-primary),#1E40AF);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:8px;">Continue →</button>
         `;
 
         fullscreenOverlay.appendChild(modalCard);
         document.body.appendChild(fullscreenOverlay);
+
+        // Allow user to continue immediately by clicking the button
+        const continueBtn = modalCard.querySelector('.th-success-continue-btn');
+        if (continueBtn) {
+            continueBtn.addEventListener('click', function() {
+                fullscreenOverlay.remove();
+                confettiContainer.remove();
+                location.reload();
+            });
+        }
+
 
         // Floating sparkle stars around the modal
         const sparkleEmojis = ['✨', '⭐', '🌟', '💫', '⚡'];
@@ -682,93 +794,184 @@
 
 
     // ============================================================
-    // TASK SUBMISSION
+    // TASK SUBMISSION — Shared handler for all action buttons
     // ============================================================
+    async function handleTaskSubmit(btn) {
+        // btn can be a button element or a row element (when called from quiz submit)
+        const row = btn.closest('[data-task-key]');
+        if (!row) return;
+        const taskKey = row.dataset.taskKey;
+        const verificationMode = row.dataset.verificationMode;
+
+        // Find the actual action button in the row to disable it
+        const actionBtn = row.querySelector('[data-th-action]') || btn;
+        if (actionBtn && actionBtn.disabled) return;
+        if (actionBtn) actionBtn.disabled = true;
+        if (actionBtn && actionBtn.tagName === 'BUTTON') actionBtn.textContent = 'Submitting...';
+
+        const payload = { task_key: taskKey };
+
+        const walletInput = row.querySelector('.task-wallet-input');
+        if (walletInput && walletInput.value.trim()) {
+            payload.wallet_address = walletInput.value.trim();
+        }
+
+        const proofInput = row.querySelector('.task-proof-input');
+        if (proofInput && proofInput.value.trim()) {
+            payload.proof = proofInput.value.trim();
+        }
+
+        const xHandle = row.querySelector('[data-x-handle]');
+        const telegramHandle = row.querySelector('[data-telegram-handle]');
+        if (xHandle && xHandle.value.trim()) payload.x_handle = xHandle.value.trim();
+        if (telegramHandle && telegramHandle.value.trim()) payload.telegram_handle = telegramHandle.value.trim();
+
+        // Client-side validation for social follow task (day1_social_follow)
+        if (taskKey === 'day1_social_follow') {
+            const hasX = !!(payload.x_handle && payload.x_handle.trim());
+            const hasTelegram = !!(payload.telegram_handle && payload.telegram_handle.trim());
+            if (!hasX && !hasTelegram) {
+                if (actionBtn && actionBtn.tagName === 'BUTTON') {
+                    actionBtn.disabled = false;
+                    actionBtn.textContent = 'Submit for Review';
+                }
+                // Highlight empty fields
+                if (xHandle && !xHandle.value.trim()) {
+                    xHandle.classList.add('is-error');
+                }
+                if (telegramHandle && !telegramHandle.value.trim()) {
+                    telegramHandle.classList.add('is-error');
+                }
+                showModal('Missing Information', 'Please enter your X (Twitter) or Telegram username/URL before submitting.');
+                return;
+            }
+        }
+
+
+        const sharePlatform = row.querySelector('[data-share-platform]');
+        const shareProofUrl = row.querySelector('[data-share-proof-url]');
+        if (sharePlatform && sharePlatform.value) payload.platform = sharePlatform.value;
+        if (shareProofUrl && shareProofUrl.value.trim()) payload.proof = shareProofUrl.value.trim();
+
+        // Client-side validation for share experience task (day3_share_experience)
+        if (taskKey === 'day3_share_experience') {
+            const hasPlatform = !!(payload.platform && payload.platform.trim());
+            const hasProof = !!(payload.proof && payload.proof.trim());
+            if (!hasPlatform || !hasProof) {
+                if (actionBtn && actionBtn.tagName === 'BUTTON') {
+                    actionBtn.disabled = false;
+                    actionBtn.textContent = 'Submit for Review';
+                }
+                // Highlight empty fields
+                if (sharePlatform && !sharePlatform.value) {
+                    sharePlatform.style.borderColor = 'var(--th-red)';
+                    sharePlatform.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.15)';
+                }
+                if (shareProofUrl && !shareProofUrl.value.trim()) {
+                    shareProofUrl.style.borderColor = 'var(--th-red)';
+                    shareProofUrl.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.15)';
+                }
+                showModal('Missing Information', 'Please select a platform and paste your public post URL before submitting.');
+                return;
+            }
+        }
+
+        // Only collect quiz answers for quiz verification mode
+        if (verificationMode === 'quiz') {
+            const quizBlock = row.querySelector('[data-quiz-block]');
+            if (quizBlock) {
+                const questions = Array.from(quizBlock.querySelectorAll('[data-quiz-question]'));
+                const answers = [];
+                let allAnswered = true;
+                questions.forEach((q) => {
+                    const selected = q.querySelector('[data-choice].is-correct input, [data-choice].is-selected input');
+                    if (selected) {
+                        answers.push(Number(selected.value));
+                    } else {
+                        allAnswered = false;
+                        answers.push(-1);
+                    }
+                });
+                if (!allAnswered) {
+                    showModal('Incomplete Quiz', 'Please answer all questions correctly before submitting.');
+                    return;
+                }
+                payload.answers_json = JSON.stringify(answers);
+            }
+        }
+
+        const isCheckIn = taskKey && (taskKey.includes('_check_in') || taskKey.includes('_checkin'));
+
+        // Disable the action button (if it's a real button element)
+        if (actionBtn && actionBtn.tagName === 'BUTTON') {
+            actionBtn.disabled = true;
+            actionBtn.classList.add('is-loading');
+            actionBtn.textContent = 'Submitting...';
+        }
+
+
+        try {
+            const data = await postForm(payload);
+
+            if (data.success) {
+                // Show success animation instead of modal
+                const heroCard = row.closest('.th-hero-card');
+                triggerSuccessAnimation(heroCard, data.message || 'Task completed successfully!');
+                
+                if (isCheckIn && greetingModal) {
+                    const dayNumber = taskKey ? taskKey.replace('day', '').replace('_check_in', '') : '1';
+                    document.getElementById('greetingDayNumber').textContent = dayNumber;
+                    document.getElementById('greetingTitle').textContent = 'Day ' + dayNumber + ' - Ready to Go!';
+                    document.getElementById('greetingMessage').textContent = 'Great start! Let\'s complete today\'s tasks.';
+                    greetingModal.hidden = false;
+                }
+
+                if (isCheckIn) {
+                    setTimeout(() => location.reload(), 1800);
+                }
+            } else {
+                if (actionBtn && actionBtn.tagName === 'BUTTON') {
+                    actionBtn.disabled = false;
+                    actionBtn.classList.remove('is-loading');
+                    actionBtn.textContent = 'Submit';
+                }
+                showModal('Error', data.message || 'Failed to submit task.');
+            }
+        } catch (err) {
+            if (actionBtn && actionBtn.tagName === 'BUTTON') {
+                actionBtn.disabled = false;
+                actionBtn.classList.remove('is-loading');
+                actionBtn.textContent = 'Submit';
+            }
+
+            // Try to extract the actual error message from the response
+            const errorMsg = (err && err.message) ? err.message : 'Network error. Please try again.';
+            showModal('Error', errorMsg);
+        }
+
+    }
+
+    // Handler for [data-submit-task] buttons (legacy)
     document.querySelectorAll('[data-submit-task]').forEach((btn) => {
-        btn.addEventListener('click', async function() {
-            if (this.disabled) return;
+        btn.addEventListener('click', function() {
+            handleTaskSubmit(this);
+        });
+    });
 
-            const row = this.closest('[data-task-key]');
-            if (!row) return;
-            const taskKey = row.dataset.taskKey;
-            const verificationMode = row.dataset.verificationMode;
-
-            const payload = { task_key: taskKey };
-
-            const walletInput = row.querySelector('.task-wallet-input');
-            if (walletInput && walletInput.value.trim()) {
-                payload.wallet_address = walletInput.value.trim();
-            }
-
-            const proofInput = row.querySelector('.task-proof-input');
-            if (proofInput && proofInput.value.trim()) {
-                payload.proof = proofInput.value.trim();
-            }
-
-            const xHandle = row.querySelector('[data-x-handle]');
-            const telegramHandle = row.querySelector('[data-telegram-handle]');
-            if (xHandle && xHandle.value.trim()) payload.x_handle = xHandle.value.trim();
-            if (telegramHandle && telegramHandle.value.trim()) payload.telegram_handle = telegramHandle.value.trim();
-
-            const sharePlatform = row.querySelector('[data-share-platform]');
-            const shareProofUrl = row.querySelector('[data-share-proof-url]');
-            if (sharePlatform && sharePlatform.value) payload.platform = sharePlatform.value;
-            if (shareProofUrl && shareProofUrl.value.trim()) payload.proof = shareProofUrl.value.trim();
-
-            // Only collect quiz answers for quiz verification mode
-            if (verificationMode === 'quiz') {
-                const quizBlock = row.querySelector('[data-quiz-block]');
-                if (quizBlock) {
-                    const questions = Array.from(quizBlock.querySelectorAll('[data-quiz-question]'));
-                    const answers = [];
-                    let allAnswered = true;
-                    questions.forEach((q) => {
-                        const selected = q.querySelector('[data-choice].is-correct input, [data-choice].is-selected input');
-                        if (selected) {
-                            answers.push(Number(selected.value));
-                        } else {
-                            allAnswered = false;
-                            answers.push(-1);
-                        }
-                    });
-                    if (!allAnswered) {
-                        showModal('Incomplete Quiz', 'Please answer all questions correctly before submitting.');
-                        return;
-                    }
-                    payload.answers_json = JSON.stringify(answers);
+    // Handler for [data-th-action] buttons (check-in, social, quiz, mystery, instant)
+    document.querySelectorAll('[data-th-action]').forEach((btn) => {
+        btn.addEventListener('click', function() {
+            const action = this.dataset.thAction;
+            // Mystery box is handled separately
+            if (action === 'mystery') {
+                const mysteryModal = document.getElementById('taskhubMysteryModal');
+                if (mysteryModal) {
+                    mysteryModal.hidden = false;
+                    mysteryModal.dispatchEvent(new CustomEvent('taskhub:mystery-open'));
                 }
+                return;
             }
-
-            const isCheckIn = taskKey && taskKey.includes('_check_in');
-
-            this.disabled = true;
-            this.textContent = 'Submitting...';
-
-            try {
-                const data = await postForm(payload);
-
-                if (data.success) {
-                    // Show success animation instead of modal
-                    const heroCard = row.closest('.th-hero-card');
-                    triggerSuccessAnimation(heroCard, data.message || 'Task completed successfully!');
-                    
-                    if (isCheckIn && greetingModal) {
-                        const dayNumber = taskKey ? taskKey.replace('day', '').replace('_check_in', '') : '1';
-                        document.getElementById('greetingDayNumber').textContent = dayNumber;
-                        document.getElementById('greetingTitle').textContent = 'Day ' + dayNumber + ' - Ready to Go!';
-                        document.getElementById('greetingMessage').textContent = 'Great start! Let\'s complete today\'s tasks.';
-                        greetingModal.hidden = false;
-                    }
-                } else {
-                    this.disabled = false;
-                    this.textContent = 'Submit';
-                    showModal('Error', data.message || 'Failed to submit task.');
-                }
-            } catch (err) {
-                this.disabled = false;
-                this.textContent = 'Submit';
-                showModal('Error', 'Network error. Please try again.');
-            }
+            handleTaskSubmit(this);
         });
     });
 
@@ -818,44 +1021,97 @@
         const resultDiv = document.getElementById('mysteryResult');
         const resultTextEl = document.getElementById('mysteryResultText');
         const resultSubEl = document.getElementById('mysteryResultSub');
-        let selectedReward = 0;
+        const confettiContainer = document.getElementById('mysteryConfetti');
+        let selectedBox = null;
         let claimed = false;
 
-        const rewards = [
-            Math.floor(Math.random() * 11) + 10,
-            Math.floor(Math.random() * 11) + 10,
-            Math.floor(Math.random() * 11) + 10
-        ];
+        function resetMysteryModal() {
+            selectedBox = null;
+            claimed = false;
+            mysteryModal.classList.remove('is-ready-to-claim', 'is-opening-box', 'is-result-mode', 'is-claiming', 'is-claimed', 'is-reward-revealed');
+            boxes.forEach((box) => {
+                box.classList.remove('is-flipped', 'is-selected', 'is-muted');
+                box.style.pointerEvents = '';
+                const rewardEl = box.querySelector('[data-box-reward]');
+                if (rewardEl) rewardEl.textContent = 'Claim to reveal';
+            });
+            if (resultDiv) resultDiv.hidden = true;
+            if (resultTextEl) resultTextEl.textContent = 'Box selected';
+            if (resultSubEl) resultSubEl.textContent = 'Claim now to reveal your server-verified reward.';
+            const proUnlockEl = document.getElementById('mysteryProUnlock');
+            const partialMsgEl = document.getElementById('mysteryPartialMsg');
+            const requirementListEl = document.getElementById('mysteryRequirementList');
+            if (proUnlockEl) proUnlockEl.hidden = true;
+            if (partialMsgEl) partialMsgEl.hidden = true;
+            if (requirementListEl) requirementListEl.innerHTML = '';
+            if (claimBtn) {
+                claimBtn.hidden = false;
+                claimBtn.removeAttribute('hidden');
+                claimBtn.disabled = true;
+                claimBtn.textContent = 'Choose a Box';
+                claimBtn.classList.remove('is-visible');
+                claimBtn.style.display = '';
+            }
+            if (confettiContainer) confettiContainer.innerHTML = '';
+        }
+
+        mysteryModal.addEventListener('taskhub:mystery-open', resetMysteryModal);
+
+        mysteryModal.querySelectorAll('[data-mystery-close]').forEach((closeBtn) => {
+            closeBtn.addEventListener('click', function() {
+                mysteryModal.hidden = true;
+                resetMysteryModal();
+            });
+        });
 
         boxes.forEach((box) => {
-            const index = Number(box.dataset.boxIndex);
             const rewardEl = box.querySelector('[data-box-reward]');
-            if (rewardEl) rewardEl.textContent = rewards[index] + ' $REX';
+            if (rewardEl) rewardEl.textContent = 'Claim to reveal';
         });
 
         boxes.forEach((box) => {
             box.addEventListener('click', function() {
-                if (this.classList.contains('is-flipped') || claimed) return;
-                const index = Number(this.dataset.boxIndex);
-                selectedReward = rewards[index];
+                if (selectedBox !== null || claimed) return;
+                selectedBox = Number(this.dataset.boxIndex);
 
-                this.classList.add('is-flipped');
+                this.classList.add('is-selected');
+                mysteryModal.classList.add('is-opening-box');
 
                 boxes.forEach((b) => {
-                    if (b !== this) b.style.pointerEvents = 'none';
+                    b.style.pointerEvents = 'none';
+                    if (b !== this) b.classList.add('is-muted');
                 });
 
                 setTimeout(() => {
-                    resultDiv.hidden = false;
-                    resultTextEl.textContent = 'You won ' + selectedReward + ' $REX!';
-                    claimBtn.hidden = false;
-                }, 800);
+                    this.classList.add('is-flipped');
+                    mysteryModal.classList.remove('is-opening-box');
+                    mysteryModal.classList.add('is-ready-to-claim');
+                    mysteryModal.classList.add('is-result-mode');
+                    if (resultDiv) resultDiv.hidden = false;
+                    if (resultTextEl) resultTextEl.textContent = 'Revealing reward...';
+                    if (resultSubEl) resultSubEl.textContent = 'Your server-verified $REX amount is coming out now.';
+                    if (claimBtn) {
+                        claimBtn.hidden = false;
+                        claimBtn.removeAttribute('hidden');
+                        claimBtn.style.display = 'inline-flex';
+                        claimBtn.disabled = false;
+                        claimBtn.textContent = 'Revealing...';
+                        claimBtn.classList.add('is-visible');
+                        claimBtn.click();
+                    }
+                    triggerConfetti(18, 2.2);
+                }, 520);
             });
         });
 
         if (claimBtn) {
             claimBtn.addEventListener('click', async function() {
                 if (claimed) return;
+                if (selectedBox === null) {
+                    showModal('Choose a Box', 'Please choose one mystery box first.');
+                    return;
+                }
+                mysteryModal.classList.add('is-claiming');
                 this.disabled = true;
                 this.textContent = 'Claiming...';
 
@@ -864,23 +1120,84 @@
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                        body: new URLSearchParams({ reward: selectedReward }),
+                        body: new URLSearchParams({ box: selectedBox !== null ? String(selectedBox) : '' }),
                     });
                     const data = await response.json();
 
                     if (data.success) {
                         claimed = true;
-                        resultSubEl.textContent = 'Reward has been added to your balance!';
+                        const rewardAmount = Number(data.reward || 0);
+                        const rewardLabel = rewardAmount.toFixed(rewardAmount % 1 === 0 ? 0 : 2) + ' $REX';
+                        const proUnlocked = Boolean(data.pro_unlocked);
+                        const resultMessages = ['Reward has been added to your balance!'];
+                        if (data.airdrop_unlocked) {
+                            const airdropAmount = Number(data.airdrop_amount || 0);
+                            const airdropLabel = airdropAmount > 0
+                                ? airdropAmount.toFixed(airdropAmount % 1 === 0 ? 0 : 2) + ' $REX'
+                                : '';
+                            resultMessages.push(airdropLabel ? 'Airdrop unlocked: ' + airdropLabel + '.' : 'Airdrop unlocked.');
+                        }
+                        resultTextEl.textContent = 'You won ' + rewardLabel + '!';
+                        resultSubEl.textContent = resultMessages.join(' ');
                         this.textContent = 'Claimed ✅';
                         this.disabled = true;
-                        triggerConfetti();
-                        setTimeout(() => location.reload(), 2000);
+                        mysteryModal.classList.remove('is-claiming');
+                        mysteryModal.classList.add('is-claimed', 'is-reward-revealed');
+                        boxes.forEach((box) => {
+                            const rewardEl = box.querySelector('[data-box-reward]');
+                            if (rewardEl) rewardEl.textContent = rewardLabel;
+                        });
+                        triggerConfetti(72, 3.5);
+                        
+                        // Show PRO unlock or partial completion message
+                        const proUnlockEl = document.getElementById('mysteryProUnlock');
+                        const partialMsgEl = document.getElementById('mysteryPartialMsg');
+                        const requirementListEl = document.getElementById('mysteryRequirementList');
+                        
+                        if (proUnlocked && proUnlockEl) {
+                            proUnlockEl.hidden = false;
+                        } else if (partialMsgEl) {
+                            if (requirementListEl) {
+                                requirementListEl.innerHTML = '';
+                                const requirements = Array.isArray(data.pro_requirements) ? data.pro_requirements : [];
+                                requirements.forEach((requirement) => {
+                                    const item = document.createElement('li');
+                                    item.className = requirement && requirement.complete
+                                        ? 'is-complete'
+                                        : 'is-pending';
+
+                                    const marker = document.createElement('span');
+                                    marker.className = 'taskhub-mystery-requirement-marker';
+                                    marker.textContent = requirement && requirement.complete ? '✓' : '•';
+
+                                    const body = document.createElement('span');
+                                    body.className = 'taskhub-mystery-requirement-body';
+
+                                    const label = document.createElement('strong');
+                                    label.textContent = requirement && requirement.label ? requirement.label : 'Requirement';
+
+                                    const meta = document.createElement('small');
+                                    meta.textContent = requirement && requirement.meta ? requirement.meta : '';
+
+                                    body.appendChild(label);
+                                    if (meta.textContent) body.appendChild(meta);
+                                    item.appendChild(marker);
+                                    item.appendChild(body);
+                                    requirementListEl.appendChild(item);
+                                });
+                            }
+                            partialMsgEl.hidden = false;
+                        }
+                        
+                        setTimeout(() => location.reload(), 3000);
                     } else {
+                        mysteryModal.classList.remove('is-claiming');
                         this.disabled = false;
                         this.textContent = 'Claim Reward';
                         showModal('Error', data.message || 'Failed to claim reward.');
                     }
                 } catch (err) {
+                    mysteryModal.classList.remove('is-claiming');
                     this.disabled = false;
                     this.textContent = 'Claim Reward';
                     showModal('Error', 'Network error. Please try again.');
@@ -888,19 +1205,24 @@
             });
         }
 
-        function triggerConfetti() {
-            const confettiContainer = document.getElementById('mysteryConfetti');
+        function triggerConfetti(count = 50, maxDuration = 3) {
             if (!confettiContainer) return;
+            confettiContainer.innerHTML = '';
             const colors = ['#4ade80', '#22d3ee', '#fbbf24', '#f472b6', '#a78bfa', '#fb923c'];
-            for (let i = 0; i < 50; i++) {
+            for (let i = 0; i < count; i++) {
                 const piece = document.createElement('div');
                 piece.className = 'taskhub-confetti-piece';
                 piece.style.left = Math.random() * 100 + '%';
+                piece.style.setProperty('--th-confetti-x', (Math.random() * 160 - 80) + 'px');
+                piece.style.setProperty('--th-confetti-rot', (Math.random() * 900 + 360) + 'deg');
                 piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-                piece.style.animationDelay = Math.random() * 2 + 's';
-                piece.style.animationDuration = (Math.random() * 2 + 1) + 's';
+                piece.style.animationDelay = Math.random() * 0.35 + 's';
+                piece.style.animationDuration = (Math.random() * 1.4 + maxDuration) + 's';
                 confettiContainer.appendChild(piece);
             }
+            setTimeout(() => {
+                if (confettiContainer) confettiContainer.innerHTML = '';
+            }, Math.ceil((maxDuration + 2) * 1000));
         }
     }
 
@@ -958,4 +1280,122 @@
     // ============================================================
     window.taskhubSelectDay = selectDay;
 
+    // ============================================================
+    // WAITING CARD — Countdown Timer
+    // ============================================================
+    const waitingTimers = document.querySelectorAll('[data-th-timer-count]');
+    waitingTimers.forEach(el => {
+        const totalSeconds = parseInt(el.textContent.replace(/[^0-9]/g, ''), 10) || 0;
+        let remaining = totalSeconds;
+        
+        const interval = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                clearInterval(interval);
+                el.textContent = 'Unlocked!';
+                // Reload page to show new state
+                setTimeout(() => location.reload(), 2000);
+                return;
+            }
+            el.textContent = formatDuration(remaining);
+        }, 1000);
+    });
+
+    // ============================================================
+    // NOTIFICATION PERMISSION — "Notify me when ready"
+    // ============================================================
+    const notifyBtn = document.querySelector('[data-enable-notifications]');
+    if (notifyBtn) {
+        notifyBtn.addEventListener('click', async () => {
+            if (!('Notification' in window)) {
+                alert('Notifications are not supported in this browser.');
+                return;
+            }
+            
+            if (Notification.permission === 'granted') {
+                // Find the timer value
+                const timerEl = document.querySelector('[data-th-timer-count]');
+                const timerText = timerEl ? timerEl.textContent : 'a few minutes';
+                new Notification('🔔 LearnHub', {
+                    body: `Your next challenge unlocks in ${timerText}. We'll remind you!`,
+                    icon: '/favicon.ico'
+                });
+                notifyBtn.textContent = '✅ Notification Set!';
+                notifyBtn.disabled = true;
+            } else if (Notification.permission === 'denied') {
+                alert('Notifications are blocked. Please enable them in your browser settings.');
+            } else {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    const timerEl = document.querySelector('[data-th-timer-count]');
+                    const timerText = timerEl ? timerEl.textContent : 'a few minutes';
+                    new Notification('🔔 LearnHub', {
+                        body: `Your next challenge unlocks in ${timerText}. We'll remind you!`,
+                        icon: '/favicon.ico'
+                    });
+                    notifyBtn.textContent = '✅ Notification Set!';
+                    notifyBtn.disabled = true;
+                } else {
+                    alert('Notification permission was denied.');
+                }
+            }
+        });
+    }
+
+    // ============================================================
+    // SHARE PROGRESS BUTTON
+    // ============================================================
+    const shareBtn = document.querySelector('[data-share-progress]');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', async () => {
+            const day = shareBtn.dataset.day || '1';
+            const shareText = `🔥 I just completed Day ${day} on CoinRex LearnHub! Earning rewards and building my crypto knowledge. Join me at CoinRex! 🚀`;
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'CoinRex LearnHub Progress',
+                        text: shareText,
+                        url: window.location.href,
+                    });
+                } catch (e) {
+                    // User cancelled
+                }
+            } else {
+                // Fallback: copy to clipboard
+                try {
+                    await navigator.clipboard.writeText(shareText + ' ' + window.location.href);
+                    shareBtn.textContent = '✅ Copied to clipboard!';
+                    setTimeout(() => {
+                        shareBtn.textContent = '📤 Share Your Progress';
+                    }, 3000);
+                } catch (e) {
+                    alert('Share not supported. You can copy the URL manually.');
+                }
+            }
+        });
+    }
+
+    // ============================================================
+    // DAY COUNTDOWN TIMER (next day unlock)
+    // ============================================================
+    const dayCountdownEls = document.querySelectorAll('[data-th-day-countdown]');
+    dayCountdownEls.forEach(el => {
+        let seconds = parseInt(el.dataset.thDayCountdown, 10) || 0;
+        
+        const interval = setInterval(() => {
+            seconds--;
+            if (seconds <= 0) {
+                clearInterval(interval);
+                el.textContent = 'Unlocked!';
+                setTimeout(() => location.reload(), 3000);
+                return;
+            }
+            el.textContent = formatDuration(seconds);
+            el.dataset.thDayCountdown = String(seconds);
+        }, 1000);
+    });
+
 })();
+
+

@@ -1,0 +1,16 @@
+parameters:
+    level: 6
+    paths:
+        - src/
+        - includes/
+    excludePaths:
+        - includes/functions_legacy_backup.php
+        - vendor/
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        - '#Function.*not found#'
+        - '#Constant.*not found#'
+    bootstrapFiles:
+        - includes/config.php

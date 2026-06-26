@@ -15,6 +15,10 @@ try {
         throw new RuntimeException('User account not found.');
     }
 
+    unlockPendingEarlyAirdropForUser($user_id, $db);
+    syncSubmittedClaimTransactionsForUser($user_id, $db);
+    syncStaleClaimApprovalsForUser($user_id, $db);
+    $user = getUserById($user_id) ?: $user;
     $level_state = getUserLevelState($user, $db);
     $level_progress = getUserLevelProgressData($level_state, $db);
     $eligibility = getClaimEligibility($user_id, $db);

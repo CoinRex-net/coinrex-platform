@@ -77,7 +77,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="devhub-notif-foot">
                             <button type="button" class="devhub-notif-btn devhub-open-notif-modal" data-title="<?php echo htmlspecialchars((string) ($n['title'] ?? 'Notification'), ENT_QUOTES, 'UTF-8'); ?>" data-body="<?php echo htmlspecialchars((string) ($n['message'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" data-action-url="<?php echo htmlspecialchars((string) ($n['action_url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"><i class="fas fa-book-open"></i> Read more</button>
                             <?php if ($is_rejected_or_flagged): ?>
-                                <a class="devhub-notif-btn" href="<?php echo htmlspecialchars(BASE_URL . '/contact.php', ENT_QUOTES, 'UTF-8'); ?>"><i class="fas fa-headset"></i> Contact Now</a>
+                                <a class="devhub-notif-btn" href="<?php echo htmlspecialchars(BASE_URL . '/public/contact.php', ENT_QUOTES, 'UTF-8'); ?>"><i class="fas fa-headset"></i> Contact Now</a>
                             <?php endif; ?>
                         </div>
                     </article>

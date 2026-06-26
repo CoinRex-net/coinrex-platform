@@ -1021,6 +1021,29 @@
     box-shadow: none;
 }
 
+.btn-review.btn-review-done {
+    background: linear-gradient(135deg, #065f46, #047857);
+    color: #a7f3d0;
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    cursor: default;
+    box-shadow: 0 14px 28px -18px rgba(16, 185, 129, 0.45);
+}
+
+.btn-review.btn-review-done i {
+    color: #34d399;
+}
+
+.project-card-featured .btn-review.btn-review-done {
+    background: linear-gradient(135deg, #065f46, #047857);
+    color: #a7f3d0;
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    box-shadow: 0 14px 28px -18px rgba(16, 185, 129, 0.45);
+}
+
+.project-card-featured .btn-review.btn-review-done i {
+    color: #34d399;
+}
+
 /* No Projects State */
 .no-projects {
     grid-column: 1 / -1;

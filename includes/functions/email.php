@@ -85,7 +85,7 @@ function isDisposableEmail($email) {
 function getUserByEmail($email) {
     $db = getDBConnection();
     $email = normalizeEmail($email);
-    $stmt = $db->prepare("SELECT * FROM users WHERE email = ?");
+    $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
     $stmt->execute([$email]);
     return $stmt->fetch();
 }
@@ -150,7 +150,8 @@ function sendSmtpEmail($to_email, $to_name, $subject, $html_body, $text_body = '
 
         return ['success' => true, 'message' => 'Email sent successfully'];
     } catch (\Throwable $e) {
-        return ['success' => false, 'message' => 'SMTP send failed: ' . $e->getMessage()];
+        error_log('SMTP send failed: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Email could not be sent right now. Please try again.'];
     }
 }
 

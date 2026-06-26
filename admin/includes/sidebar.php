@@ -8,9 +8,9 @@
     </div>
     <?php
         $activePage = (string) ($activePage ?? 'dashboard');
-        $corePages = ['dashboard', 'users', 'projects', 'reviews', 'developers', 'security-management', 'admins', 'blog', 'blog-create', 'blog-edit', 'blog-categories', 'blog-tags', 'blog-ads'];
-        $rewardPages = ['rewards', 'reward-ledger', 'reward-users', 'referrals'];
-        $taskPages = ['task-management', 'taskhub-review', 'boosthub-management'];
+        $corePages = ['dashboard', 'users', 'projects', 'reviews', 'developers', 'security-management', 'admins', 'blog', 'blog-create', 'blog-edit', 'blog-categories', 'blog-tags', 'blog-ads', 'sponsored-tokens', 'launch-control', 'roadmap'];
+        $rewardPages = ['rewards', 'reward-ledger', 'reward-users', 'referrals', 'early-airdrop'];
+        $taskPages = ['task-management', 'quiz-manager', 'taskhub-review', 'boosthub-management'];
     ?>
     <nav class="admin-nav" id="adminNavGroups">
         <div class="admin-nav-group <?php echo in_array($activePage, $corePages, true) ? 'is-open' : ''; ?>">
@@ -27,6 +27,9 @@
                 <?php if (canCurrentAdmin('manage_users')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/security-management.php" class="<?php echo $activePage === 'security-management' ? 'active' : ''; ?>"><i class="fas fa-shield-halved"></i><span>Security Management</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_blog')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/blog.php" class="<?php echo $activePage === 'blog' ? 'active' : ''; ?>"><i class="fas fa-blog"></i><span>Blog</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_blog')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/blog-ads.php" class="<?php echo $activePage === 'blog-ads' ? 'active' : ''; ?>"><i class="fas fa-rectangle-ad"></i><span>Blog Ads</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('manage_projects')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/sponsored-tokens.php" class="<?php echo $activePage === 'sponsored-tokens' ? 'active' : ''; ?>"><i class="fas fa-ticket-alt"></i><span>Sponsored Tokens</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('manage_launch_controls')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/launch-control.php" class="<?php echo $activePage === 'launch-control' ? 'active' : ''; ?>"><i class="fas fa-sliders"></i><span>Launch Control</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('manage_roadmap')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/roadmap.php" class="<?php echo $activePage === 'roadmap' ? 'active' : ''; ?>"><i class="fas fa-route"></i><span>Roadmap</span></a><?php endif; ?>
             </div>
         </div>
 
@@ -40,6 +43,7 @@
                 <?php if (canCurrentAdmin('manage_rewards')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/reward-ledger.php" class="<?php echo $activePage === 'reward-ledger' ? 'active' : ''; ?>"><i class="fas fa-file-invoice-dollar"></i><span>Reward Ledger</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_rewards')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/reward-users.php" class="<?php echo $activePage === 'reward-users' ? 'active' : ''; ?>"><i class="fas fa-user-lock"></i><span>Reward Users</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_rewards')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/referrals.php" class="<?php echo $activePage === 'referrals' ? 'active' : ''; ?>"><i class="fas fa-user-plus"></i><span>Referral Validation</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('manage_rewards')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/early-airdrop.php" class="<?php echo $activePage === 'early-airdrop' ? 'active' : ''; ?>"><i class="fas fa-rocket"></i><span>Early Airdrop</span></a><?php endif; ?>
             </div>
         </div>
 
@@ -51,7 +55,7 @@
             <div class="admin-nav-group-links" data-nav-group-links>
                 <?php if (canCurrentAdmin('manage_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/task-management.php" class="<?php echo $activePage === 'task-management' ? 'active' : ''; ?>"><i class="fas fa-list-check"></i><span>Task Management</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/quiz-manager.php" class="<?php echo $activePage === 'quiz-manager' ? 'active' : ''; ?>"><i class="fas fa-question-circle"></i><span>Quiz Manager</span></a><?php endif; ?>
-                <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/taskhub-review.php" class="<?php echo $activePage === 'taskhub-review' ? 'active' : ''; ?>"><i class="fas fa-clipboard-check"></i><span>TaskHub Review</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/taskhub-review.php" class="<?php echo $activePage === 'taskhub-review' ? 'active' : ''; ?>"><i class="fas fa-clipboard-check"></i><span>LearnHub Review</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/boosthub.php" class="<?php echo $activePage === 'boosthub-management' ? 'active' : ''; ?>"><i class="fas fa-bolt"></i><span>BoostHub Management</span></a><?php endif; ?>
             </div>
         </div>

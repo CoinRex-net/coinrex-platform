@@ -1,0 +1,279 @@
+/* ==========================================================================
+   CoinRex Homepage Background Animations v2
+   Galaxy Night Sky + Shooting Stars + Broken Stars + Nebula Orbs
+   ========================================================================== */
+
+/* ---- Starfield (static background stars for depth) ---- */
+.cr-starfield {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.cr-starfield-star {
+    position: absolute;
+    border-radius: 50%;
+    background: #ffffff;
+    pointer-events: none;
+    opacity: 0.15;
+}
+
+/* ---- Galaxy Band (milky way stripe) ---- */
+.cr-galaxy-band {
+    position: absolute;
+    top: -20%;
+    left: -10%;
+    width: 120%;
+    height: 140%;
+    background: 
+        radial-gradient(ellipse at 30% 40%, rgba(120, 80, 200, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, rgba(29, 78, 216, 0.05) 0%, transparent 40%),
+        radial-gradient(ellipse at 50% 50%, rgba(212, 175, 55, 0.03) 0%, transparent 30%);
+    pointer-events: none;
+    z-index: 0;
+    animation: crGalaxyRotate 60s ease-in-out infinite;
+    transform-origin: center center;
+}
+
+@keyframes crGalaxyRotate {
+    0% { transform: rotate(0deg) scale(1); opacity: 0.6; }
+    25% { transform: rotate(3deg) scale(1.05); opacity: 0.8; }
+    50% { transform: rotate(0deg) scale(1); opacity: 0.6; }
+    75% { transform: rotate(-3deg) scale(1.05); opacity: 0.8; }
+    100% { transform: rotate(0deg) scale(1); opacity: 0.6; }
+}
+
+/* ---- Particle Stars ---- */
+.cr-particle {
+    position: absolute;
+    border-radius: 50%;
+    background: #ffffff;
+    pointer-events: none;
+    z-index: 0;
+    animation: crParticleFloat var(--particle-duration, 10s) ease-in-out infinite;
+    animation-delay: var(--particle-delay, 0s);
+    will-change: transform, opacity;
+}
+
+/* Twinkling stars */
+.cr-particle.twinkle {
+    animation-name: crParticleTwinkle;
+}
+
+/* Irregular star shapes (broken stars) */
+.cr-particle.star-shape {
+    border-radius: 0;
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    background: radial-gradient(circle at 30% 30%, #ffffff, #ffe08a);
+}
+
+/* Diamond shape (shattered fragment) */
+.cr-particle.diamond-shape {
+    border-radius: 0;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* Triangle shape (debris) */
+.cr-particle.triangle-shape {
+    border-radius: 0;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+/* Particles with glowing trails */
+.cr-particle.trail {
+    box-shadow: 
+        0 0 2px 0 currentColor,
+        0 0 6px 1px currentColor,
+        -8px 8px 4px -2px rgba(255,255,255,0.15),
+        -16px 16px 6px -4px rgba(255,255,255,0.05);
+}
+
+/* Debris fragments (broken star burst - JS animated) */
+.cr-debris-fragment {
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: transform, opacity;
+}
+
+@keyframes crParticleTwinkle {
+    0%, 100% {
+        transform: translateY(0) translateX(0) scale(1);
+        opacity: var(--particle-opacity, 0.5);
+    }
+    20% {
+        transform: translateY(-30px) translateX(12px) scale(1.8);
+        opacity: 1;
+    }
+    40% {
+        transform: translateY(-60px) translateX(-8px) scale(1);
+        opacity: calc(var(--particle-opacity, 0.5) * 0.3);
+    }
+    60% {
+        transform: translateY(-90px) translateX(15px) scale(1.4);
+        opacity: 0.9;
+    }
+    80% {
+        transform: translateY(-120px) translateX(-5px) scale(0.8);
+        opacity: calc(var(--particle-opacity, 0.5) * 0.5);
+    }
+    100% {
+        transform: translateY(-160px) translateX(0) scale(1);
+        opacity: var(--particle-opacity, 0.5);
+    }
+}
+
+/* ---- Shooting Stars ---- */
+.cr-shooting-star {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: #ffffff;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    animation: crShootingStar var(--shoot-duration, 3s) ease-out infinite;
+    animation-delay: var(--shoot-delay, 0s);
+}
+
+.cr-shooting-star::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    width: 80px;
+    height: 1.5px;
+    background: linear-gradient(to right, rgba(255,255,255,0.6), transparent);
+    transform: translateY(-50%);
+}
+
+@keyframes crShootingStar {
+    0% {
+        transform: translate(0, 0) rotate(35deg);
+        opacity: 0;
+    }
+    5% {
+        opacity: 1;
+    }
+    15% {
+        transform: translate(200px, 140px) rotate(35deg);
+        opacity: 1;
+    }
+    20% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* ---- Floating Orbs (Nebula Clouds) ---- */
+.cr-orb {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(70px);
+    will-change: transform, opacity;
+    animation: crOrbDrift var(--orb-duration, 18s) ease-in-out infinite;
+    animation-delay: var(--orb-delay, 0s);
+}
+
+.cr-orb-1 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.18) 0%, rgba(120, 80, 200, 0.08) 40%, transparent 70%);
+    top: -15%;
+    left: -10%;
+}
+
+.cr-orb-2 {
+    width: 450px;
+    height: 450px;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.12) 0%, rgba(200, 100, 50, 0.06) 40%, transparent 70%);
+    bottom: -10%;
+    right: -10%;
+}
+
+.cr-orb-3 {
+    width: 380px;
+    height: 380px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.10) 0%, rgba(147, 51, 234, 0.06) 40%, transparent 70%);
+    top: 35%;
+    left: 45%;
+}
+
+@keyframes crOrbDrift {
+    0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.5;
+    }
+    25% {
+        transform: translate(40px, -25px) scale(1.15);
+        opacity: 0.7;
+    }
+    50% {
+        transform: translate(-25px, 20px) scale(0.9);
+        opacity: 0.4;
+    }
+    75% {
+        transform: translate(20px, 35px) scale(1.1);
+        opacity: 0.6;
+    }
+    100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.5;
+    }
+}
+
+/* ---- Hero Background Layer Setup ---- */
+.cr-hero-bg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ---- Reduced Motion ---- */
+@media (prefers-reduced-motion: reduce) {
+    .cr-particle,
+    .cr-orb,
+    .cr-shooting-star,
+    .cr-galaxy-band,
+    .cr-debris-fragment,
+    .cr-starfield-star {
+        animation: none !important;
+        opacity: 0.2 !important;
+    }
+    .cr-shooting-star::after {
+        display: none;
+    }
+}
+
+/* ---- Mobile: fewer particles, smaller orbs ---- */
+@media (max-width: 768px) {
+    .cr-orb-1 {
+        width: 250px;
+        height: 250px;
+    }
+    .cr-orb-2 {
+        width: 220px;
+        height: 220px;
+    }
+    .cr-orb-3 {
+        width: 180px;
+        height: 180px;
+    }
+    .cr-shooting-star::after {
+        width: 30px;
+    }
+}

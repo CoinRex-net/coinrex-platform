@@ -583,7 +583,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="home-blog-date"><i class="fas fa-clock" aria-hidden="true"></i> <?php echo date('M d, Y', strtotime((string) ($blog_post['published_at'] ?: $blog_post['created_at']))); ?></span>
                         </div>
                         <h3 class="home-blog-title">
-                            <a class="home-blog-title-link" href="<?php echo BASE_URL; ?>/blog-post.php?slug=<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>">
+                            <a class="home-blog-title-link" href="<?php echo BASE_URL; ?>/blog-post.php/<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>">
                                 <?php echo homeEsc((string) ($blog_post['title'] ?? 'Blog Post')); ?>
                             </a>
                         </h3>
@@ -592,7 +592,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span><i class="fas fa-book-open"></i> <?php echo (int) blogReadTime((string) ($blog_post['excerpt'] ?? '')) + 1; ?> min read</span>
                             <span><i class="fas fa-arrow-trend-up"></i> Learn faster with CoinRex</span>
                         </div>
-                        <a href="<?php echo BASE_URL; ?>/blog-post.php?slug=<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>" class="home-blog-link">Read article <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+                        <a href="<?php echo BASE_URL; ?>/blog-post.php/<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>" class="home-blog-link">Read article <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
                     </article>
                 <?php endforeach; ?>
             </div>

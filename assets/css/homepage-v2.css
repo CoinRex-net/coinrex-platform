@@ -1,3 +1,7 @@
+
+
+
+
 /* ==========================================================================
    CoinRex Homepage v2 - Clarity-First Design
    Purpose: Answer "Yeh kiya hai?" in 3 seconds
@@ -243,6 +247,103 @@
 
 .cr-hero-title-line-2 {
     color: var(--color-primary);
+}
+
+/* Gold accent for hero text */
+.cr-gold {
+    color: var(--color-accent-soft);
+}
+
+/* ---- Natural Highlighter Effect for Hero Description ---- */
+.cr-highlight {
+    background: linear-gradient(
+        104deg,
+        rgba(22, 163, 74, 0) 0.9%,
+        rgba(22, 163, 74, 0.85) 2.4%,
+        rgba(22, 163, 74, 0.92) 5.8%,
+        rgba(22, 163, 74, 0.88) 93%,
+        rgba(22, 163, 74, 0) 96%
+    );
+    border-radius: 0.2em 0.6em 0.3em 0.5em;
+    padding: 0.08em 0.3em;
+    margin: 0 -0.08em;
+    font-weight: 700;
+    color: #ffffff;
+    font-style: normal;
+    display: inline;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    text-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.15);
+}
+
+/* ---- Rotating Tagline Animation ---- */
+/* Both lines occupy the same space, alternating in an infinite loop */
+
+.cr-hero-title-rotating {
+    position: relative;
+    min-height: 3.2em; /* reserve enough space so absolutely positioned lines don't overlap content below */
+}
+
+.cr-hero-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: crTaglineCycle 10s ease-in-out infinite;
+}
+
+/* Line 1: visible first (0s-4.5s), hidden rest */
+.cr-hero-line-1 {
+    animation-delay: 0s;
+    color: var(--color-text-primary);
+}
+
+/* Line 2: hidden first, visible second (5s-9.5s) */
+.cr-hero-line-2 {
+    animation-delay: 5s;
+    color: var(--color-primary);
+}
+.cr-hero-line-2 .cr-gold {
+    color: var(--color-accent-soft);
+}
+
+@keyframes crTaglineCycle {
+    0% {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    5% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    40% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    45% {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .cr-hero-line {
+        position: static;
+        opacity: 1;
+        transform: none;
+        animation: none;
+        display: block;
+    }
+    .cr-hero-title-rotating {
+        min-height: auto;
+    }
 }
 
 /* Hero Description */

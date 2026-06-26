@@ -110,8 +110,29 @@ define('ENVIRONMENT', $is_production ? 'production' : 'development');
 // Set to true to bypass cooldowns, day progression, security
 // signals, and daily task limits for testing purposes.
 // Set to false to restore all production validations.
+//
+// Override via .env: COINREX_TESTING_MODE=true
 // ============================================================
-define('TESTING_MODE', false);
+$testing_mode_raw = getenv('COINREX_TESTING_MODE');
+$testing_mode = strtolower(trim((string) ($testing_mode_raw !== false ? $testing_mode_raw : 'false')));
+// Temporarily enabled for mobile testing — set back to false in production
+define('TESTING_MODE', !$is_production && in_array($testing_mode, ['1', 'true', 'yes', 'on'], true));
+
+// ============================================================
+// LOCAL TEST MODE — Auto-enable for localhost development
+// ============================================================
+// When true, bypasses email verification, rate limits, and
+// other security checks to make testing with multiple accounts
+// easier on localhost.
+// ============================================================
+$host_lower = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+$is_localhost = (
+    $host_lower === 'localhost' ||
+    $host_lower === '127.0.0.1' ||
+    $host_lower === '::1' ||
+    strpos($host_lower, 'localhost:') === 0
+);
+define('LOCAL_TEST_MODE', $is_localhost || TESTING_MODE);
 
 // Error Reporting
 if ($is_production) {
@@ -123,10 +144,73 @@ if ($is_production) {
     ini_set('display_errors', '1');
 }
 
+if (!function_exists('coinrexPrepareSessionSavePath')) {
+    function coinrexPrepareSessionSavePath($preferred_path, $fallback_base) {
+        $paths = [
+            trim((string) $preferred_path),
+            rtrim((string) $fallback_base, "\\/") . DIRECTORY_SEPARATOR . 'coinrex_sessions',
+        ];
+
+        foreach ($paths as $path) {
+            if ($path === '') {
+                continue;
+            }
+
+            if (!is_dir($path)) {
+                @mkdir($path, 0775, true);
+            }
+
+            if (!is_dir($path)) {
+                continue;
+            }
+
+            $probe = rtrim($path, "\\/") . DIRECTORY_SEPARATOR . 'coinrex_session_probe_' . bin2hex(random_bytes(4));
+            if (@file_put_contents($probe, '1', LOCK_EX) === false) {
+                continue;
+            }
+
+            @unlink($probe);
+            return $path;
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('coinrexSessionFileIsUsableNow')) {
+    function coinrexSessionFileIsUsableNow($path) {
+        $handle = @fopen((string) $path, 'c+b');
+        if ($handle === false) {
+            return false;
+        }
+
+        $locked = @flock($handle, LOCK_EX | LOCK_NB);
+        if ($locked) {
+            @flock($handle, LOCK_UN);
+        }
+
+        fclose($handle);
+        return (bool) $locked;
+    }
+}
+
 // Session Configuration
 if (!defined('COINREX_SKIP_SESSION_INIT') && session_status() === PHP_SESSION_NONE) {
     $is_https = coinrexIsHttpsRequest();
     $cookie_secure = $is_production ? true : (bool) $is_https;
+    $session_save_path_raw = getenv('COINREX_SESSION_SAVE_PATH');
+    $session_save_path = trim((string) ($session_save_path_raw !== false ? $session_save_path_raw : ''));
+
+    if ($session_save_path === '') {
+        $session_save_path = $coinrex_base_path . '/cache/sessions';
+    }
+
+    $prepared_session_save_path = coinrexPrepareSessionSavePath($session_save_path, sys_get_temp_dir());
+
+    if ($prepared_session_save_path !== '') {
+        @ini_set('session.save_path', $prepared_session_save_path);
+        @session_save_path($prepared_session_save_path);
+    }
 
     @ini_set('session.cookie_httponly', '1');
     @ini_set('session.use_only_cookies', '1');
@@ -140,7 +224,35 @@ if (!defined('COINREX_SKIP_SESSION_INIT') && session_status() === PHP_SESSION_NO
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
-    session_start();
+
+    $incoming_session_id = (string) ($_COOKIE[session_name()] ?? '');
+    if ($incoming_session_id !== '' && preg_match('/^[a-zA-Z0-9,-]{1,128}$/', $incoming_session_id)) {
+        $session_file = rtrim((string) session_save_path(), "\\/") . DIRECTORY_SEPARATOR . 'sess_' . $incoming_session_id;
+        if (
+            !is_file($session_file)
+            || (
+                is_file($session_file)
+                && (
+                    !is_readable($session_file)
+                    || !is_writable($session_file)
+                )
+            )
+        ) {
+            session_id(bin2hex(random_bytes(16)));
+        }
+    }
+
+    $session_started = @session_start();
+    if (!$session_started && session_status() === PHP_SESSION_NONE) {
+        error_log('CoinRex session_start failed for path: ' . (string) session_save_path());
+        $fallback_session_save_path = coinrexPrepareSessionSavePath('', sys_get_temp_dir());
+        if ($fallback_session_save_path !== '') {
+            @ini_set('session.save_path', $fallback_session_save_path);
+            @session_save_path($fallback_session_save_path);
+        }
+        session_id(bin2hex(random_bytes(16)));
+        @session_start();
+    }
 }
 
 // Database Configuration
@@ -174,6 +286,10 @@ if ($base_uri === '/') {
 }
 define('BASE_URI', $base_uri);
 define('BASE_URL', rtrim($protocol . '://' . $host . $base_uri, '/'));
+$public_base_url = trim((string) (getenv('COINREX_PUBLIC_BASE_URL') ?: ''));
+$public_base_url = $public_base_url !== '' ? rtrim($public_base_url, '/') : '';
+define('PUBLIC_BASE_URL_CONFIGURED', $public_base_url !== '');
+define('PUBLIC_BASE_URL', $public_base_url !== '' ? $public_base_url : BASE_URL);
 define('ASSETS_URL', BASE_URL . '/assets');
 define('AUTH_URL', BASE_URL . '/auth');
 
@@ -215,23 +331,34 @@ define('EXPERT_TRUST_WEIGHT', 2.0);
 define('PROJECT_VERIFICATION_SCORE_THRESHOLD', 75);
 define('FEATURE_MIN_AVG_RATING', 4.0);
 define('FEATURE_MIN_APPROVED_REVIEWS', 100);
-define('REWARD_CLAIM_MINIMUM_REX', 50);
+define('REWARD_CLAIM_MINIMUM_REX', 100);
 define('REFERRAL_MIN_COMPLETED_TASKS', 3);
+
+// Early Adopter Airdrop Settings (7% of 1B REX)
+define('EARLY_AIRDROP_POOL_TOTAL', 70000000);
+define('EARLY_AIRDROP_SIGNUP_BONUS', 1000);
+define('EARLY_AIRDROP_REFERRAL_BONUS', 50);
 define('PRO_MIN_COMPLETED_TASKS', 7);
 define('PRO_MIN_VALID_REFERRALS', 1);
 define('PRO_MIN_ACCOUNT_AGE_DAYS', 7);
-define('ANTI_FARM_MAX_ACCOUNTS_PER_IP', 3);
+define('ANTI_FARM_MAX_ACCOUNTS_PER_IP', 5);
 define('ANTI_FARM_MAX_LOGIN_ATTEMPTS', 10);
 define('ANTI_FARM_RAPID_ACTION_WINDOW_SECONDS', 30);
 define('BEGINNER_GLOBAL_TASKS_PER_DAY', 1);
 define('TASKHUB_TOTAL_DAYS', 10);
 define('TASKHUB_SERVER_RESET_HOUR', 0);
-define('TASKHUB_PHASE1_REWARD_CAP', 80);
+define('TASKHUB_PHASE1_REWARD_CAP', 150);
 define('TASKHUB_MYSTERY_BOX_PERFECT_REWARD', 20);
 define('TASKHUB_MYSTERY_BOX_FALLBACK_REWARD', 5);
 
 // Database Connection Function
 function getDBConnection() {
+    static $pdo = null;
+
+    if ($pdo instanceof PDO) {
+        return $pdo;
+    }
+
     try {
         $pdo = new PDO(
             "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
@@ -245,7 +372,9 @@ function getDBConnection() {
         );
         return $pdo;
     } catch(PDOException $e) {
-        die("Database Connection Failed: " . $e->getMessage());
+        error_log('Database Connection Failed: ' . $e->getMessage());
+        http_response_code(500);
+        die('Database connection failed. Please try again later.');
     }
 }
 

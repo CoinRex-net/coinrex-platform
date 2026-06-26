@@ -46,12 +46,25 @@ if ($user_id) {
                 <i class="fas fa-clipboard-list"></i>
                 <span>Review Insights</span>
             </a>
+        <?php else: ?>
+            <a href="#" class="dh-menu dh-menu--disabled" title="Project Registration will unlock after verification">
+                <i class="fas fa-plus-circle"></i>
+                <span>Register Project</span>
+                <i class="fas fa-lock dh-menu-lock"></i>
+            </a>
 
-            <a href="<?php echo BASE_URL; ?>/devhub/widget-api.php" class="dh-menu <?php echo $is_widget_api_route ? 'active' : ''; ?>">
-                <i class="fas fa-plug"></i>
-                <span>Widgets &amp; API</span>
+            <a href="#" class="dh-menu dh-menu--disabled" title="Review Insights will unlock after verification">
+                <i class="fas fa-clipboard-list"></i>
+                <span>Review Insights</span>
+                <i class="fas fa-lock dh-menu-lock"></i>
             </a>
         <?php endif; ?>
+
+        <!-- Widgets & API is accessible to all logged-in users (unverified can visit but see CTA) -->
+        <a href="<?php echo BASE_URL; ?>/devhub/widget-api.php" class="dh-menu <?php echo $is_widget_api_route ? 'active' : ''; ?>">
+            <i class="fas fa-plug"></i>
+            <span>Widgets & API</span>
+        </a>
 
         <a href="<?php echo BASE_URL; ?>/devhub/apply.php" class="dh-menu <?php echo $is_apply_route ? 'active' : ''; ?>">
             <i class="fas fa-shield-alt"></i>

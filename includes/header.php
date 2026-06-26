@@ -9,6 +9,46 @@ require_once __DIR__ . '/config.php';
 
 // Set current page for active state
 $current_page = basename($_SERVER['PHP_SELF'], '.php');
+$coinrex_embedded_learning = (string) ($_GET['th_embed'] ?? '') === '1';
+
+if ($coinrex_embedded_learning) {
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title><?php echo SITE_NAME; ?> - Learning</title>
+    <meta name="base-url" content="<?php echo BASE_URL; ?>">
+    <link rel="icon" type="image/x-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.ico">
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/theme.css">
+    <style>
+        html, body {
+            min-height: 100%;
+            margin: 0;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        body {
+            padding: 0;
+        }
+
+        body::before,
+        body::after,
+        .nex-container,
+        .mobile-bottom-nav,
+        .footer,
+        .fixed-social {
+            display: none !important;
+        }
+    </style>
+</head>
+<body data-theme="dark" class="coinrex-embedded-learning">
+<?php
+    return;
+}
 
 // Check if user is logged in (implement your auth logic)
 $is_logged_in = isset($_SESSION['user_id']) ? true : false;
@@ -16,7 +56,7 @@ $user_name = isset($_SESSION['username']) ? $_SESSION['username'] : '';
 $user_display_name = $user_name;
 $user_balance_display = '0.00 $REX';
 $user_avatar_url = '';
-$home_url = $is_logged_in ? (BASE_URL . '/dashboard.php') : (BASE_URL . '/index.php');
+$home_url = $is_logged_in ? (BASE_URL . '/public/dashboard.php') : (BASE_URL . '/index.php');
 $request_path = str_replace('\\', '/', (string) ($_SERVER['PHP_SELF'] ?? ''));
 $is_devhub_request = strpos($request_path, '/devhub/') !== false;
 $home_active = $is_logged_in
@@ -27,6 +67,16 @@ if ($is_logged_in && function_exists('getCurrentUser')) {
     $header_user = getCurrentUser();
 
     if ($header_user) {
+        if (function_exists('unlockPendingEarlyAirdropForUser')) {
+            try {
+                $header_db = getDBConnection();
+                unlockPendingEarlyAirdropForUser((int) $header_user['id'], $header_db);
+                $header_user = getUserById((int) $header_user['id']) ?: $header_user;
+            } catch (Throwable $e) {
+                // Header rendering should not fail because a reward sync did not complete.
+            }
+        }
+
         $username = trim((string)($header_user['username'] ?? $user_name));
         $full_name = trim((string)($header_user['full_name'] ?? ''));
         $first_name = '';
@@ -45,15 +95,33 @@ if ($is_logged_in && function_exists('getCurrentUser')) {
 
 $user_notification_count = 0;
 $user_notifications = [];
-$notifications_all_url = BASE_URL . '/notifications.php?status=all';
-$notifications_unread_url = BASE_URL . '/notifications.php?status=unread';
+$notifications_all_url = BASE_URL . '/public/notifications.php?status=all';
+$notifications_unread_url = BASE_URL . '/public/notifications.php?status=unread';
 if ($is_logged_in && !empty($header_user['id']) && function_exists('getUnreadNotificationCount')) {
     $user_notification_count = getUnreadNotificationCount('user', (int) $header_user['id']);
     $user_notifications = getNotifications('user', (int) $header_user['id'], 6);
 }
 
 $user_level_for_nav = normalizeUserLevel(($header_user['level'] ?? $_SESSION['level'] ?? 'beginner'));
-$can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
+$taskhub_mission_completed_for_nav = false;
+if ($is_logged_in && !empty($header_user['id']) && function_exists('taskHubMissionCompleted')) {
+    try {
+        $taskhub_mission_completed_for_nav = taskHubMissionCompleted((int) $header_user['id'], getDBConnection());
+    } catch (Throwable $e) {
+        $taskhub_mission_completed_for_nav = false;
+    }
+}
+$can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner' && !$taskhub_mission_completed_for_nav;
+$show_dashboard_nav = featureIsVisible('dashboard');
+$show_projects_nav = featureIsVisible('projects');
+$show_reviews_nav = featureIsVisible('reviews');
+$show_learnhub_nav = featureIsVisible('learnhub');
+$show_boosthub_nav = featureIsVisible('boosthub');
+$show_claim_center_nav = featureIsVisible('claim_center');
+$show_devhub_nav = featureIsVisible('devhub_full') || featureIsVisible('devhub_auth');
+$show_login_nav = featureIsVisible('login');
+$can_access_claim_center_nav = $is_logged_in && $show_claim_center_nav;
+$claim_center_accessible_nav = featureIsAccessible('claim_center');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -83,10 +151,67 @@ $can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/header.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?php if ($is_logged_in): ?>
+    <style>
+    .rexlink-session-chip {
+        position: fixed;
+        left: 18px;
+        bottom: 18px;
+        z-index: 1700;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 8px 12px;
+        border: 1px solid rgba(34, 197, 94, .34);
+        border-radius: 999px;
+        background: rgba(8, 24, 18, .94);
+        color: #bbf7d0;
+        box-shadow: 0 16px 38px rgba(0, 0, 0, .32);
+        backdrop-filter: blur(10px);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0;
+        transform: translateY(8px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s ease, transform .2s ease, border-color .2s ease, color .2s ease, background .2s ease;
+    }
+    .rexlink-session-chip[hidden] {
+        display: none;
+    }
+    .rexlink-session-chip.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+    }
+    .rexlink-session-chip.is-warning {
+        border-color: rgba(250, 204, 21, .42);
+        background: rgba(36, 28, 8, .94);
+        color: #fde68a;
+    }
+    .rexlink-session-chip i {
+        color: currentColor;
+    }
+    .rexlink-session-chip strong {
+        color: #f8fafc;
+    }
+    @media (max-width: 768px) {
+        .rexlink-session-chip {
+            left: 12px;
+            bottom: 76px;
+            min-height: 34px;
+            padding: 7px 10px;
+            font-size: 11px;
+        }
+    }
+    </style>
+    <?php endif; ?>
 </head>
 <body data-theme="dark">
 
 <!-- Top Navbar (Desktop + Tablet) -->
+<nav class="nex-nav" aria-label="Primary navigation">
     <div class="nex-container">
         <div class="nex-navbar">
             
@@ -102,8 +227,8 @@ $can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
 
             <!-- Desktop Navigation Links -->
             <div class="nex-nav-links">
-                <?php if($is_logged_in): ?>
-                <a href="<?php echo BASE_URL; ?>/dashboard.php" class="<?php echo $home_active ? 'active' : ''; ?>">
+                <?php if($is_logged_in && $show_dashboard_nav): ?>
+                <a href="<?php echo BASE_URL; ?>/public/dashboard.php" class="<?php echo $home_active ? 'active' : ''; ?>">
                     <i class="fas fa-gem"></i>
                     <span>RexHub</span>
                 </a>
@@ -113,36 +238,46 @@ $can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
                     <span>Home</span>
                 </a>
                 <?php endif; ?>
-                <a href="<?php echo BASE_URL; ?>/projects.php" class="<?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
+                <?php if($show_projects_nav): ?>
+                <a href="<?php echo BASE_URL; ?>/public/projects.php" class="<?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line"></i>
                     <span>Projects</span>
                 </a>
-                <a href="<?php echo BASE_URL; ?>/reviews.php" class="<?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
+                <?php endif; ?>
+                <?php if($show_reviews_nav): ?>
+                <a href="<?php echo BASE_URL; ?>/public/reviews.php" class="<?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
                     <i class="fas fa-star"></i>
                     <span>Reviews</span>
                 </a>
-                <?php if($can_access_taskhub_nav): ?>
-                    <a href="<?php echo BASE_URL; ?>/taskhub.php" class="<?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
+                <?php endif; ?>
+                <?php if($can_access_taskhub_nav && $show_learnhub_nav): ?>
+                    <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="<?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
                         <i class="fas fa-list-check"></i>
-                        <span>TaskHub</span>
+                        <span>LearnHub</span>
                     </a>
                 <?php endif; ?>
-                <?php if($is_logged_in): ?>
-                    <a href="<?php echo BASE_URL; ?>/boosthub.php" class="<?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
+                <?php if($is_logged_in && $show_boosthub_nav): ?>
+                    <a href="<?php echo BASE_URL; ?>/public/boosthub.php" class="<?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
                         <i class="fas fa-bolt"></i>
                         <span>BoostHub</span>
                     </a>
                 <?php endif; ?>
+                <?php if($show_devhub_nav): ?>
                 <a href="<?php echo BASE_URL; ?>/devhub/index.php" class="<?php echo $is_devhub_request ? 'active' : ''; ?>">
                     <i class="fas fa-code"></i>
                     <span>Dev Hub</span>
                 </a>
+                <?php endif; ?>
                 <?php if(!$is_logged_in): ?>
-                    <a href="<?php echo BASE_URL; ?>/about.php" class="<?php echo ($current_page == 'about') ? 'active' : ''; ?>">
-                        <i class="fas fa-info-circle"></i>
-                        <span>About</span>
+                    <a href="<?php echo BASE_URL; ?>/public/roadmap.php" class="<?php echo ($current_page == 'roadmap') ? 'active' : ''; ?>">
+                        <i class="fas fa-route"></i>
+                        <span>Roadmap</span>
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/blog.php" class="<?php echo in_array($current_page, ['blog', 'blog-post', 'blog-category', 'blog-tag'], true) ? 'active' : ''; ?>">
+                    <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="<?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
+                        <i class="fas fa-file-alt"></i>
+                        <span>Litepaper</span>
+                    </a>
+                    <a href="<?php echo BASE_URL; ?>/public/blog.php" class="<?php echo in_array($current_page, ['blog', 'blog-post', 'blog-category', 'blog-tag'], true) ? 'active' : ''; ?>">
                         <i class="fas fa-blog"></i>
                         <span>Blog</span>
                     </a>
@@ -214,19 +349,23 @@ $can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
                             </div>
                         </button>
                         <div class="nex-dropdown" id="userDropdown">
-                            <a href="<?php echo BASE_URL; ?>/profile.php"><i class="fas fa-id-badge"></i><span class="nex-dropdown-link-label">Profile</span></a>
-                            <a href="<?php echo BASE_URL; ?>/dashboard.php"><i class="fas fa-user"></i> Dashboard</a>
-                            <a href="<?php echo BASE_URL; ?>/reward-history.php"><i class="fas fa-clock-rotate-left"></i> Reward History</a>
-                            <a href="#" class="claim-link-disabled" aria-disabled="true"><i class="fas fa-gift"></i><span class="nex-dropdown-link-label">Claim Center</span><span class="nex-link-badge">Soon</span></a>
+                            <a href="<?php echo BASE_URL; ?>/public/profile.php"><i class="fas fa-id-badge"></i><span class="nex-dropdown-link-label">Profile</span></a>
+                            <a href="<?php echo BASE_URL; ?>/public/dashboard.php"><i class="fas fa-user"></i> Dashboard</a>
+                            <a href="<?php echo BASE_URL; ?>/public/reward-history.php"><i class="fas fa-clock-rotate-left"></i> Reward History</a>
+                            <?php if ($can_access_claim_center_nav): ?>
+                                <a href="<?php echo BASE_URL; ?>/public/claims.php"><i class="fas fa-gift"></i><span class="nex-dropdown-link-label">Claim Center</span><?php if (!$claim_center_accessible_nav): ?><span class="nex-link-badge">Soon</span><?php endif; ?></a>
+                            <?php endif; ?>
                             <hr>
                             <a href="<?php echo BASE_URL; ?>/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
                         </div>
                     </div>
                 <?php else: ?>
+                    <?php if ($show_login_nav): ?>
                     <a href="<?php echo AUTH_URL; ?>/auth.php" class="nex-btn nex-btn-primary">
                         <i class="fas fa-sign-in-alt"></i>
                         <span>Sign In</span>
                     </a>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
             
@@ -237,49 +376,74 @@ $can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner';
 <!-- Mobile Bottom Navigation Bar (appears only on mobile) -->
 <div class="mobile-bottom-nav">
     <?php if($is_logged_in): ?>
+        <?php if ($show_dashboard_nav): ?>
         <a href="<?php echo $home_url; ?>" class="mobile-nav-item <?php echo $home_active ? 'active' : ''; ?>">
             <i class="fas fa-gem"></i>
             <span>RexHub</span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/projects.php" class="mobile-nav-item <?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
+        <?php endif; ?>
+        <?php if($show_projects_nav): ?>
+        <a href="<?php echo BASE_URL; ?>/public/projects.php" class="mobile-nav-item <?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
             <i class="fas fa-chart-line"></i>
             <span>Projects</span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/reviews.php" class="mobile-nav-item <?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
+        <?php endif; ?>
+        <?php if($show_reviews_nav): ?>
+        <a href="<?php echo BASE_URL; ?>/public/reviews.php" class="mobile-nav-item <?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
             <i class="fas fa-star"></i>
             <span>Reviews</span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/taskhub.php" class="mobile-nav-item <?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
-            <i class="fas fa-list-check"></i>
-            <span>TaskHub</span>
-        </a>
+        <?php endif; ?>
+        <?php if($can_access_taskhub_nav && $show_learnhub_nav): ?>
+            <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="mobile-nav-item <?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
+                <i class="fas fa-list-check"></i>
+                <span>LearnHub</span>
+            </a>
+        <?php endif; ?>
+        <?php if($show_devhub_nav): ?>
         <a href="<?php echo BASE_URL; ?>/devhub/index.php" class="mobile-nav-item <?php echo $is_devhub_request ? 'active' : ''; ?>">
             <i class="fas fa-code"></i>
             <span>DevHub</span>
         </a>
+        <?php endif; ?>
     <?php else: ?>
         <a href="<?php echo $home_url; ?>" class="mobile-nav-item <?php echo $home_active ? 'active' : ''; ?>">
             <i class="fas fa-home"></i>
             <span>Home</span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/projects.php" class="mobile-nav-item <?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
+        <?php if($show_projects_nav): ?>
+        <a href="<?php echo BASE_URL; ?>/public/projects.php" class="mobile-nav-item <?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
             <i class="fas fa-chart-line"></i>
             <span>Projects</span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/reviews.php" class="mobile-nav-item <?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
+        <?php endif; ?>
+        <?php if($show_reviews_nav): ?>
+        <a href="<?php echo BASE_URL; ?>/public/reviews.php" class="mobile-nav-item <?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
             <i class="fas fa-star"></i>
             <span>Reviews</span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/blog.php" class="mobile-nav-item <?php echo in_array($current_page, ['blog', 'blog-post', 'blog-category', 'blog-tag'], true) ? 'active' : ''; ?>">
+        <?php endif; ?>
+        <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="mobile-nav-item <?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
+            <i class="fas fa-file-alt"></i>
+            <span>Litepaper</span>
+        </a>
+        <a href="<?php echo BASE_URL; ?>/public/blog.php" class="mobile-nav-item <?php echo in_array($current_page, ['blog', 'blog-post', 'blog-category', 'blog-tag'], true) ? 'active' : ''; ?>">
             <i class="fas fa-blog"></i>
             <span>Blog</span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/about.php" class="mobile-nav-item <?php echo ($current_page == 'about') ? 'active' : ''; ?>">
-            <i class="fas fa-info-circle"></i>
-            <span>About</span>
+        <a href="<?php echo BASE_URL; ?>/public/roadmap.php" class="mobile-nav-item <?php echo ($current_page == 'roadmap') ? 'active' : ''; ?>">
+            <i class="fas fa-route"></i>
+            <span>Roadmap</span>
         </a>
     <?php endif; ?>
 </div>
+
+<?php if ($is_logged_in): ?>
+<div class="rexlink-session-chip" id="rexLinkSessionChip" hidden>
+    <i class="fas fa-link"></i>
+    <span>RexLink <strong id="rexLinkSessionChipTime">--:--</strong></span>
+</div>
+<?php endif; ?>
 
 <script>
 // User dropdown functionality
@@ -291,6 +455,114 @@ const markAllNotificationsReadBtn = document.getElementById('markAllNotification
 const userNotificationBadge = document.getElementById('userNotificationBadge');
 const userNotificationStatusText = document.getElementById('userNotificationStatusText');
 const userNotificationsList = document.getElementById('userNotificationsList');
+
+<?php if ($is_logged_in): ?>
+(function() {
+    const chip = document.getElementById('rexLinkSessionChip');
+    const chipTime = document.getElementById('rexLinkSessionChipTime');
+    const sessionsEndpoint = <?php echo json_encode(BASE_URL . '/api/rex-signer/sessions.php', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+    let remainingSeconds = 0;
+    let tickTimer = null;
+    let pollTimer = null;
+    let expiryDispatched = false;
+
+    function formatRexLinkTime(seconds) {
+        const safeSeconds = Math.max(0, Number(seconds || 0));
+        const minutes = Math.floor(safeSeconds / 60);
+        const secs = String(safeSeconds % 60).padStart(2, '0');
+        return minutes + ':' + secs;
+    }
+
+    function hideRexLinkChip(dispatchExpired) {
+        remainingSeconds = 0;
+        if (chip) {
+            chip.classList.remove('is-visible', 'is-warning');
+            chip.hidden = true;
+        }
+        if (dispatchExpired && !expiryDispatched) {
+            expiryDispatched = true;
+            window.dispatchEvent(new CustomEvent('rexlink:session-expired'));
+        }
+    }
+
+    function renderRexLinkChip() {
+        if (!chip || !chipTime) {
+            return;
+        }
+        if (remainingSeconds <= 0) {
+            hideRexLinkChip(true);
+            return;
+        }
+        chip.hidden = false;
+        chipTime.textContent = formatRexLinkTime(remainingSeconds);
+        chip.classList.toggle('is-warning', remainingSeconds <= 120);
+        window.requestAnimationFrame(function() {
+            chip.classList.add('is-visible');
+        });
+    }
+
+    function startRexLinkTick() {
+        if (tickTimer) {
+            window.clearInterval(tickTimer);
+        }
+        tickTimer = window.setInterval(function() {
+            if (remainingSeconds > 0) {
+                remainingSeconds -= 1;
+            }
+            renderRexLinkChip();
+        }, 1000);
+    }
+
+    function fetchRexLinkSession() {
+        return fetch(sessionsEndpoint, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        }).then(function(response) {
+            return response.json();
+        }).then(function(data) {
+            if (!data || data.success !== true) {
+                throw new Error((data && data.message) || 'Could not load RexLink session.');
+            }
+            const currentSession = data.current_session || null;
+            const nextRemaining = currentSession && currentSession.status === 'active'
+                ? Number(currentSession.remaining_seconds || 0)
+                : 0;
+            if (nextRemaining > 0) {
+                expiryDispatched = false;
+                remainingSeconds = nextRemaining;
+                renderRexLinkChip();
+                startRexLinkTick();
+            } else {
+                hideRexLinkChip(false);
+            }
+            return data;
+        }).catch(function() {
+            hideRexLinkChip(false);
+            return null;
+        });
+    }
+
+    fetchRexLinkSession();
+    pollTimer = window.setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            fetchRexLinkSession();
+        }
+    }, 30000);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            fetchRexLinkSession();
+        }
+    });
+    window.addEventListener('beforeunload', function() {
+        if (tickTimer) {
+            window.clearInterval(tickTimer);
+        }
+        if (pollTimer) {
+            window.clearInterval(pollTimer);
+        }
+    });
+})();
+<?php endif; ?>
 
 if (userAvatar && userDropdown) {
     userAvatar.addEventListener('click', function(e) {
@@ -540,6 +812,7 @@ if (userNotificationsToggle && userNotificationsDropdown) {
 // Scroll effect for top navbar
 window.addEventListener('scroll', function() {
     const nav = document.querySelector('.nex-nav');
+    if (!nav) return;
     if (window.scrollY > 50) {
         nav.classList.add('scrolled');
     } else {

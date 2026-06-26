@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<ruleset name="CoinRex Coding Standards">
+    <description>CoinRex PHP coding standards based on PSR-12.</description>
+
+    <file>src/</file>
+    <file>includes/</file>
+    <file>admin/includes/</file>
+    <file>api/</file>
+    <file>auth/</file>
+
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/includes/functions_legacy_backup.php</exclude-pattern>
+    <exclude-pattern>*/tools/*</exclude-pattern>
+
+    <rule ref="PSR12"/>
+
+    <!-- Allow long lines for now (legacy codebase) -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="200"/>
+            <property name="absoluteLineLimit" value="300"/>
+        </properties>
+    </rule>
+
+    <!-- Allow mixed PHP/HTML in view files -->
+    <rule ref="PSR1.Files.SideEffects.FoundWithSymbols">
+        <exclude-pattern>*/admin/*</exclude-pattern>
+        <exclude-pattern>*.php</exclude-pattern>
+    </rule>
+</ruleset>

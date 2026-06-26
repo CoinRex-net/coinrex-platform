@@ -238,7 +238,7 @@
     background: var(--dh-gradient-accent);
     color: white;
     padding: 10px 24px;
-    border-radius: 40px;
+    border-radius: 12px;
     border: none;
     cursor: pointer;
     font-weight: 600;
@@ -255,7 +255,7 @@
     background: var(--dh-gradient-accent);
     color: white;
     padding: 12px 28px;
-    border-radius: 40px;
+    border-radius: 12px;
     text-decoration: none;
     font-weight: 600;
     border: none;
@@ -272,7 +272,7 @@
     background: var(--dh-bg-elevated);
     color: var(--dh-text-secondary);
     padding: 12px 28px;
-    border-radius: 40px;
+    border-radius: 12px;
     text-decoration: none;
     font-weight: 600;
     border: none;

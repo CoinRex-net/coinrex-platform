@@ -8,6 +8,7 @@ if (!isLoggedIn()) {
 
 $user_id = getCurrentUserId();
 $db = getDevHubDB();
+ensureReviewEligibilitySchema($db);
 $is_verified = isVerifiedDeveloper($user_id);
 
 $page_title = 'Submit Project';
@@ -18,6 +19,11 @@ $success = false;
 $success_message = '';
 $uploaded_logo_web_path = '';
 $recent_project_updates = [];
+$contract_rows = [];
+$max_projects_per_developer = 3;
+$developer_project_count = 0;
+$developer_pending_project = null;
+$submission_block_reason = '';
 
 $form = [
     'name' => '',
@@ -60,13 +66,68 @@ $updates_stmt = $db->prepare("
 $updates_stmt->execute([$user_id]);
 $recent_project_updates = $updates_stmt->fetchAll();
 
+$count_stmt = $db->prepare("SELECT COUNT(*) FROM projects WHERE created_by = ?");
+$count_stmt->execute([$user_id]);
+$developer_project_count = (int) $count_stmt->fetchColumn();
+
+$pending_stmt = $db->prepare("
+    SELECT id, name, approval_status, updated_at
+    FROM projects
+    WHERE created_by = ?
+      AND LOWER(COALESCE(NULLIF(TRIM(approval_status), ''), 'pending')) IN ('pending', 'under_review', 'flagged')
+    ORDER BY updated_at DESC, id DESC
+    LIMIT 1
+");
+$pending_stmt->execute([$user_id]);
+$developer_pending_project = $pending_stmt->fetch() ?: null;
+
+if ($developer_pending_project) {
+    $submission_block_reason = 'Your project "' . (string) ($developer_pending_project['name'] ?? 'Project') . '" is still waiting for admin approval. You can submit another project after this one is approved or rejected.';
+} elseif ($developer_project_count >= $max_projects_per_developer) {
+    $submission_block_reason = 'You have reached the developer project limit of ' . $max_projects_per_developer . ' projects.';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
+    if ($submission_block_reason !== '') {
+        $errors['general'] = $submission_block_reason;
+    }
+
     foreach ($form as $key => $default) {
         $form[$key] = trim($_POST[$key] ?? $default);
     }
 
     $form['slug'] = $slugify($form['name']);
     $form['status'] = in_array($form['status'], ['upcoming', 'active', 'maintenance', 'paused'], true) ? $form['status'] : 'upcoming';
+
+    $contract_source = $_POST;
+    $bulk_rows = reviewEligibilityParseBulkRows($_POST['contract_bulk'] ?? '');
+    if (!empty($bulk_rows)) {
+        foreach ($bulk_rows as $bulk_row) {
+            $contract_source['contract_network_name'][] = $bulk_row['network_name'];
+            $contract_source['contract_chain_id'][] = $bulk_row['chain_id'];
+            $contract_source['contract_address_multi'][] = $bulk_row['contract_address'];
+            $contract_source['contract_token_type'][] = $bulk_row['token_type'];
+            $contract_source['contract_is_active'][] = '1';
+        }
+    }
+    if (empty($contract_source['contract_address_multi']) && $form['contract_address'] !== '') {
+        $contract_source['contract_network_name'] = [$form['network']];
+        $contract_source['contract_chain_id'] = [$_POST['chain_id'] ?? ''];
+        $contract_source['contract_address_multi'] = [$form['contract_address']];
+        $contract_source['contract_token_type'] = [$_POST['token_type'] ?? 'ERC20'];
+        $contract_source['primary_contract_index'] = 0;
+    }
+    $contract_rows = reviewEligibilityNormalizeContractRows($contract_source, $errors);
+    if (empty($contract_rows)) {
+        $errors['contracts'] = 'Add one primary EVM contract for automatic review eligibility.';
+    }
+    foreach ($contract_rows as $row) {
+        if ((int) $row['is_primary'] === 1) {
+            $form['network'] = $row['network_name'];
+            $form['contract_address'] = $row['contract_address'];
+            break;
+        }
+    }
 
     if ($form['name'] === '') {
         $errors['name'] = 'Project name is required.';
@@ -85,8 +146,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
     } elseif (!filter_var($form['website_url'], FILTER_VALIDATE_URL)) {
         $errors['website_url'] = 'Please provide a valid website URL.';
     }
-    // Contract address is optional (e.g., BTC/ETH/SOL native projects).
-
     $url_fields = ['twitter_url', 'telegram_url', 'discord_url', 'github_url'];
     foreach ($url_fields as $url_field) {
         if ($form[$url_field] !== '' && !filter_var($form[$url_field], FILTER_VALIDATE_URL)) {
@@ -118,6 +177,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
             $stmt->execute([$form['contract_address']]);
             if ($stmt->fetch()) {
                 $errors['contract_address'] = 'This contract address already exists.';
+            }
+        }
+        foreach ($contract_rows as $row) {
+            $stmt = $db->prepare("SELECT project_id FROM project_contracts WHERE chain_id = ? AND contract_address = ? LIMIT 1");
+            $lookup_address = ($row['token_type'] ?? '') === 'NATIVE' ? '' : $row['contract_address'];
+            $stmt->execute([(int) $row['chain_id'], $lookup_address]);
+            if ($stmt->fetch()) {
+                $errors['contracts'] = 'One of these chain + contract pairs is already used by another project.';
+                break;
             }
         }
 
@@ -187,7 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
                 $form['website_url'],
                 $form['telegram_url'] !== '' ? $form['telegram_url'] : null,
                 $form['twitter_url'] !== '' ? $form['twitter_url'] : null,
-                $form['contract_address'] !== '' ? $form['contract_address'] : null,
+                $form['contract_address'] !== '' ? $form['contract_address'] : '',
                 $form['github_url'] !== '' ? $form['github_url'] : null,
                 $form['discord_url'] !== '' ? $form['discord_url'] : null,
                 $form['network'] !== '' ? $form['network'] : null,
@@ -198,6 +266,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
                 $form['required_holding_days'] !== '' ? $form['required_holding_days'] : null,
                 $user_id
             ]);
+
+            $project_id = (int) $db->lastInsertId();
+            reviewEligibilitySaveProjectContracts($db, $project_id, $contract_rows);
 
             $success = true;
             $success_message = 'Project submitted successfully. It is now pending admin approval.';
@@ -241,7 +312,15 @@ require_once __DIR__ . '/../includes/header.php';
             <p><?php echo $esc($success_message); ?></p>
             <div class="notice-actions">
                 <a class="btn-primary" href="<?php echo BASE_URL; ?>/devhub/index.php">Back to Dashboard</a>
-                <a class="btn-secondary" href="<?php echo BASE_URL; ?>/devhub/projects/submit_project.php">Submit Another Project</a>
+            </div>
+        </div>
+    <?php elseif ($submission_block_reason !== ''): ?>
+        <div class="submit-notice warning">
+            <h3><i class="fas fa-hourglass-half"></i> Submission Temporarily Locked</h3>
+            <p><?php echo $esc($submission_block_reason); ?></p>
+            <p>You have submitted <?php echo number_format($developer_project_count); ?> of <?php echo number_format($max_projects_per_developer); ?> allowed projects.</p>
+            <div class="notice-actions">
+                <a class="btn-primary" href="<?php echo BASE_URL; ?>/devhub/index.php">Back to Dashboard</a>
             </div>
         </div>
     <?php else: ?>
@@ -411,37 +490,69 @@ require_once __DIR__ . '/../includes/header.php';
                         </section>
 
                         <section class="wizard-step" data-step="3">
-                            <h2>Technical Details</h2>
-                            <p>Provide chain-level details. Contract address is optional for native coins like BTC, ETH, SOL, or POL.</p>
+                            <h2>Review Eligibility Contracts</h2>
+                            <p>Add the official token/NFT contracts users can hold to unlock review submission.</p>
 
-                            <div class="form-group">
-                                <label for="contract_address">Contract Address (Optional)</label>
-                                <input type="text" id="contract_address" name="contract_address" value="<?php echo $esc($form['contract_address']); ?>" placeholder="0x...">
-                                <small class="hint">Leave blank for native coins that don't use token contracts.</small>
-                                <small class="field-error" data-error-for="contract_address"><?php echo $esc($errors['contract_address'] ?? ''); ?></small>
+                            <input type="hidden" id="contract_address" name="contract_address" value="<?php echo $esc($form['contract_address']); ?>">
+                            <input type="hidden" id="network" name="network" value="<?php echo $esc($form['network']); ?>">
+
+                            <?php if (!empty($errors['contracts'])): ?>
+                                <div class="submit-notice error"><p><?php echo $esc($errors['contracts']); ?></p></div>
+                            <?php endif; ?>
+
+                            <div class="eligibility-setup-card">
+                                <div class="eligibility-setup-icon"><i class="fas fa-shield-check"></i></div>
+                                <div class="eligibility-setup-copy">
+                                    <span class="eligibility-kicker">Automatic review eligibility</span>
+                                    <strong>Start with the main chain, then add every supported chain where users may hold the same token.</strong>
+                                    <div class="eligibility-chip-row">
+                                        <button type="button" class="eligibility-chip" data-quick-network="Ethereum">Ethereum</button>
+                                        <button type="button" class="eligibility-chip" data-quick-network="BNB Smart Chain">BSC</button>
+                                        <button type="button" class="eligibility-chip" data-quick-network="Base">Base</button>
+                                        <button type="button" class="eligibility-chip" data-quick-network="Polygon">Polygon</button>
+                                        <button type="button" class="eligibility-chip" data-quick-network="Arbitrum">Arbitrum</button>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label for="network">Network</label>
-                                    <select id="network" name="network">
-                                        <option value="">Select network</option>
-                                        <?php
-                                        $networks = ['Ethereum', 'BNB Smart Chain', 'Solana', 'Polygon', 'Arbitrum', 'Optimism', 'Avalanche', 'Base', 'Other'];
-                                        foreach ($networks as $network):
-                                        ?>
-                                            <option value="<?php echo $esc($network); ?>" <?php echo $form['network'] === $network ? 'selected' : ''; ?>>
-                                                <?php echo $esc($network); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <small class="field-error" data-error-for="network"></small>
+                            <div class="contract-builder contract-builder-submit" id="contractBuilder">
+                                <div class="contract-row contract-row-head">
+                                    <span>Primary</span><span>Network</span><span>Chain ID</span><span>Contract</span><span>Type</span><span></span>
                                 </div>
-                                <div class="form-group">
-                                    <label for="project_live_since">Project Live Since</label>
-                                    <input type="date" id="project_live_since" name="project_live_since" value="<?php echo $esc($form['project_live_since']); ?>">
-                                    <small class="field-error" data-error-for="project_live_since"><?php echo $esc($errors['project_live_since'] ?? ''); ?></small>
+                                <div id="contractRows">
+                                    <div class="contract-row" data-contract-row>
+                                        <label class="contract-primary-toggle"><input type="radio" name="primary_contract_index" value="0" checked><span>Primary</span></label>
+                                        <label class="contract-field"><span>Network</span><select name="contract_network_name[]" data-network-select>
+                                                <option value="">Network</option>
+                                                <?php foreach (array_keys(reviewEligibilityKnownNetworks()) as $network): ?>
+                                                    <option value="<?php echo $esc($network); ?>"><?php echo $esc($network); ?></option>
+                                                <?php endforeach; ?>
+                                            </select></label>
+                                        <label class="contract-field"><span>Chain ID</span><input type="number" name="contract_chain_id[]" data-chain-id placeholder="1"></label>
+                                        <label class="contract-field contract-address-field"><span>Contract Address</span><input type="text" name="contract_address_multi[]" data-contract-address placeholder="0x..."></label>
+                                        <label class="contract-field"><span>Token Type</span><select name="contract_token_type[]" data-token-type>
+                                                <option value="NATIVE">Native</option>
+                                                <option value="ERC20">ERC20</option>
+                                                <option value="ERC721">ERC721</option>
+                                                <option value="ERC1155">ERC1155</option>
+                                            </select></label>
+                                        <input type="hidden" name="contract_is_active[]" value="1">
+                                        <button type="button" class="contract-remove-btn" data-remove-contract><i class="fas fa-times"></i><span>Remove</span></button>
+                                    </div>
                                 </div>
+                                <button type="button" class="btn-ghost contract-add-btn" id="addContractRow"><i class="fas fa-plus"></i> Add another chain</button>
+                            </div>
+
+                            <div class="form-group contract-bulk-box">
+                                <label for="contract_bulk">Bulk Add Contracts</label>
+                                <textarea id="contract_bulk" name="contract_bulk" rows="4" placeholder="Polygon,137,,NATIVE&#10;Base,8453,0x...,ERC20"></textarea>
+                                <small class="hint">Optional. One row per chain: Network, Chain ID, Contract Address, Token Type.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="project_live_since">Project Live Since</label>
+                                <input type="date" id="project_live_since" name="project_live_since" value="<?php echo $esc($form['project_live_since']); ?>">
+                                <small class="field-error" data-error-for="project_live_since"><?php echo $esc($errors['project_live_since'] ?? ''); ?></small>
                             </div>
                         </section>
 
@@ -562,6 +673,9 @@ require_once __DIR__ . '/../includes/header.php';
     const logoInput = document.getElementById('logo');
     const socialHint = document.getElementById('socialHint');
     const logoPreview = document.getElementById('logoPreview');
+    const contractRows = document.getElementById('contractRows');
+    const addContractRow = document.getElementById('addContractRow');
+    const knownChains = <?php echo json_encode(reviewEligibilityKnownNetworks(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 
     const fieldIds = ['name', 'slug', 'category', 'description', 'website_url', 'twitter_url', 'telegram_url', 'discord_url', 'github_url', 'contract_address', 'network', 'project_live_since', 'status', 'min_holding_amount', 'max_reward_rex', 'required_holding_days'];
 
@@ -588,6 +702,106 @@ require_once __DIR__ . '/../includes/header.php';
         } catch (err) {
             return false;
         }
+    }
+
+    function syncPrimaryContractFields() {
+        const checked = document.querySelector('input[name="primary_contract_index"]:checked');
+        const row = checked ? checked.closest('[data-contract-row]') : document.querySelector('[data-contract-row]');
+        const networkField = document.getElementById('network');
+        const contractField = document.getElementById('contract_address');
+        if (!row || !networkField || !contractField) return;
+        const network = row.querySelector('[data-network-select]');
+        const address = row.querySelector('[data-contract-address]');
+        networkField.value = network ? network.value : '';
+        contractField.value = address ? address.value.trim() : '';
+    }
+
+    function refreshContractIndexes() {
+        Array.from(document.querySelectorAll('[data-contract-row]')).forEach(function(row, index) {
+            const radio = row.querySelector('input[name="primary_contract_index"]');
+            if (radio) radio.value = String(index);
+        });
+        if (!document.querySelector('input[name="primary_contract_index"]:checked')) {
+            const first = document.querySelector('input[name="primary_contract_index"]');
+            if (first) first.checked = true;
+        }
+        syncPrimaryContractFields();
+    }
+
+    function bindContractRow(row) {
+        const network = row.querySelector('[data-network-select]');
+        const chainId = row.querySelector('[data-chain-id]');
+        const address = row.querySelector('[data-contract-address]');
+        const remove = row.querySelector('[data-remove-contract]');
+        const radio = row.querySelector('input[name="primary_contract_index"]');
+        const tokenType = row.querySelector('[data-token-type]');
+        function syncNativeAddressState() {
+            if (!address || !tokenType) return;
+            const isNative = tokenType.value === 'NATIVE';
+            address.readOnly = isNative;
+            address.placeholder = isNative ? 'Native balance uses chain only' : '0x...';
+            if (isNative) address.value = '';
+        }
+        if (network) {
+            network.addEventListener('change', function() {
+                if (knownChains[network.value] && chainId && !chainId.value) {
+                    chainId.value = knownChains[network.value].chain_id;
+                }
+                syncPrimaryContractFields();
+                saveDraft();
+            });
+        }
+        [chainId, address, radio, tokenType].forEach(function(el) {
+            if (!el) return;
+            el.addEventListener('input', function() { syncNativeAddressState(); syncPrimaryContractFields(); saveDraft(); });
+            el.addEventListener('change', function() { syncNativeAddressState(); syncPrimaryContractFields(); saveDraft(); });
+        });
+        if (remove) {
+            remove.addEventListener('click', function() {
+                if (document.querySelectorAll('[data-contract-row]').length <= 1) return;
+                row.remove();
+                refreshContractIndexes();
+                saveDraft();
+            });
+        }
+        syncNativeAddressState();
+    }
+
+    function createContractRow() {
+        const first = document.querySelector('[data-contract-row]');
+        if (!first || !contractRows) return null;
+        const clone = first.cloneNode(true);
+        clone.querySelectorAll('input, select').forEach(function(input) {
+            if (input.type === 'radio') input.checked = false;
+            else if (input.type === 'hidden') input.value = '1';
+            else if (input.matches('[data-token-type]')) input.value = 'ERC20';
+            else input.value = '';
+        });
+        contractRows.appendChild(clone);
+        bindContractRow(clone);
+        refreshContractIndexes();
+        return clone;
+    }
+
+    function findEmptyContractRow() {
+        return Array.from(document.querySelectorAll('[data-contract-row]')).find(function(row) {
+        const network = row.querySelector('[data-network-select]');
+        const address = row.querySelector('[data-contract-address]');
+        const chainId = row.querySelector('[data-chain-id]');
+        const tokenType = row.querySelector('[data-token-type]');
+        return (!network || !network.value) && (!address || !address.value.trim()) && (!chainId || !chainId.value) && (!tokenType || tokenType.value === 'ERC20');
+        }) || null;
+    }
+
+    function applyQuickNetwork(networkName) {
+        let row = findEmptyContractRow() || createContractRow();
+        if (!row) return;
+        const network = row.querySelector('[data-network-select]');
+        const chainId = row.querySelector('[data-chain-id]');
+        if (network) network.value = networkName;
+        if (chainId && knownChains[networkName]) chainId.value = knownChains[networkName].chain_id;
+        syncPrimaryContractFields();
+        saveDraft();
     }
 
     function validateStep(step) {
@@ -637,6 +851,30 @@ require_once __DIR__ . '/../includes/header.php';
         }
 
         if (step === 3) {
+            const rows = Array.from(document.querySelectorAll('[data-contract-row]'));
+            const activeRows = rows.filter(function(row) {
+                const network = row.querySelector('[data-network-select]')?.value.trim() || '';
+                const chainId = row.querySelector('[data-chain-id]')?.value.trim() || '';
+                const address = row.querySelector('[data-contract-address]')?.value.trim() || '';
+                return network || chainId || address;
+            });
+            if (activeRows.length === 0) {
+                alert('Add one primary contract for review eligibility.');
+                valid = false;
+            }
+            activeRows.forEach(function(row) {
+                const network = row.querySelector('[data-network-select]')?.value.trim() || '';
+                const chainId = row.querySelector('[data-chain-id]')?.value.trim() || '';
+                const address = row.querySelector('[data-contract-address]')?.value.trim() || '';
+                const tokenType = row.querySelector('[data-token-type]')?.value.trim() || 'ERC20';
+                if (!network || !/^\d+$/.test(chainId) || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+                    if (tokenType === 'NATIVE' && network && /^\d+$/.test(chainId)) {
+                        return;
+                    }
+                    alert('Every contract row needs network, positive chain ID, and valid 0x contract address.');
+                    valid = false;
+                }
+            });
             const liveSince = document.getElementById('project_live_since').value.trim();
             if (liveSince && !/^\d{4}-\d{2}-\d{2}$/.test(liveSince)) { setError('project_live_since', 'Please provide a valid date.'); valid = false; }
         }
@@ -772,6 +1010,15 @@ require_once __DIR__ . '/../includes/header.php';
         el.addEventListener('input', function() { updateReview(); saveDraft(); });
         el.addEventListener('change', function() { updateReview(); saveDraft(); });
     });
+
+    if (addContractRow) addContractRow.addEventListener('click', createContractRow);
+    document.querySelectorAll('[data-quick-network]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            applyQuickNetwork(button.getAttribute('data-quick-network') || '');
+        });
+    });
+    document.querySelectorAll('[data-contract-row]').forEach(bindContractRow);
+    refreshContractIndexes();
 
     restoreDraft();
     updateReview();

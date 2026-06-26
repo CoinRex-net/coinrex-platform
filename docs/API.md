@@ -104,6 +104,68 @@ Common response format:
   - `claim_status.php` may return `404` when snapshot not found.
   - method mismatch returns `405` via `apiRequireMethod`.
 
+## REX Signer
+
+REX Signer is the extension-free signer companion for CoinRex. These endpoints are session/pairing foundation only: no private keys, seed phrases, custody, real signing, or on-chain broadcasts are implemented.
+
+### `GET /api/rex-signer/networks.php`
+
+- Returns enabled signer networks.
+- Current defaults:
+  - `polygon-amoy` testnet
+  - `plasma-testnet` stub/testnet placeholder
+
+### `GET /api/rex-signer/assets.php`
+
+- Returns enabled signer networks plus token catalog, logo metadata, placeholder balances, and price metadata.
+- POL price is fetched server-side and cached briefly; the mobile app does not call third-party price APIs directly.
+- REX testnet price is returned as `$0.00` with `price_status: testnet_unpriced`.
+- Plasma/XPL pricing is fetched from CoinGecko when available; otherwise it falls back to `unavailable`.
+- Mobile wallet balances are read client-side from Polygon Amoy RPC for native POL and ERC-20 REX; Plasma balances remain placeholder until RPC details are finalized.
+
+### `POST /api/rex-signer/create_pairing.php`
+
+- Access: logged-in CoinRex user session.
+- Body: optional `duration_minutes` from 5 to 60.
+- Creates a short-lived manual/QR pairing code.
+- Response includes `display_code` and `qr_payload`.
+
+### `POST /api/rex-signer/complete_pairing.php`
+
+- Access: valid pending pairing code.
+- Body: `code`, optional `device_name`.
+- Completes pairing and returns a one-time visible `session_token`.
+- Server stores only `session_token_hash`.
+
+### `GET /api/rex-signer/sessions.php`
+
+- Access: logged-in CoinRex user session or `Bearer <session_token>`.
+- Returns active session count and recent signer sessions for the user.
+
+### `POST /api/rex-signer/revoke_session.php`
+
+- Access: logged-in CoinRex user session or `Bearer <session_token>`.
+- Body: optional `session_id`, optional `reason`.
+- Revokes an active signer session owned by the user.
+
+### `POST /api/rex-signer/create_approval_request.php`
+
+- Access: logged-in CoinRex user session.
+- Body: `network_slug`, optional `request_type`, `title`, `summary`, `amount`, `fee_estimate`, `payload`, `expires_minutes`.
+- Creates a pending approval request for the paired signer queue.
+
+### `GET /api/rex-signer/approval_requests.php`
+
+- Access: logged-in CoinRex user session or `Bearer <session_token>`.
+- Query: optional `status` (`pending`, `approved`, `rejected`, `expired`, `cancelled`, `all`).
+- Lists approval requests scoped to the user.
+
+### `POST /api/rex-signer/approval_decision.php`
+
+- Access: active `Bearer <session_token>` signer session.
+- Body: `request_id`, `decision` (`approved` or `rejected`), optional `note`.
+- Updates a pending approval request. This records approval state only; it does not sign or broadcast transactions.
+
 ## Security Notes
 
 - Uses prepared statements through shared helpers.

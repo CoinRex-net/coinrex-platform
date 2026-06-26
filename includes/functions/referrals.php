@@ -9,9 +9,26 @@ function generateReferralCode($length = 8) {
     $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     $code = '';
     for ($i = 0; $i < $length; $i++) {
-        $code .= $characters[rand(0, strlen($characters) - 1)];
+        $code .= $characters[random_int(0, strlen($characters) - 1)];
     }
     return $code;
+}
+
+function generateUniqueReferralCode(PDO $db = null, $max_attempts = 10) {
+    $db = $db ?: getDBConnection();
+    $max_attempts = max(1, (int) $max_attempts);
+
+    for ($attempt = 0; $attempt < $max_attempts; $attempt++) {
+        $code = generateReferralCode();
+        $stmt = $db->prepare("SELECT id FROM users WHERE referral_code = ? LIMIT 1");
+        $stmt->execute([$code]);
+
+        if (!$stmt->fetch()) {
+            return $code;
+        }
+    }
+
+    throw new RuntimeException('Could not generate a unique referral code. Please try again.');
 }
 
 function validateReferralCode($code) {
@@ -182,7 +199,7 @@ function evaluateReferralAbuseRisk($user_id, PDO $db = null) {
             && trim((string) ($user['user_agent'] ?? '')) === trim((string) ($referrer['user_agent'] ?? ''));
     }
 
-    $is_suspicious = $same_ip && $same_fingerprint && $same_behavior_pattern;
+    // Build reasons list
     $reasons = [];
     if ($same_ip) {
         $reasons[] = 'same IP';
@@ -193,6 +210,12 @@ function evaluateReferralAbuseRisk($user_id, PDO $db = null) {
     if ($same_behavior_pattern) {
         $reasons[] = 'same behavior pattern';
     }
+
+    // Determine suspiciousness with looser criteria:
+    // 1) same_ip + same_behavior_pattern (2 conditions, no fingerprint required)
+    // 2) same_ip + 0 completed TaskHub days (fresh fake account)
+    $taskhub_days = getCompletedTaskHubDaysCount((int) $user_id, $db);
+    $is_suspicious = ($same_ip && $same_behavior_pattern) || ($same_ip && $taskhub_days === 0);
 
     return [
         'is_suspicious' => $is_suspicious,
@@ -259,8 +282,15 @@ function applyReferralDecision($user_id, $decision, $reviewed_by = null, $flag_r
 
         $referrer_id = (int) $referral_user['referred_by'];
         $was_qualified = !empty($referral_user['referral_qualified_at']) || (string) ($referral_user['referral_review_status'] ?? '') === 'qualified';
+        $current_status = strtolower(trim((string) ($referral_user['referral_review_status'] ?? 'pending')));
 
         if ($decision === 'qualify') {
+            // NO bypass: ALL qualify attempts require 4 TaskHub days, regardless of current status
+            if (!$was_qualified) {
+                if (!canReferralBecomeValid((int) $user_id, $db)) {
+                    throw new RuntimeException('User must complete 4 TaskHub days before qualification.');
+                }
+            }
             if (!$was_qualified) {
                 updateReferralReviewState((int) $user_id, 'qualified', date('Y-m-d H:i:s'), null, $reviewed_by, $db);
                 $db->prepare("UPDATE users SET valid_referrals = valid_referrals + 1, updated_at = NOW() WHERE id = ?")->execute([$referrer_id]);
@@ -296,19 +326,20 @@ function maybeActivateReferralQualification($user_id, PDO $db = null) {
     $db = $db ?: getDBConnection();
     ensureLevelEngineSchema($db);
     ensureRewardClaimSchema($db);
+    ensureEarlyAirdropSchema($db);
 
     $stats = getUserReviewPerformanceStats($user_id, $db);
-    if ((int) ($stats['referred_by'] ?? 0) <= 0 || !empty($stats['referral_qualified_at'])) {
+    if ((int) ($stats['referred_by'] ?? 0) <= 0) {
+        return false;
+    }
+
+    $current_status = strtolower(trim((string) ($stats['referral_review_status'] ?? 'pending')));
+    if (in_array($current_status, ['qualified', 'invalid', 'flagged_manual_review'], true)) {
         return false;
     }
 
     $user = getUserById((int) $user_id);
     if (!$user) {
-        return false;
-    }
-
-    $current_status = strtolower(trim((string) ($user['referral_review_status'] ?? 'pending')));
-    if (in_array($current_status, ['qualified', 'invalid', 'flagged_manual_review'], true)) {
         return false;
     }
 
@@ -320,11 +351,34 @@ function maybeActivateReferralQualification($user_id, PDO $db = null) {
 
     $risk = evaluateReferralAbuseRisk((int) $user_id, $db);
     if (!empty($risk['is_suspicious'])) {
+        // Persist abuse detection flag in DB so it survives re-evaluation
+        $db->prepare("UPDATE users SET referral_abuse_detected = 1, referral_abuse_reason = ?, updated_at = NOW() WHERE id = ?")
+            ->execute([(string) ($risk['reason'] ?? 'Referral abuse pattern detected.'), (int) $user_id]);
         applyReferralDecision((int) $user_id, 'flag_manual_review', null, (string) ($risk['reason'] ?? 'Referral abuse pattern detected.'), $db);
         return 'flagged_manual_review';
     }
 
     applyReferralDecision((int) $user_id, 'qualify', null, null, $db);
+
+    // Early Adopter Airdrop: Award 50 REX to referrer from pool
+    $referrer_id = (int) ($user['referred_by'] ?? 0);
+    if ($referrer_id > 0 && isEarlyAirdropActive($db)) {
+        $bonus_amount = (float) EARLY_AIRDROP_REFERRAL_BONUS;
+        if (deductEarlyAirdropPool($referrer_id, 'referral_bonus', $bonus_amount, $db)) {
+            addRewardLedgerEntry(
+                $referrer_id,
+                $bonus_amount,
+                'bonus',
+                'early_adopter_referral',
+                'available',
+                'early_airdrop:referral:' . $user_id,
+                $db,
+                'phase1',
+                'beginner'
+            );
+        }
+    }
+
     return true;
 }
 

@@ -2,6 +2,37 @@
 /** Auto-split from legacy functions.php */
 
 /**
+ * Normalizes quiz answer data from either the admin JSON-array format ([2])
+ * or the legacy integer format (2) into zero-based choice indexes.
+ */
+function taskHubNormalizeQuizAnswerIndexes($answer): array {
+    if (is_array($answer)) {
+        $indexes = [];
+        foreach ($answer as $answer_index) {
+            if (is_numeric($answer_index)) {
+                $indexes[] = max(0, (int) $answer_index);
+            }
+        }
+        return array_values(array_unique($indexes));
+    }
+
+    if (is_string($answer)) {
+        $trimmed_answer = trim($answer);
+        if ($trimmed_answer !== '' && strpos($trimmed_answer, '[') === 0) {
+            $decoded_answer = json_decode($trimmed_answer, true);
+            return taskHubNormalizeQuizAnswerIndexes($decoded_answer);
+        }
+    }
+
+    return is_numeric($answer) ? [max(0, (int) $answer)] : [0];
+}
+
+function taskHubNormalizeQuizAnswerIndex($answer): int {
+    $indexes = taskHubNormalizeQuizAnswerIndexes($answer);
+    return (int) ($indexes[0] ?? 0);
+}
+
+/**
  * Shuffles quiz choices and remaps the correct answer index.
  * Uses a deterministic seed so the shuffle is consistent within the same request
  * (both getTaskHubState and taskHubValidateSingleQuizAnswer produce the same order).
@@ -11,8 +42,7 @@ function shuffleQuizChoices(array $quiz, string $seed = ''): array {
     $shuffled = [];
     foreach ($quiz as $q_idx => $question) {
         $choices = $question['choices'] ?? [];
-        $correct_index = (int) ($question['answer'] ?? 0);
-        $correct_text = $choices[$correct_index] ?? '';
+        $correct_indexes = taskHubNormalizeQuizAnswerIndexes($question['answer'] ?? 0);
 
         // Use deterministic shuffle based on seed + question index.
         // mt_srand seeds the Mersenne Twister which shuffle() uses internally.
@@ -23,286 +53,75 @@ function shuffleQuizChoices(array $quiz, string $seed = ''): array {
         mt_srand();
 
         $new_choices = [];
-        $new_correct_index = 0;
+        $new_correct_indexes = [];
         foreach ($keys as $new_idx => $old_idx) {
             $new_choices[] = $choices[$old_idx];
-            if ((int) $old_idx === $correct_index) {
-                $new_correct_index = $new_idx;
+            if (in_array((int) $old_idx, $correct_indexes, true)) {
+                $new_correct_indexes[] = $new_idx;
             }
         }
 
         $shuffled[] = [
             'question' => $question['question'],
             'choices' => $new_choices,
-            'answer' => $new_correct_index,
+            'answer' => array_values($new_correct_indexes),
         ];
     }
     return $shuffled;
 }
 
-function getTaskHubMissionDefinitions() {
-    static $definitions = null;
-
-    if ($definitions !== null) {
-        return $definitions;
-    }
-
-    $quiz_day_1 = [
-        [
-            'question' => 'What should you do before using CoinRex rewards?',
-            'choices' => ['Read the platform terms', 'Skip the rules', 'Only check prices'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Which action helps keep rewards fair?',
-            'choices' => ['Using one verified account', 'Creating many accounts', 'Skipping verification'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'What powers CoinRex rewards?',
-            'choices' => ['The ledger system', 'Manual browser edits', 'Local storage'],
-            'answer' => 0,
-        ],
-    ];
-
-    $quiz_day_2 = [
-        [
-            'question' => 'Which page explains what CoinRex is building?',
-            'choices' => ['About page', 'Logout page', '404 page'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'What is the main user dashboard for?',
-            'choices' => ['Tracking progress and rewards', 'Mining tokens', 'Deleting claims'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Why explore the interface early?',
-            'choices' => ['To understand review and reward flows', 'To bypass cooldowns', 'To unlock claims instantly'],
-            'answer' => 0,
-        ],
-    ];
-
-    $quiz_day_3 = [
-        [
-            'question' => 'What does the privacy policy mainly explain?',
-            'choices' => ['How data is handled', 'How to skip login', 'How to mint NFTs'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Which signals may be checked for abuse prevention?',
-            'choices' => ['IP and user agent', 'Monitor brightness only', 'Browser tab color'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Why should proof submissions be real?',
-            'choices' => ['Because admins can review them', 'Because fake proofs earn more', 'Because proof is optional'],
-            'answer' => 0,
-        ],
-    ];
-
-    $quiz_day_4 = [
-        [
-            'question' => 'What does the roadmap help you understand?',
-            'choices' => ['What unlocks over time', 'Your Wi-Fi password', 'Local PHP settings'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'How many questions are in this roadmap quiz?',
-            'choices' => ['Five', 'One', 'Ten'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'What is BoostHub used for here?',
-            'choices' => ['A rotating admin task assignment', 'A crypto wallet', 'A database backup'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'When can the next mission day unlock?',
-            'choices' => ['After tasks are done and server reset passes', 'Immediately after Task 0', 'Only after claim'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'What happens if you miss a mission day window?',
-            'choices' => ['Progress pauses', 'Everything resets to Day 1', 'You skip ahead'],
-            'answer' => 0,
-        ],
-    ];
-
-    $quiz_day_5 = [
-        [
-            'question' => 'What is DevHub mainly for?',
-            'choices' => ['Developer-facing project activity', 'Claim approval only', 'Password resets'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Does wallet onboarding require sending funds here?',
-            'choices' => ['No', 'Yes', 'Only on Day 10'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Why add a wallet address?',
-            'choices' => ['To prepare for future reward operations', 'To bypass moderation', 'To create a referral'],
-            'answer' => 0,
-        ],
-    ];
-
-    $quiz_day_6 = [
-        [
-            'question' => 'What should a review include?',
-            'choices' => ['Honest proof-backed detail', 'Only emojis', 'Nothing but a rating'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Why learn the claim system before Pro?',
-            'choices' => ['So users understand locked and unlocked rewards', 'So they can skip the queue', 'So they can mint tokens'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Who controls reward availability?',
-            'choices' => ['Backend rules and admin overrides', 'Frontend buttons only', 'Browser cache'],
-            'answer' => 0,
-        ],
-    ];
-
-    $quiz_day_7 = [
-        [
-            'question' => 'What score is required to pass Day 7?',
-            'choices' => ['4 out of 5', '2 out of 5', '5 out of 10'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'What happens if you fail Day 7?',
-            'choices' => ['You stay on Day 7 until you pass', 'You skip to Day 8', 'You unlock claims'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'Why does CoinRex use anti-farming checks?',
-            'choices' => ['To protect reward quality', 'To slow the homepage', 'To hide balances'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'What should you avoid while earning?',
-            'choices' => ['Rapid repeat submissions', 'Reading the guide', 'Using one account'],
-            'answer' => 0,
-        ],
-        [
-            'question' => 'When do claims unlock?',
-            'choices' => ['After reaching Pro', 'On Day 1', 'Before onboarding starts'],
-            'answer' => 0,
-        ],
-    ];
-
-    $definitions = [
-        ['day' => 1, 'step' => 0, 'task_key' => 'day1_checkin', 'title' => 'Daily Check-in', 'description' => 'Start the onboarding journey.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 1, 'step' => 1, 'task_key' => 'day1_profile_setup', 'title' => 'Profile Setup', 'description' => 'Open your profile page and save your profile basics.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'profile', 'learning_title' => 'Profile Page', 'learning_url' => BASE_URL . '/profile.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 1, 'step' => 2, 'task_key' => 'day1_social_follow', 'title' => 'Social Follow', 'description' => 'Submit a social follow proof for review.', 'reward' => 2, 'unlock_after_hours' => 2, 'verification_mode' => 'manual', 'requires_manual_review' => 1, 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 1, 'step' => 3, 'task_key' => 'day1_terms_quiz', 'title' => 'Learn and Quiz', 'description' => 'Review the terms and answer 3 questions.', 'reward' => 2, 'unlock_after_hours' => 5, 'verification_mode' => 'quiz', 'requires_quiz' => 1, 'min_quiz_score' => 3, 'quiz' => $quiz_day_1, 'learning_title' => 'Terms of Service', 'learning_url' => BASE_URL . '/terms.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 2, 'step' => 0, 'task_key' => 'day2_checkin', 'title' => 'Check-in', 'description' => 'Start Day 2.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 2, 'step' => 1, 'task_key' => 'day2_ui_exploration', 'title' => 'UI Exploration', 'description' => 'Explore the dashboard, reviews, and project areas.', 'reward' => 1, 'unlock_after_hours' => 3, 'verification_mode' => 'instant', 'learning_title' => 'Dashboard Overview', 'learning_url' => BASE_URL . '/dashboard.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 2, 'step' => 2, 'task_key' => 'day2_about_quiz', 'title' => 'Learn and Quiz', 'description' => 'Read the About page and answer 3 questions.', 'reward' => 2, 'unlock_after_hours' => 6, 'verification_mode' => 'quiz', 'requires_quiz' => 1, 'min_quiz_score' => 3, 'quiz' => $quiz_day_2, 'learning_title' => 'About CoinRex', 'learning_url' => BASE_URL . '/about.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 3, 'step' => 0, 'task_key' => 'day3_checkin', 'title' => 'Check-in', 'description' => 'Start Day 3.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 3, 'step' => 1, 'task_key' => 'day3_share_experience', 'title' => 'Share Experience', 'description' => 'Share your experience on official social platforms and submit the public post URL.', 'reward' => 2, 'unlock_after_hours' => 3, 'verification_mode' => 'manual', 'requires_manual_review' => 1, 'learning_title' => '', 'learning_url' => '', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 3, 'step' => 2, 'task_key' => 'day3_privacy_quiz', 'title' => 'Learn and Quiz', 'description' => 'Review the privacy policy and answer 3 questions.', 'reward' => 2, 'unlock_after_hours' => 6, 'verification_mode' => 'quiz', 'requires_quiz' => 1, 'min_quiz_score' => 3, 'quiz' => $quiz_day_3, 'learning_title' => 'Privacy Policy', 'learning_url' => BASE_URL . '/privacy.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 4, 'step' => 0, 'task_key' => 'day4_checkin', 'title' => 'Check-in', 'description' => 'Start Day 4.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 4, 'step' => 1, 'task_key' => 'day4_roadmap_quiz', 'title' => 'Learn and Quiz', 'description' => 'Review the roadmap briefing and answer 5 questions.', 'reward' => 2, 'unlock_after_hours' => 3, 'verification_mode' => 'quiz', 'requires_quiz' => 1, 'min_quiz_score' => 5, 'quiz' => $quiz_day_4, 'learning_title' => 'Roadmap Briefing', 'learning_url' => BASE_URL . '/roadmap.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 5, 'step' => 0, 'task_key' => 'day5_checkin', 'title' => 'Check-in', 'description' => 'Start Day 5.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 5, 'step' => 1, 'task_key' => 'day5_devhub_quiz', 'title' => 'Learn and Quiz', 'description' => 'Review DevHub and answer 3 questions.', 'reward' => 2, 'unlock_after_hours' => 3, 'verification_mode' => 'quiz', 'requires_quiz' => 1, 'min_quiz_score' => 3, 'quiz' => $quiz_day_5, 'learning_title' => 'DevHub', 'learning_url' => BASE_URL . '/devhub/index.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 5, 'step' => 3, 'task_key' => 'day5_wallet_connect', 'title' => 'Wallet Add or Connect', 'description' => 'Add a wallet address without any real transaction.', 'reward' => 1, 'unlock_after_hours' => 6, 'verification_mode' => 'wallet', 'learning_title' => 'Profile Wallet Section', 'learning_url' => BASE_URL . '/profile.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 6, 'step' => 0, 'task_key' => 'day6_checkin', 'title' => 'Check-in', 'description' => 'Start Day 6.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 6, 'step' => 1, 'task_key' => 'day6_review_quiz', 'title' => 'Learn and Quiz', 'description' => 'Study the review guide and answer 3 questions.', 'reward' => 2, 'unlock_after_hours' => 3, 'verification_mode' => 'quiz', 'requires_quiz' => 1, 'min_quiz_score' => 3, 'quiz' => $quiz_day_6, 'learning_title' => 'Review Guide', 'learning_url' => BASE_URL . '/submit-review.php', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 6, 'step' => 3, 'task_key' => 'day6_txhash_submit', 'title' => 'Transaction Proof (>=10 USDT)', 'description' => 'Submit one valid TX hash for a transaction worth at least 10 USDT for review.', 'reward' => 2, 'unlock_after_hours' => 6, 'verification_mode' => 'manual', 'requires_manual_review' => 1, 'learning_title' => 'Proof Submission Guide', 'learning_url' => BASE_URL . '/docs/SECURITY.md', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 7, 'step' => 0, 'task_key' => 'day7_checkin', 'title' => 'Check-in', 'description' => 'Start Day 7.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 7, 'step' => 1, 'task_key' => 'day7_final_quiz', 'title' => 'Final Quiz', 'description' => 'Pass the quality gate with at least 4/5.', 'reward' => 2, 'unlock_after_hours' => 0, 'verification_mode' => 'quiz', 'requires_quiz' => 1, 'min_quiz_score' => 4, 'quiz' => $quiz_day_7, 'learning_title' => 'Quality Gate', 'learning_url' => '', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 7, 'step' => 3, 'task_key' => 'day7_volume_submit', 'title' => 'Volume Proof (>=100 USDT)', 'description' => 'Submit proof of cumulative 100+ USDT transaction volume completed within one day.', 'reward' => 3, 'unlock_after_hours' => 6, 'verification_mode' => 'manual', 'requires_manual_review' => 1, 'learning_title' => 'Volume Proof Guide', 'learning_url' => BASE_URL . '/docs/SECURITY.md', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 8, 'step' => 0, 'task_key' => 'day8_checkin', 'title' => 'Check-in', 'description' => 'Start Day 8.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 8, 'step' => 2, 'task_key' => 'day8_hold_submit', 'title' => 'Hold Proof (>=10 USDT)', 'description' => 'Submit proof that you held tokens worth at least 10 USDT for one full day.', 'reward' => 3, 'unlock_after_hours' => 6, 'verification_mode' => 'manual', 'requires_manual_review' => 1, 'learning_title' => 'Hold Proof Guide', 'learning_url' => BASE_URL . '/docs/SECURITY.md', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 9, 'step' => 0, 'task_key' => 'day9_checkin', 'title' => 'Check-in', 'description' => 'Start Day 9.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 9, 'step' => 2, 'task_key' => 'day9_hold_submit', 'title' => 'Hold Proof (>=10 USDT)', 'description' => 'Submit proof that you held tokens worth at least 10 USDT for one full day.', 'reward' => 3, 'unlock_after_hours' => 6, 'verification_mode' => 'manual', 'requires_manual_review' => 1, 'learning_title' => 'Hold Proof Guide', 'learning_url' => BASE_URL . '/docs/SECURITY.md', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-
-        ['day' => 10, 'step' => 0, 'task_key' => 'day10_checkin', 'title' => 'Check-in', 'description' => 'Start Day 10.', 'reward' => 1, 'unlock_after_hours' => 0, 'verification_mode' => 'instant', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-        ['day' => 10, 'step' => 2, 'task_key' => 'day10_mystery_box', 'title' => 'Mystery Box', 'description' => 'Claim the final reward box.', 'reward' => TASKHUB_MYSTERY_BOX_PERFECT_REWARD, 'unlock_after_hours' => 6, 'verification_mode' => 'mystery', 'daily_limit' => 1, 'cooldown_seconds' => 86400, 'is_active' => 1],
-    ];
-
-    return $definitions;
-}
-
-function getTaskHubDayTitles() {
-    return [
-        1 => 'Welcome Day',
-        2 => 'Explore Day',
-        3 => 'Privacy Day',
-        4 => 'Roadmap Day',
-        5 => 'DevHub Day',
-        6 => 'Review Day',
-        7 => 'Filter Day',
-        8 => 'Wallet Day',
-        9 => 'Momentum Day',
-        10 => 'Mystery Day',
-    ];
-}
-
-function taskHubGetBoostRequirementByDay($mission_day) {
-    $map = [
-        4 => 2.0,
-        5 => 2.0,
-        6 => 2.0,
-        7 => 2.0,
-        8 => 3.0,
-        9 => 3.0,
-        10 => 3.0,
-    ];
-    return (float) ($map[(int) $mission_day] ?? 0.0);
-}
-
-function taskHubGetBoostGatewayTask($mission_day) {
-    $required_reward = taskHubGetBoostRequirementByDay((int) $mission_day);
-    if ($required_reward <= 0) {
-        return null;
-    }
-
-    return [
-        'id' => 0,
-        'task_key' => 'day' . (int) $mission_day . '_boosthub_gateway',
-        'mission_step' => 90,
-        'title' => 'BoostHub Task',
-        'description' => 'Open BoostHub and complete one task worth exactly ' . number_format((float) $required_reward, 0) . ' $REX.',
-        'reward' => (float) $required_reward,
-        'task_category' => 'custom',
-        'task_link' => BASE_URL . '/boosthub.php',
-        'completion_steps' => "1. Open BoostHub.\n2. Complete one task worth exactly " . number_format((float) $required_reward, 0) . " \$REX.\n3. Return to TaskHub.",
-        'proof_notes' => 'This step auto-validates from completed BoostHub tasks.',
-        'cta_label' => 'Open BoostHub',
-        'verification_mode' => 'boosthub_redirect',
-        'requires_quiz' => 0,
-        'requires_manual_review' => 0,
-    ];
-}
-
 function getTaskHubMissionTaskDefinitionByKey($task_key, PDO $db = null) {
-    foreach (getTaskHubMissionDefinitions() as $definition) {
-        if ((string) $definition['task_key'] === (string) $task_key) {
-            // If this task requires a quiz, try loading from DB first.
-            // DB questions override hardcoded quizzes when present.
-            if (!empty($definition['requires_quiz'])) {
-                $db_quiz = taskHubGetQuizByTaskKey((string) $task_key, $db);
-                if (!empty($db_quiz)) {
-                    $definition['quiz'] = $db_quiz;
-                }
+    // DEPRECATED: Use taskHubGetQuizByTaskKey() instead.
+    // This function is kept for backward compatibility.
+    $quiz = taskHubGetQuizByTaskKey((string) $task_key, $db);
+    if (!empty($quiz)) {
+        return ['quiz' => $quiz];
+    }
+    return [];
+}
+
+
+/**
+ * Returns day titles for the 10-day mission.
+ * Generates dynamic titles based on the first non-checkin task in each day.
+ */
+function getTaskHubDayTitles(PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    $tasks_by_day = getTaskHubTasksByDay($db);
+    $titles = [];
+    for ($day = 1; $day <= TASKHUB_TOTAL_DAYS; $day++) {
+        $day_tasks = $tasks_by_day[$day] ?? [];
+        $title = 'Day ' . $day;
+        foreach ($day_tasks as $task) {
+            $tk = (string) ($task['task_key'] ?? '');
+            // Skip check-in tasks for the title
+            if (strpos($tk, '_checkin') !== false || strpos($tk, '_check_in') !== false) {
+                continue;
             }
-            return $definition;
+            // Use day_title from DB if set
+            $day_title = (string) ($task['day_title'] ?? '');
+            if ($day_title !== '') {
+                $title = $day_title;
+                break;
+            }
+            // Fallback: use the first non-checkin task's category as the day theme
+            $category = (string) ($task['task_category'] ?? '');
+            if ($category !== '' && $category !== 'custom') {
+                $title = ucwords(str_replace('_', ' ', $category));
+            } elseif (!empty($task['title'])) {
+                $title = (string) $task['title'];
+            }
+            break;
+        }
+        $titles[$day] = $title;
+    }
+    // Ensure all days 1-10 have a title (fallback for days with no active tasks)
+    for ($day = 1; $day <= TASKHUB_TOTAL_DAYS; $day++) {
+        if (!isset($titles[$day]) || $titles[$day] === '') {
+            $titles[$day] = 'Day ' . $day;
         }
     }
-
-    return null;
+    return $titles;
 }
 
 function getTaskHubResetTimestamp($timestamp = null) {
@@ -364,15 +183,37 @@ function getTaskHubRewardAmountForTask($user_id, array $task_row, array $log_row
     }
 
     if (($task_row['verification_mode'] ?? '') === 'mystery') {
-        $reward = taskHubHasMissedDays((int) $user_id, $db)
-            ? (float) TASKHUB_MYSTERY_BOX_FALLBACK_REWARD
-            : (float) TASKHUB_MYSTERY_BOX_PERFECT_REWARD;
+        $reward = taskHubGetMysteryBoxReward((int) $user_id, $db);
+    }
+
+    // Check-in reward penalty: if user is completing after the deadline for this check-in day, reward is 1
+    if (taskHubIsCheckinTaskKey((string) ($task_row['task_key'] ?? ''))) {
+        $mission_day = (int) ($task_row['mission_day'] ?? $log_row['mission_day'] ?? 1);
+        $reward = taskHubGetCheckinRewardForMissionDay((int) $user_id, $mission_day, $db);
+
+        // Check if we're currently past the deadline for this task
+        if (!empty($log_row['task_available_at'])) {
+            $available_ts = strtotime((string) $log_row['task_available_at']);
+            $current_ts = time();
+            // If current time is after the server reset window from available time, penalize to 1 $REX
+            if ($available_ts > 0 && $current_ts > 0 && $current_ts > getTaskHubNextResetTimestamp($available_ts)) {
+                $reward = 1.0;
+            }
+        }
     }
 
     $current_phase_earnings = getTaskHubCurrentPhase1Earnings((int) $user_id, $db);
     $remaining_cap = max(0, (float) TASKHUB_PHASE1_REWARD_CAP - $current_phase_earnings);
     return round(min($reward, $remaining_cap), 8);
 }
+
+/**
+ * Loads quiz questions from the taskhub_quiz_questions DB table for a given task_key.
+ * Returns the same [{question, choices, answer}] format as the hardcoded arrays.
+ * Returns empty array if no DB rows found.
+ */
+
+
 
 /**
  * Loads quiz questions from the taskhub_quiz_questions DB table for a given task_key.
@@ -399,13 +240,153 @@ function taskHubGetQuizByTaskKey(string $task_key, PDO $db = null): array {
         if (!is_array($choices) || empty($choices)) {
             continue;
         }
+        // Decode answer — supports both JSON array format and legacy integer
+        $raw_answer = (string) ($row['answer'] ?? '0');
         $quiz[] = [
             'question' => (string) ($row['question'] ?? ''),
             'choices' => $choices,
-            'answer' => (int) ($row['answer'] ?? 0),
+            'answer' => taskHubNormalizeQuizAnswerIndexes($raw_answer),
         ];
     }
     return $quiz;
+}
+
+function taskHubIsCheckinTaskKey(string $task_key): bool {
+    return strpos($task_key, '_checkin') !== false || strpos($task_key, '_check_in') !== false;
+}
+
+function taskHubIsCoreMissionTask(array $task_row): bool {
+    $task_key = (string) ($task_row['task_key'] ?? '');
+    if (taskHubIsCheckinTaskKey($task_key)) {
+        return true;
+    }
+
+    $verification_mode = (string) ($task_row['verification_mode'] ?? '');
+    return $verification_mode === 'quiz'
+        || $verification_mode === 'mystery'
+        || !empty($task_row['requires_quiz']);
+}
+
+function taskHubGetLearningMetaForTask(array $task_row): array {
+    $task_key = (string) ($task_row['task_key'] ?? '');
+    $title = trim((string) ($task_row['learning_title'] ?? ''));
+    $url = trim((string) ($task_row['learning_url'] ?? ''));
+
+    $fallbacks = [
+        'day1_terms_quiz' => ['Terms of Service', BASE_URL . '/terms.php'],
+        'day2_about_quiz' => ['About CoinRex', BASE_URL . '/about.php'],
+        'day3_privacy_quiz' => ['Privacy Policy', BASE_URL . '/privacy.php'],
+        'day4_roadmap_quiz' => ['Roadmap Briefing', BASE_URL . '/roadmap.php'],
+        'day5_devhub_quiz' => ['DevHub', BASE_URL . '/devhub/index.php'],
+        'day6_review_quiz' => ['Review Guide', BASE_URL . '/submit-review.php'],
+        'day7_final_quiz' => ['Quality Gate', BASE_URL . '/litepaper.php'],
+    ];
+
+    if (($title === '' || $url === '') && isset($fallbacks[$task_key])) {
+        $title = $title !== '' ? $title : $fallbacks[$task_key][0];
+        $url = $url !== '' ? $url : $fallbacks[$task_key][1];
+    }
+
+    if ($title === '' && ((string) ($task_row['verification_mode'] ?? '') === 'quiz' || !empty($task_row['requires_quiz']))) {
+        $title = (string) ($task_row['title'] ?? 'Learning Material');
+    }
+
+    return [
+        'title' => $title,
+        'url' => $url,
+    ];
+}
+
+function taskHubNormalizeLearningUrlForCurrentHost(string $url): string {
+    $url = trim($url);
+
+    if ($url === '' || strtolower($url) === 'about:blank') {
+        return $url;
+    }
+
+    $base_url = defined('BASE_URL') ? rtrim((string) BASE_URL, '/') : '';
+    if ($base_url === '') {
+        return $url;
+    }
+
+    $base_parts = parse_url($base_url);
+    if ($base_parts === false || empty($base_parts['host'])) {
+        return $url;
+    }
+
+    $base_scheme = (string) ($base_parts['scheme'] ?? 'http');
+    $base_host = (string) $base_parts['host'];
+    $base_origin = $base_scheme . '://' . $base_host . (isset($base_parts['port']) ? ':' . $base_parts['port'] : '');
+    $base_uri = defined('BASE_URI') ? rtrim((string) BASE_URI, '/') : rtrim((string) ($base_parts['path'] ?? ''), '/');
+
+    if (strpos($url, '//') === 0) {
+        $url = $base_scheme . ':' . $url;
+    }
+
+    $url_parts = parse_url($url);
+    if ($url_parts === false) {
+        return $url;
+    }
+
+    $path = (string) ($url_parts['path'] ?? '');
+    $query = isset($url_parts['query']) ? '?' . $url_parts['query'] : '';
+    $fragment = isset($url_parts['fragment']) ? '#' . $url_parts['fragment'] : '';
+
+    if (empty($url_parts['host'])) {
+        if ($path === '') {
+            return $url;
+        }
+
+        if (strpos($path, '/') !== 0) {
+            return $base_url . '/' . ltrim($url, '/');
+        }
+
+        return $base_origin . $path . $query . $fragment;
+    }
+
+    $scheme = strtolower((string) ($url_parts['scheme'] ?? 'http'));
+    if (!in_array($scheme, ['http', 'https'], true)) {
+        return $url;
+    }
+
+    $url_host = strtolower((string) $url_parts['host']);
+    $current_host = strtolower($base_host);
+    $localhost_aliases = ['localhost', '127.0.0.1', '::1'];
+    $same_app_path = $base_uri === ''
+        || $path === $base_uri
+        || strpos($path, $base_uri . '/') === 0
+        || strpos($path, '/') === 0;
+    $should_rehost = $url_host === $current_host
+        || in_array($url_host, $localhost_aliases, true)
+        || ($same_app_path && taskHubUrlHostIsPrivateNetwork($url_host));
+
+    if (!$should_rehost) {
+        return $url;
+    }
+
+    if ($path === '') {
+        $path = '/';
+    }
+
+    if ($base_uri !== '' && $path !== $base_uri && strpos($path, $base_uri . '/') !== 0) {
+        $path = $base_uri . '/' . ltrim($path, '/');
+    }
+
+    return $base_origin . $path . $query . $fragment;
+}
+
+function taskHubUrlHostIsPrivateNetwork(string $host): bool {
+    $host = strtolower(trim($host, '[]'));
+
+    if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $parts = array_map('intval', explode('.', $host));
+        return $parts[0] === 10
+            || ($parts[0] === 172 && $parts[1] >= 16 && $parts[1] <= 31)
+            || ($parts[0] === 192 && $parts[1] === 168)
+            || ($parts[0] === 127);
+    }
+
+    return $host === 'localhost' || $host === '::1';
 }
 
 function getTaskHubTaskRows(PDO $db = null) {
@@ -418,7 +399,9 @@ function getTaskHubTaskRows(PDO $db = null) {
         ORDER BY mission_day ASC, mission_step ASC
     ");
 
-    return $stmt->fetchAll();
+    return array_values(array_filter($stmt->fetchAll(), static function ($task_row) {
+        return taskHubIsCoreMissionTask((array) $task_row);
+    }));
 }
 
 function getTaskHubTasksByDay(PDO $db = null) {
@@ -536,13 +519,24 @@ function taskHubCreatePendingDayTasks($user_id, $mission_day, $day_available_at,
     }
 
     $day_available_at = (string) $day_available_at;
-    $checkin_task = $day_tasks[0];
-    $existing = getTaskHubLatestLog((int) $user_id, (int) $checkin_task['id'], (int) $mission_day, $db);
-    if (!$existing) {
-        taskHubInsertLog((int) $user_id, (int) $checkin_task['id'], 'pending', [
-            'task_available_at' => $day_available_at,
+
+    foreach ($day_tasks as $day_task) {
+        $existing = getTaskHubLatestLog((int) $user_id, (int) $day_task['id'], (int) $mission_day, $db);
+        if ($existing) {
+            continue;
+        }
+
+        // Check-in tasks (step 0) are available immediately
+        // Follow-up tasks (step > 0) are also available immediately since they don't have unlock_after_hours
+        $unlock_hours = (defined('TESTING_MODE') && TESTING_MODE) ? 0 : (int) ($day_task['unlock_after_hours'] ?? 0);
+        $available_at = ($unlock_hours > 0) 
+            ? date('Y-m-d H:i:s', strtotime($day_available_at . ' + ' . $unlock_hours . ' hours'))
+            : $day_available_at;
+
+        taskHubInsertLog((int) $user_id, (int) $day_task['id'], 'pending', [
+            'task_available_at' => $available_at,
             'mission_day' => (int) $mission_day,
-            'mission_step' => (int) ($checkin_task['mission_step'] ?? 0),
+            'mission_step' => (int) ($day_task['mission_step'] ?? 0),
         ], $db);
     }
 }
@@ -675,15 +669,195 @@ function taskHubGetDayCompletionInfo($user_id, $mission_day, PDO $db = null) {
     ];
 }
 
+function taskHubGetDayDeadlineTimestamp(array $day_completion): int {
+    if (empty($day_completion['day_started_at'])) {
+        return 0;
+    }
+
+    $started_at_ts = strtotime((string) $day_completion['day_started_at']);
+    if ($started_at_ts <= 0) {
+        return 0;
+    }
+
+    return (int) getTaskHubNextResetTimestamp($started_at_ts);
+}
+
+function taskHubDayIsMissed($user_id, $mission_day, PDO $db = null, $timestamp = null): bool {
+    $db = $db ?: getDBConnection();
+    $info = taskHubGetDayCompletionInfo((int) $user_id, (int) $mission_day, $db);
+    $deadline_ts = taskHubGetDayDeadlineTimestamp($info);
+    if ($deadline_ts <= 0) {
+        return false;
+    }
+
+    if (!empty($info['all_completed'])) {
+        $completed_ts = !empty($info['completed_at']) ? strtotime((string) $info['completed_at']) : 0;
+        return $completed_ts > 0 && $completed_ts > $deadline_ts;
+    }
+
+    $now_ts = $timestamp !== null ? (int) $timestamp : time();
+    return $now_ts > $deadline_ts;
+}
+
 function taskHubHasMissedDays($user_id, PDO $db = null) {
     $db = $db ?: getDBConnection();
     for ($day = 1; $day <= TASKHUB_TOTAL_DAYS; $day++) {
-        $info = taskHubGetDayCompletionInfo((int) $user_id, $day, $db);
-        if (empty($info['day_started_at']) || empty($info['completed_at'])) {
-            continue;
+        if (taskHubDayIsMissed((int) $user_id, $day, $db)) {
+            return true;
         }
+    }
+    return false;
+}
 
-        if (strtotime((string) $info['completed_at']) > getTaskHubNextResetTimestamp(strtotime((string) $info['day_started_at']))) {
+function taskHubGetLatestMissedDay($user_id, PDO $db = null, $up_to_day = null): int {
+    $db = $db ?: getDBConnection();
+    $last_missed_day = 0;
+    $max_day = $up_to_day !== null
+        ? max(1, min(TASKHUB_TOTAL_DAYS, (int) $up_to_day))
+        : TASKHUB_TOTAL_DAYS;
+
+    for ($day = 1; $day <= $max_day; $day++) {
+        if (taskHubDayIsMissed((int) $user_id, $day, $db)) {
+            $last_missed_day = $day;
+        }
+    }
+
+    return $last_missed_day;
+}
+
+function taskHubGetCheckinRewardForMissionDay($user_id, $mission_day, PDO $db = null): float {
+    $db = $db ?: getDBConnection();
+    $mission_day = max(1, min(TASKHUB_TOTAL_DAYS, (int) $mission_day));
+    $last_missed_day = taskHubGetLatestMissedDay((int) $user_id, $db, $mission_day);
+
+    if ($last_missed_day > 0) {
+        return (float) max(1, min(TASKHUB_TOTAL_DAYS, $mission_day - $last_missed_day + 1));
+    }
+
+    return (float) $mission_day;
+}
+
+function taskHubGetMissedDayCount($user_id, PDO $db = null): int {
+    $db = $db ?: getDBConnection();
+    $missed_days = 0;
+
+    for ($day = 1; $day <= TASKHUB_TOTAL_DAYS; $day++) {
+        if (taskHubDayIsMissed((int) $user_id, $day, $db)) {
+            $missed_days++;
+        }
+    }
+
+    return $missed_days;
+}
+
+function taskHubGetMysteryBoxReward($user_id, PDO $db = null): float {
+    $db = $db ?: getDBConnection();
+    $missed_days = taskHubGetMissedDayCount((int) $user_id, $db);
+    return (float) max(10, (float) TASKHUB_MYSTERY_BOX_PERFECT_REWARD - ($missed_days * 5));
+}
+
+function taskHubGetStreakWarningState($user_id, PDO $db = null): array {
+    $db = $db ?: getDBConnection();
+    $latest_missed_day = taskHubGetLatestMissedDay((int) $user_id, $db);
+
+    if ($latest_missed_day <= 0) {
+        return [
+            'latest_missed_day' => 0,
+            'streak_warning_active' => false,
+            'streak_badge_state' => 'perfect',
+            'streak_badge_label' => 'Perfect',
+        ];
+    }
+
+    $missed_info = taskHubGetDayCompletionInfo((int) $user_id, $latest_missed_day, $db);
+    $missed_deadline_ts = taskHubGetDayDeadlineTimestamp($missed_info);
+    $has_checkin_after_miss = false;
+
+    if ($missed_deadline_ts > 0) {
+        $stmt = $db->prepare("
+            SELECT COUNT(*) AS total
+            FROM user_task_logs utl
+            INNER JOIN mini_tasks mt ON mt.id = utl.task_id
+            WHERE utl.user_id = ?
+              AND utl.status = 'completed'
+              AND mt.task_group = 'mission'
+              AND mt.mission_day >= ?
+              AND (mt.task_key LIKE '%checkin%' OR mt.task_key LIKE '%check_in%')
+              AND COALESCE(utl.task_completed_at, utl.completed_at) > ?
+        ");
+        $stmt->execute([
+            (int) $user_id,
+            (int) $latest_missed_day,
+            date('Y-m-d H:i:s', $missed_deadline_ts),
+        ]);
+        $has_checkin_after_miss = ((int) ($stmt->fetch()['total'] ?? 0)) > 0;
+    }
+
+    return [
+        'latest_missed_day' => $latest_missed_day,
+        'streak_warning_active' => !$has_checkin_after_miss,
+        'streak_badge_state' => $has_checkin_after_miss ? 'rebuilding' : 'broken',
+        'streak_badge_label' => $has_checkin_after_miss ? 'Rebuilding' : 'Missed',
+    ];
+}
+
+/**
+ * Calculates the user's consecutive check-in streak (1-10).
+ * Counts how many consecutive days (starting from day 1) the user has
+ * completed all tasks within the same server reset window.
+ * Breaks at the first incomplete day or missed day.
+ */
+function taskHubGetConsecutiveCheckinStreak($user_id, PDO $db = null): int {
+    $db = $db ?: getDBConnection();
+    $streak = 0;
+    $last_missed_day = taskHubGetLatestMissedDay((int) $user_id, $db);
+    $start_day = $last_missed_day > 0 ? $last_missed_day : 1;
+
+    for ($day = $start_day; $day <= TASKHUB_TOTAL_DAYS; $day++) {
+        $info = taskHubGetDayCompletionInfo((int) $user_id, $day, $db);
+        
+        // Day not started yet — streak ends here
+        if (empty($info['day_started_at'])) {
+            break;
+        }
+        
+        // Day not fully completed — streak ends here
+        $streak++;
+        if (empty($info['all_completed'])) {
+            break;
+        }
+    }
+
+    return min($streak, TASKHUB_TOTAL_DAYS);
+}
+
+/**
+ * Calculates the total $REX earned from check-in tasks across all days.
+ * Queries reward_ledger for completed check-in task rewards.
+ * Uses reference_id LIKE 'taskhub:%checkin%' pattern since reward_ledger
+ * stores task keys in the reference_id field (e.g. 'taskhub:day1_checkin').
+ */
+function taskHubGetTotalCheckinEarned($user_id, PDO $db = null): float {
+    $db = $db ?: getDBConnection();
+    $stmt = $db->prepare("
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM reward_ledger
+        WHERE user_id = ?
+          AND source = 'mini_task'
+          AND status IN ('available', 'locked', 'claimed')
+          AND (
+              reference_id LIKE 'taskhub:%checkin%'
+              OR reference_id LIKE 'taskhub:%check_in%'
+          )
+    ");
+    $stmt->execute([(int) $user_id]);
+    return round((float) ($stmt->fetch()['total'] ?? 0), 2);
+}
+
+function taskHubDayHasBoostGatewayTask(array $day_tasks): bool {
+    foreach ($day_tasks as $task) {
+        $task_key = (string) ($task['task_key'] ?? '');
+        if ((string) ($task['verification_mode'] ?? '') === 'boosthub' || strpos($task_key, '_boosthub_gateway') !== false) {
             return true;
         }
     }
@@ -787,9 +961,6 @@ function getTaskHubState($user_id, PDO $db = null) {
     $has_scheduled_unlocks = taskHubDayHasScheduledUnlocks($day_completion);
     $overall_total_tasks = 0;
     $overall_completed_tasks = 0;
-    foreach ($tasks_by_day as $mission_tasks) {
-        $overall_total_tasks += count($mission_tasks);
-    }
 
     $status = 'in_progress';
     $status_message = 'In progress';
@@ -855,13 +1026,16 @@ function getTaskHubState($user_id, PDO $db = null) {
             $seed = (string) $user_id . '_' . (string) ($task_row['task_key'] ?? '');
             $quiz_data = shuffleQuizChoices($quiz_data, $seed);
         }
+        $learning_meta = taskHubGetLearningMetaForTask($task_row);
+        $learning_url = taskHubNormalizeLearningUrlForCurrentHost((string) ($learning_meta['url'] ?? ''));
+        $display_reward = getTaskHubRewardAmountForTask((int) $user_id, $task_row, (array) ($log ?: []), $inner_db);
         return [
             'id' => (int) $task_row['id'],
             'task_key' => (string) $task_row['task_key'],
             'mission_step' => (int) ($task_row['mission_step'] ?? 0),
             'title' => (string) $task_row['title'],
             'description' => (string) ($task_row['description'] ?? ''),
-            'reward' => round((float) ($task_row['reward'] ?? 0), 2),
+            'reward' => round((float) $display_reward, 2),
             'task_category' => (string) ($task_row['task_category'] ?? 'custom'),
             'task_link' => (string) ($task_row['task_link'] ?? ''),
             'completion_steps' => (string) ($task_row['completion_steps'] ?? ''),
@@ -875,11 +1049,17 @@ function getTaskHubState($user_id, PDO $db = null) {
             'verification_mode' => (string) ($task_row['verification_mode'] ?? 'instant'),
             'requires_quiz' => !empty($task_row['requires_quiz']),
             'requires_manual_review' => !empty($task_row['requires_manual_review']),
-            'learning_title' => $definition['learning_title'] ?? '',
-            'learning_url' => $definition['learning_url'] ?? '',
+            'min_quiz_score' => (int) ($task_row['min_quiz_score'] ?? 0),
+            'learning_title' => (string) ($learning_meta['title'] ?? ''),
+            'learning_url' => $learning_url,
+            'required_reading_seconds' => (int) ($task_row['required_reading_seconds'] ?? 45),
             'learning_opened' => !empty($metadata['learning_opened']),
             'quiz' => $quiz_data,
             'profile_complete' => ($task_row['verification_mode'] ?? '') === 'profile' ? $profile_complete : null,
+            'rejection_count' => (int) ($log['rejection_count'] ?? 0),
+            'cooldown_remaining' => $task_status === 'failed' && !empty($metadata['reviewed_at'])
+                ? max(0, 3600 - (time() - strtotime((string) $metadata['reviewed_at'])))
+                : 0,
         ];
     };
 
@@ -888,7 +1068,8 @@ function getTaskHubState($user_id, PDO $db = null) {
         $log = getTaskHubLatestLog((int) $user_id, (int) $task_row['id'], $current_day, $db);
         $tasks_payload[] = $build_task_payload($task_row, $log, true, $db);
     }
-    $boost_gateway = taskHubGetBoostGatewayTask($current_day);
+    $current_day_has_db_gateway = taskHubDayHasBoostGatewayTask($current_tasks);
+    $boost_gateway = $current_day_has_db_gateway ? null : taskHubGetBoostGatewayTask($current_day);
     if ($boost_gateway) {
         $has_boost_completion = false;
         if (!empty($day_completion['day_started_at'])) {
@@ -1002,7 +1183,8 @@ function getTaskHubState($user_id, PDO $db = null) {
             $day_log = getTaskHubLatestLog((int) $user_id, (int) $day_task['id'], $day, $db);
             $day_task_payload[] = $build_task_payload($day_task, $day_log, $day === $current_day, $db);
         }
-        $day_boost_gateway = taskHubGetBoostGatewayTask($day);
+        $day_has_db_gateway = taskHubDayHasBoostGatewayTask($day_tasks);
+        $day_boost_gateway = $day_has_db_gateway ? null : taskHubGetBoostGatewayTask($day);
         if ($day_boost_gateway && $day <= $current_day) {
             $day_info_started = !empty($completion['day_started_at']) ? (string) $completion['day_started_at'] : '';
             $day_boost_completed = false;
@@ -1066,6 +1248,7 @@ function getTaskHubState($user_id, PDO $db = null) {
         $overall_completed_tasks += count(array_filter($day_task_payload, static function ($task) use ($day, $current_day) {
             return $day <= $current_day && ($task['status'] ?? '') === 'completed';
         }));
+        $overall_total_tasks += count($day_task_payload);
     }
 
     $current_day_completed_tasks = count(array_filter($tasks_payload, static function ($task) {
@@ -1078,6 +1261,31 @@ function getTaskHubState($user_id, PDO $db = null) {
     $overall_progress_percent = $overall_total_tasks > 0
         ? (int) round(($overall_completed_tasks / $overall_total_tasks) * 100)
         : 0;
+    $completed_days = count(array_filter($days_payload, static function ($day) {
+        return ($day['status'] ?? '') === 'completed';
+    }));
+
+    // ============================================================
+    // STREAK / CHECK-IN CALCULATIONS
+    // ============================================================
+    $has_missed = taskHubHasMissedDays((int) $user_id, $db);
+    $streak_warning_state = taskHubGetStreakWarningState((int) $user_id, $db);
+    $consecutive_streak = taskHubGetConsecutiveCheckinStreak((int) $user_id, $db);
+    $total_streak_earned = taskHubGetTotalCheckinEarned((int) $user_id, $db);
+    $missed_day_count = taskHubGetMissedDayCount((int) $user_id, $db);
+    $mystery_box_reward = taskHubGetMysteryBoxReward((int) $user_id, $db);
+    $total_potential_checkin = 55.0; // 1+2+3+...+10 = 55
+
+    // Per-day cumulative potential $REX
+    $per_day_potential = [];
+    $cumulative = 0;
+    for ($i = 1; $i <= TASKHUB_TOTAL_DAYS; $i++) {
+        $cumulative += $i;
+        $per_day_potential[$i] = (float) $cumulative;
+    }
+
+    $today_checkin_reward = taskHubGetCheckinRewardForMissionDay((int) $user_id, $current_day, $db);
+    $next_checkin_reward = taskHubGetCheckinRewardForMissionDay((int) $user_id, min(TASKHUB_TOTAL_DAYS, $current_day + 1), $db);
 
     return [
         'access' => 'open',
@@ -1096,11 +1304,26 @@ function getTaskHubState($user_id, PDO $db = null) {
         'overall_completed_tasks' => $overall_completed_tasks,
         'overall_total_tasks' => $overall_total_tasks,
         'overall_progress_percent' => $overall_progress_percent,
+        'completed_days' => $completed_days,
+        'total_days' => TASKHUB_TOTAL_DAYS,
         'profile_complete' => $profile_complete,
         'paused' => $status === 'paused',
         'mission_completed' => taskHubMissionCompleted((int) $user_id, $db),
-        'has_missed_days' => taskHubHasMissedDays((int) $user_id, $db),
+        'has_missed_days' => $has_missed,
+        'latest_missed_day' => (int) ($streak_warning_state['latest_missed_day'] ?? 0),
+        'streak_warning_active' => !empty($streak_warning_state['streak_warning_active']),
+        'streak_badge_state' => (string) ($streak_warning_state['streak_badge_state'] ?? ($has_missed ? 'broken' : 'perfect')),
+        'streak_badge_label' => (string) ($streak_warning_state['streak_badge_label'] ?? ($has_missed ? 'Missed' : 'Perfect')),
         'days' => $days_payload,
+        // Streak / Check-in sync fields
+        'consecutive_checkin_streak' => $consecutive_streak,
+        'today_checkin_reward' => $today_checkin_reward,
+        'next_checkin_reward' => $next_checkin_reward,
+        'missed_day_count' => $missed_day_count,
+        'mystery_box_reward' => $mystery_box_reward,
+        'total_streak_earned' => $total_streak_earned,
+        'total_potential_checkin' => $total_potential_checkin,
+        'per_day_potential' => $per_day_potential,
     ];
 }
 
@@ -1108,6 +1331,10 @@ function taskHubCompleteInstantTask($user_id, array $task_row, array $log_row, a
     $db = $db ?: getDBConnection();
     $user = getUserById((int) $user_id);
     $metadata = !empty($log_row['metadata']) ? (json_decode((string) $log_row['metadata'], true) ?: []) : [];
+
+    if ((string) ($log_row['status'] ?? '') === 'completed') {
+        throw new RuntimeException('This task has already been completed.');
+    }
 
     if (($task_row['verification_mode'] ?? '') === 'profile') {
         if (!isUserProfileComplete($user)) {
@@ -1120,6 +1347,15 @@ function taskHubCompleteInstantTask($user_id, array $task_row, array $log_row, a
         if ($wallet_address === '') {
             throw new RuntimeException('Add a wallet address to finish this task.');
         }
+        if (!preg_match('/^0x[a-fA-F0-9]{40}$/', $wallet_address)) {
+            throw new RuntimeException('Wallet address is invalid.');
+        }
+        $wallet_address = strtolower($wallet_address);
+        $wallet_owner = $db->prepare("SELECT id FROM users WHERE wallet_address = ? AND id <> ? LIMIT 1");
+        $wallet_owner->execute([$wallet_address, (int) $user_id]);
+        if ($wallet_owner->fetch()) {
+            throw new RuntimeException('This wallet is already linked to another CoinRex account.');
+        }
         $wallet_update = $db->prepare("UPDATE users SET wallet_address = ?, updated_at = NOW() WHERE id = ?");
         $wallet_update->execute([$wallet_address, (int) $user_id]);
     }
@@ -1131,12 +1367,25 @@ function taskHubCompleteInstantTask($user_id, array $task_row, array $log_row, a
     }
 
     $completed_at = date('Y-m-d H:i:s');
-    taskHubUpdateLog((int) $log_row['id'], [
-        'status' => 'completed',
-        'completed_at' => $completed_at,
-        'task_completed_at' => $completed_at,
-        'metadata' => $metadata,
-    ], $db);
+    $complete_stmt = $db->prepare("
+        UPDATE user_task_logs
+        SET status = 'completed',
+            completed_at = ?,
+            task_completed_at = ?,
+            metadata = ?
+        WHERE id = ?
+          AND status <> 'completed'
+    ");
+    $complete_stmt->execute([
+        $completed_at,
+        $completed_at,
+        json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        (int) $log_row['id'],
+    ]);
+
+    if ($complete_stmt->rowCount() < 1) {
+        throw new RuntimeException('This task has already been completed.');
+    }
 
     $entry = addRewardLedgerEntry(
         (int) $user_id,
@@ -1172,8 +1421,7 @@ function taskHubCompleteInstantTask($user_id, array $task_row, array $log_row, a
  * the answer indices match what the frontend received.
  */
 function taskHubValidateSingleQuizAnswer($user_id, array $task_row, array $log_row, array $answers, PDO $db = null): bool {
-    $definition = getTaskHubMissionTaskDefinitionByKey((string) ($task_row['task_key'] ?? ''));
-    $questions = $definition['quiz'] ?? [];
+    $questions = taskHubGetQuizByTaskKey((string) ($task_row['task_key'] ?? ''), $db);
     if (empty($questions)) {
         return false;
     }
@@ -1197,8 +1445,8 @@ function taskHubValidateSingleQuizAnswer($user_id, array $task_row, array $log_r
             break;
         }
         $user_answer = (int) ($answers[$index] ?? -1);
-        $correct_answer = (int) ($question['answer'] ?? -2);
-        if ($user_answer !== $correct_answer) {
+        $correct_answers = taskHubNormalizeQuizAnswerIndexes($question['answer'] ?? []);
+        if (!in_array($user_answer, $correct_answers, true)) {
             return false;
         }
     }
@@ -1210,9 +1458,7 @@ function taskHubSubmitQuizTask($user_id, array $task_row, array $log_row, array 
     $db = $db ?: getDBConnection();
     $log_metadata = !empty($log_row['metadata']) ? (json_decode((string) $log_row['metadata'], true) ?: []) : [];
 
-    $definition = getTaskHubMissionTaskDefinitionByKey((string) ($task_row['task_key'] ?? ''));
-
-    $questions = $definition['quiz'] ?? [];
+    $questions = taskHubGetQuizByTaskKey((string) ($task_row['task_key'] ?? ''), $db);
     if (empty($questions)) {
         throw new RuntimeException('Quiz definition not found.');
     }
@@ -1225,15 +1471,19 @@ function taskHubSubmitQuizTask($user_id, array $task_row, array $log_row, array 
     $detail = [];
     foreach ($questions as $index => $question) {
         $user_answer = (int) ($answers[$index] ?? -1);
-        $correct_answer = (int) ($question['answer'] ?? -2);
-        $is_correct = $user_answer === $correct_answer;
+        $correct_answers = taskHubNormalizeQuizAnswerIndexes($question['answer'] ?? []);
+        $is_correct = in_array($user_answer, $correct_answers, true);
         if ($is_correct) {
             $score++;
+        }
+        $correct_answer_labels = [];
+        foreach ($correct_answers as $correct_answer) {
+            $correct_answer_labels[] = $question['choices'][$correct_answer] ?? 'Unknown';
         }
         $detail[] = [
             'question' => $question['question'],
             'correct' => $is_correct,
-            'correct_answer' => $question['choices'][$correct_answer] ?? 'Unknown',
+            'correct_answer' => implode(', ', $correct_answer_labels),
             'user_answer' => $user_answer >= 0 && isset($question['choices'][$user_answer]) ? $question['choices'][$user_answer] : '(none)',
         ];
     }
@@ -1360,8 +1610,8 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
         throw new RuntimeException('User account not found.');
     }
 
-    // TESTING_MODE: Skip level check
-    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+    // TESTING_MODE / LOCAL_TEST_MODE: Skip level check
+    if ((!defined('TESTING_MODE') || !TESTING_MODE) && !LOCAL_TEST_MODE) {
         if (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
             throw new RuntimeException('TaskHub is available for Beginner accounts only.');
         }
@@ -1369,15 +1619,18 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
 
     enforceUserModuleAccess($user, 'taskhub');
 
-    // TESTING_MODE: Skip security signals check (IP/device farming detection)
-    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+    // TESTING_MODE / LOCAL_TEST_MODE: Skip security signals check (IP/device farming detection)
+    if ((!defined('TESTING_MODE') || !TESTING_MODE) && !LOCAL_TEST_MODE) {
         $signals = getUserSecuritySignals((int) $user_id, $db);
         if (!empty($signals['is_suspicious'])) {
             throw new RuntimeException('Suspicious activity detected. Try again later.');
         }
     }
 
-    syncTaskHubDayProgress((int) $user_id, $db);
+    $user = syncTaskHubDayProgress((int) $user_id, $db);
+    if (!$user) {
+        throw new RuntimeException('User account not found.');
+    }
 
     $task_stmt = $db->prepare("
         SELECT *
@@ -1392,9 +1645,12 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
     if (!$task_row) {
         throw new RuntimeException('TaskHub task not found.');
     }
+    if (!taskHubIsCoreMissionTask($task_row)) {
+        throw new RuntimeException('This task is no longer part of TaskHub.');
+    }
 
-    // TESTING_MODE: Skip day progression check - testers can do all days
-    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+    // TESTING_MODE / LOCAL_TEST_MODE: Skip day progression check - testers can do all days
+    if ((!defined('TESTING_MODE') || !TESTING_MODE) && !LOCAL_TEST_MODE) {
         if ((int) ($task_row['mission_day'] ?? 0) !== (int) ($user['current_day'] ?? 1)) {
             throw new RuntimeException('Complete previous tasks to continue.');
         }
@@ -1405,15 +1661,15 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
         throw new RuntimeException('This task is still locked.');
     }
 
-    // TESTING_MODE: Allow re-submission even if previously submitted
-    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+    // TESTING_MODE / LOCAL_TEST_MODE: Allow re-submission even if previously submitted
+    if ((!defined('TESTING_MODE') || !TESTING_MODE) && !LOCAL_TEST_MODE) {
         if ((string) ($log_row['status'] ?? '') === 'submitted') {
             throw new RuntimeException('This task is awaiting manual review.');
         }
     }
 
-    // TESTING_MODE: Skip unlock timer cooldown check
-    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+    // TESTING_MODE / LOCAL_TEST_MODE: Skip unlock timer cooldown check
+    if ((!defined('TESTING_MODE') || !TESTING_MODE) && !LOCAL_TEST_MODE) {
         $available_at_ts = !empty($log_row['task_available_at']) ? strtotime((string) $log_row['task_available_at']) : 0;
         if ($available_at_ts > time()) {
             throw new RuntimeException('Next task unlocks in ' . taskHubFormatDuration(max(0, $available_at_ts - time())) . '.');
@@ -1572,10 +1828,31 @@ function reviewTaskHubSubmission($log_id, $approve, PDO $db = null) {
     }
 
     if (!$approve) {
+        // Track rejection count for this user+task
+        $rejection_count = (int) ($row['rejection_count'] ?? 0) + 1;
+        $db->prepare("UPDATE user_task_logs SET rejection_count = ? WHERE id = ?")
+           ->execute([$rejection_count, (int) $row['id']]);
+
         taskHubUpdateLog((int) $row['id'], [
             'status' => 'failed',
-            'metadata' => ['reviewed_at' => date('Y-m-d H:i:s'), 'review_outcome' => 'rejected'],
+            'metadata' => [
+                'reviewed_at' => date('Y-m-d H:i:s'),
+                'review_outcome' => 'rejected',
+                'rejection_count' => $rejection_count,
+            ],
         ], $db);
+
+        // If 3rd rejection, reverse all TaskHub rewards and reset user to Day 1
+        if ($rejection_count >= 3) {
+            taskHubReverseTaskHubRewards((int) $row['user_id'], $db);
+            taskHubResetUserToDay1((int) $row['user_id'], $db);
+            return [
+                'approved' => false,
+                'reset' => true,
+                'message' => 'User has been reset to Day 1 due to 3 rejections.',
+            ];
+        }
+
         return ['approved' => false];
     }
 
@@ -1623,4 +1900,57 @@ function reviewTaskHubSubmission($log_id, $approve, PDO $db = null) {
     }
     syncUserLevelStatus((int) $row['user_id'], $db);
     return ['approved' => true, 'entry' => $entry, 'task_group' => (string) ($row['task_group'] ?? 'mission')];
+}
+
+
+function ensureTaskHubRejectionSchema(PDO $db = null) {
+    static $schema_ready = false;
+    if ($schema_ready) { return; }
+    $db = $db ?: getDBConnection();
+    if (!tableHasColumn('user_task_logs', 'rejection_count')) {
+        try {
+            $db->exec("ALTER TABLE user_task_logs ADD COLUMN rejection_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER status");
+        } catch (PDOException $e) {
+            if (strpos($e->getMessage(), '1060') === false && stripos($e->getMessage(), 'Duplicate column') === false) {
+                throw $e;
+            }
+        }
+    }
+    $schema_ready = true;
+}
+
+function taskHubReverseTaskHubRewards($user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRewardClaimSchema($db);
+    $stmt = $db->prepare("SELECT id, amount, source, action_type, reference_id FROM reward_ledger WHERE user_id = ? AND source = 'mini_task' AND action_type IN ('taskhub_completion', 'taskhub_manual_approval') AND amount > 0 AND status IN ('available', 'locked')");
+    $stmt->execute([(int) $user_id]);
+    $entries = $stmt->fetchAll();
+    $total_reversed = 0;
+    foreach ($entries as $entry) {
+        $amount = (float) ($entry['amount'] ?? 0);
+        if ($amount <= 0) { continue; }
+        addRewardLedgerEntry((int) $user_id, -$amount, 'mini_task', 'taskhub_reversal', 'available', 'reversal:' . (string) ($entry['reference_id'] ?? $entry['id']), $db, 'phase1', 'beginner');
+        $db->prepare("UPDATE reward_ledger SET status = 'reversed', updated_at = NOW() WHERE id = ?")->execute([(int) $entry['id']]);
+        $total_reversed += $amount;
+    }
+    return $total_reversed;
+}
+
+function taskHubResetUserToDay1($user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRewardClaimSchema($db);
+    $db->prepare("DELETE utl FROM user_task_logs utl INNER JOIN mini_tasks mt ON mt.id = utl.task_id WHERE utl.user_id = ? AND mt.task_group = 'mission'")->execute([(int) $user_id]);
+    $db->prepare("UPDATE users SET current_day = 1, last_day_completed_at = NULL, updated_at = NOW() WHERE id = ?")->execute([(int) $user_id]);
+    $db->prepare("DELETE FROM taskhub_quiz_attempts WHERE user_id = ?")->execute([(int) $user_id]);
+    if (tableExists('taskhub_learning_sessions')) {
+        $db->prepare("DELETE FROM taskhub_learning_sessions WHERE user_id = ?")->execute([(int) $user_id]);
+    }
+}
+
+function taskHubGetBoostRequirementByDay($mission_day) {
+    return 0.0;
+}
+
+function taskHubGetBoostGatewayTask($mission_day) {
+    return null;
 }

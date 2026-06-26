@@ -1,0 +1,32 @@
+RewriteEngine On
+
+<IfModule mod_php.c>
+    php_value session.save_path "C:/xampp/htdocs/coinrex/cache/sessions"
+</IfModule>
+
+<IfModule php_module>
+    php_value session.save_path "C:/xampp/htdocs/coinrex/cache/sessions"
+</IfModule>
+
+# ============================================================
+# SEO-friendly blog post URLs
+# Rewrite: /blog-post.php/some-slug → /public/blog-post.php?slug=some-slug
+# Rewrite: /public/blog-post.php/some-slug → /public/blog-post.php?slug=some-slug
+# ============================================================
+
+# Pattern 1: /blog-post.php/slug (from public/*.php links)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^blog-post\.php/(.+)$ public/blog-post.php?slug=$1 [L,QSA]
+
+# Pattern 2: /public/blog-post.php/slug (from index.php links)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^public/blog-post\.php/(.+)$ public/blog-post.php?slug=$1 [L,QSA]
+
+# ============================================================
+# General rule: pass through existing files/directories
+# ============================================================
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L]

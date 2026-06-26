@@ -181,7 +181,7 @@ body {
     padding: 14px;
     background: var(--dh-gradient-accent);
     border: none;
-    border-radius: 40px;
+    border-radius: 12px;
     color: #000000;
     font-weight: 700;
     font-size: 16px;

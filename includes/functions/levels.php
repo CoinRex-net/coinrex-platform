@@ -9,7 +9,7 @@ function userCanAccessProjectReviewArea($user_or_level_state) {
     return normalizeUserLevel($level_state['level'] ?? 'beginner') !== 'beginner';
 }
 
-function requireProjectReviewAccess($redirect_path = '/dashboard.php') {
+function requireProjectReviewAccess($redirect_path = '/public/dashboard.php') {
     if (!isLoggedIn()) {
         redirect(BASE_URL . '/auth/auth.php');
     }
@@ -24,10 +24,31 @@ function requireProjectReviewAccess($redirect_path = '/dashboard.php') {
         enforceUserModuleAccess($user, 'review');
     } catch (Throwable $e) {
         setFlashMessage('dashboard_success', $e->getMessage());
-        redirect(BASE_URL . '/dashboard.php');
+        redirect(BASE_URL . '/public/dashboard.php');
     }
 
     return $user;
+}
+
+/**
+ * Get an array of project IDs that the given user has already reviewed.
+ * Useful for batch-checking on listing pages like projects.php.
+ *
+ * @param int   $user_id
+ * @param PDO   $db
+ * @return int[] Array of project IDs
+ */
+function getUserReviewedProjectIds($user_id, PDO $db)
+{
+    $stmt = $db->prepare(
+        "SELECT DISTINCT project_id
+         FROM reviews
+         WHERE user_id = ?"
+    );
+    $stmt->execute([(int) $user_id]);
+    $ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+
+    return array_map('intval', $ids ?: []);
 }
 
 function ensureLevelEngineSchema(PDO $db = null) {
@@ -361,16 +382,12 @@ function levelPromotionCriteriaMet($target_level, array $stats) {
     }
 
     if ($target_level === 'pro') {
-        if (!empty($stats['mission_completed'])) {
-            $signals = getUserSecuritySignals((int) ($stats['user_id'] ?? 0));
-            return empty($signals['is_suspicious']);
-        }
-
-        if ((int) ($stats['completed_tasks'] ?? 0) < (int) ($policy['promotion_completed_tasks'] ?? 0)) {
-            return false;
-        }
-
-        if ((int) ($stats['valid_referrals'] ?? 0) < (int) ($policy['promotion_valid_referrals'] ?? 0)) {
+        // PRO promotion requires ALL of the following:
+        // 1. All 10 TaskHub mission days completed
+        // 2. Account age >= 7 days
+        // 3. At least 1 valid referral
+        // 4. No suspicious security signals
+        if (empty($stats['mission_completed'])) {
             return false;
         }
 
@@ -378,8 +395,15 @@ function levelPromotionCriteriaMet($target_level, array $stats) {
             return false;
         }
 
+        if ((int) ($stats['valid_referrals'] ?? 0) < (int) ($policy['promotion_valid_referrals'] ?? 0)) {
+            return false;
+        }
+
         $signals = getUserSecuritySignals((int) ($stats['user_id'] ?? 0));
-        return empty($signals['is_suspicious']);
+        if (!empty($signals['is_suspicious'])) {
+            return false;
+        }
+        return true;
     }
 
     if ((int) ($stats['approved_reviews'] ?? 0) < (int) ($policy['promotion_approved_reviews'] ?? 0)) {
@@ -399,6 +423,80 @@ function levelPromotionCriteriaMet($target_level, array $stats) {
     }
 
     return true;
+}
+
+/**
+ * Get detailed promotion blockers for a target level.
+ * Returns an array of user-friendly reason strings explaining why promotion is blocked.
+ */
+function getLevelPromotionBlockers($target_level, array $stats) {
+    $target_level = normalizeUserLevel($target_level);
+    $policy = getLevelPolicy($target_level);
+    $blockers = [];
+
+    if ($target_level === 'beginner') {
+        return $blockers;
+    }
+
+    if ($target_level === 'pro') {
+        if (empty($stats['mission_completed'])) {
+            $blockers[] = 'Complete all 10 TaskHub days first.';
+        }
+
+        $age_days = (int) ($stats['account_age_days'] ?? 0);
+        $min_age = (int) ($policy['promotion_account_age_days'] ?? 0);
+        if ($age_days < $min_age) {
+            $days_left = $min_age - $age_days;
+            $blockers[] = "Account must be {$min_age} days old ({$days_left} more day" . ($days_left > 1 ? 's' : '') . " needed).";
+        }
+
+        $referrals = (int) ($stats['valid_referrals'] ?? 0);
+        $min_refs = (int) ($policy['promotion_valid_referrals'] ?? 0);
+        if ($referrals < $min_refs) {
+            $refs_left = $min_refs - $referrals;
+            $blockers[] = "Need {$min_refs} valid referral" . ($min_refs > 1 ? 's' : '') . " ({$refs_left} more needed).";
+        }
+
+        // Check security signals
+        $signals = getUserSecuritySignals((int) ($stats['user_id'] ?? 0));
+        if (!empty($signals['reasons'])) {
+            foreach ($signals['reasons'] as $reason) {
+                $blockers[] = 'Security: ' . $reason;
+            }
+        }
+
+        return $blockers;
+    }
+
+    // Expert level blockers
+    $reviews = (int) ($stats['approved_reviews'] ?? 0);
+    $min_reviews = (int) ($policy['promotion_approved_reviews'] ?? 0);
+    if ($reviews < $min_reviews) {
+        $reviews_left = $min_reviews - $reviews;
+        $blockers[] = "Need {$min_reviews} approved reviews ({$reviews_left} more needed).";
+    }
+
+    $referrals = (int) ($stats['valid_referrals'] ?? 0);
+    $min_refs = (int) ($policy['promotion_valid_referrals'] ?? 0);
+    if ($referrals < $min_refs) {
+        $refs_left = $min_refs - $referrals;
+        $blockers[] = "Need {$min_refs} valid referrals ({$refs_left} more needed).";
+    }
+
+    $accuracy = (float) ($stats['accuracy'] ?? 0);
+    $min_accuracy = (float) ($policy['promotion_accuracy'] ?? 0);
+    if ($accuracy < $min_accuracy) {
+        $blockers[] = "Need {$min_accuracy}% review accuracy (currently {$accuracy}%).";
+    }
+
+    if (isset($policy['max_rejection_ratio'])) {
+        $rejection_ratio = (float) ($stats['rejection_ratio'] ?? 0);
+        if ($rejection_ratio > (float) $policy['max_rejection_ratio']) {
+            $blockers[] = 'Rejection ratio too high for promotion.';
+        }
+    }
+
+    return $blockers;
 }
 
 function resolveStoredUserLevel($current_level, array $stats) {
@@ -459,6 +557,7 @@ function syncUserReviewCounters($user_id, PDO $db = null) {
 function syncUserLevelStatus($user_id, PDO $db = null) {
     $db = $db ?: getDBConnection();
     ensureLevelEngineSchema($db);
+    ensureEarlyAirdropSchema($db);
 
     $user_id = (int) $user_id;
     $current_user = getUserById($user_id);
@@ -466,7 +565,16 @@ function syncUserLevelStatus($user_id, PDO $db = null) {
         return null;
     }
 
+    $old_level = normalizeUserLevel((string) ($current_user['level'] ?? 'beginner'));
+
     $stats = syncUserReviewCounters($user_id, $db);
+
+    // Add mission completion, account age, and referral stats for level promotion checks
+    $stats['mission_completed'] = taskHubMissionCompleted($user_id, $db);
+    $stats['account_age_days'] = (int) floor((time() - strtotime((string) ($current_user['created_at'] ?? 'now'))) / 86400);
+    $stats['valid_referrals'] = (int) ($current_user['valid_referrals'] ?? 0);
+    $stats['user_id'] = $user_id;
+
     $new_level = resolveStoredUserLevel($current_user['level'] ?? 'beginner', $stats);
     $is_expert = $new_level === 'expert' ? 1 : 0;
     $is_pro = $new_level === 'pro' ? 1 : 0;
@@ -484,6 +592,39 @@ function syncUserLevelStatus($user_id, PDO $db = null) {
 
     $stmt = $db->prepare($sql);
     $stmt->execute([$new_level, $is_expert, $is_pro, $user_id]);
+
+    // Early Adopter Airdrop: unlock whenever Pro/Expert and TaskHub completion are both true.
+    if (in_array($new_level, ['pro', 'expert'], true)) {
+        try {
+            unlockPendingEarlyAirdropForUser($user_id, $db);
+            // Check if user has pending airdrop to unlock
+            $pending_stmt = $db->prepare("
+                SELECT id, amount FROM reward_ledger
+                WHERE user_id = ?
+                  AND status = 'pending'
+                  AND action_type = 'early_adopter_airdrop'
+                LIMIT 1
+            ");
+            $pending_stmt->execute([$user_id]);
+            $pending = $pending_stmt->fetch();
+
+            if ($pending && isEarlyAirdropActive($db)) {
+                $amount = (float) ($pending['amount'] ?? 0);
+                if ($amount > 0 && deductEarlyAirdropPool($user_id, 'signup_bonus', $amount, $db)) {
+                    // Change pending → available
+                    $update_stmt = $db->prepare("
+                        UPDATE reward_ledger
+                        SET status = 'available', user_level_at_time = 'pro'
+                        WHERE id = ?
+                    ");
+                    $update_stmt->execute([(int) $pending['id']]);
+                }
+            }
+        } catch (Throwable $e) {
+            // Log but don't block level sync
+            error_log('Early airdrop unlock failed for user ' . $user_id . ': ' . $e->getMessage());
+        }
+    }
 
     if ((int) ($_SESSION['user_id'] ?? 0) === $user_id) {
         $_SESSION['level'] = $new_level;

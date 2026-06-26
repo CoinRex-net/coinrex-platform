@@ -320,6 +320,33 @@ $full_name = htmlspecialchars($user['full_name'] ?? $user['username'] ?? 'Develo
             <p>Manage your projects and grow on CoinRex</p>
         </div>
     </div>
+
+    <!-- Unverified User CTA Banner -->
+    <?php if (!$is_effectively_verified): ?>
+    <div class="verify-cta-banner">
+        <div class="verify-cta-content">
+            <div class="verify-cta-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="verify-cta-text">
+                <h3>Get Verified to Unlock Full DevHub Features</h3>
+                <p>Verify your developer identity to register projects, generate widgets, access review insights, and build trust with the CoinRex community.</p>
+                <div class="verify-cta-benefits">
+                    <span><i class="fas fa-check-circle"></i> Register Projects</span>
+                    <span><i class="fas fa-check-circle"></i> Widget & API Access</span>
+                    <span><i class="fas fa-check-circle"></i> Review Insights</span>
+                    <span><i class="fas fa-check-circle"></i> Verified Badge</span>
+                </div>
+            </div>
+            <div class="verify-cta-action">
+                <a href="<?php echo BASE_URL; ?>/devhub/apply.php" class="btn-verify-cta">
+                    <i class="fas fa-check-double"></i> Get Verified Now
+                </a>
+                <p>Takes only a few minutes</p>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     
     <!-- Profile Completion Progress with Complete Now Button -->
     <?php if (!$is_effectively_verified): ?>
@@ -356,11 +383,11 @@ $full_name = htmlspecialchars($user['full_name'] ?? $user['username'] ?? 'Develo
         
         <!-- Complete Now Button -->
         <?php if(!$is_effectively_verified): ?>
-        <div style="margin-top: 24px; text-align: center;">
-            <a href="<?php echo BASE_URL; ?>/devhub/apply.php" class="btn-primary" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+        <div class="complete-now-wrapper">
+            <a href="<?php echo BASE_URL; ?>/devhub/apply.php" class="btn-complete-now">
                 <i class="fas fa-check-double"></i> Complete Now
             </a>
-            <p style="font-size: 0.8rem; color: #64748b; margin-top: 12px;">
+            <p class="complete-now-hint">
                 Get verified to unlock project registration
             </p>
         </div>
@@ -392,6 +419,31 @@ $full_name = htmlspecialchars($user['full_name'] ?? $user['username'] ?? 'Develo
         </div>
     </div>
 
+    <!-- Sponsored Project Marketing Card (visible to ALL users) -->
+    <div class="sponsored-marketing-card">
+        <div class="sponsored-marketing-content">
+            <div class="sponsored-marketing-icon">
+                <i class="fas fa-bullhorn"></i>
+            </div>
+            <div class="sponsored-marketing-text">
+                <h3>Get Sponsored Placement — No Verification Needed</h3>
+                <p>Want your project to stand out? Sponsored placement gives you <strong>top priority visibility</strong> with a premium sponsored badge, appearing prominently across CoinRex for all users — no developer verification required.</p>
+                <div class="sponsored-marketing-benefits">
+                    <span><i class="fas fa-check-circle"></i> Top Priority Placement</span>
+                    <span><i class="fas fa-check-circle"></i> Premium Sponsored Badge</span>
+                    <span><i class="fas fa-check-circle"></i> Visible to All Users</span>
+                    <span><i class="fas fa-check-circle"></i> No Verification Needed</span>
+                </div>
+            </div>
+            <div class="sponsored-marketing-action">
+                <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn-sponsored-cta">
+                    <i class="fas fa-envelope"></i> Contact Now
+                </a>
+                <p>Get in touch with our team</p>
+            </div>
+        </div>
+    </div>
+
     <div class="queue-summary-panel">
         <div class="queue-summary-head">
             <div>
@@ -409,45 +461,6 @@ $full_name = htmlspecialchars($user['full_name'] ?? $user['username'] ?? 'Develo
                     <strong><?php echo number_format((int) $status_item['count']); ?></strong>
                 </div>
             <?php endforeach; ?>
-        </div>
-    </div>
-
-    <div class="tracker-section promotion-hub-section">
-        <div class="tracker-header">
-            <div>
-                <span class="tracker-kicker">Growth & Promotion</span>
-                <h3>Featured, Priority Review & Sponsored</h3>
-                <p><strong>Featured is earned.</strong> Priority Review and Sponsored are paid growth options. Money improves visibility or speed, but never buys trust directly.</p>
-            </div>
-        </div>
-        <div class="promotion-benefits-grid">
-            <div class="promotion-benefit-card">
-                <i class="fas fa-bullhorn"></i>
-                <h4>Sponsored boosts visibility</h4>
-                <p>Get stronger placement, more reviewer discovery, and more attention while your project is still building toward earned Featured status.</p>
-            </div>
-            <div class="promotion-benefit-card">
-                <i class="fas fa-users-viewfinder"></i>
-                <h4>Reach active reviewers faster</h4>
-                <p>Sponsored placement helps your listing surface in front of users who are already browsing projects and review opportunities.</p>
-            </div>
-            <div class="promotion-benefit-card">
-                <i class="fas fa-shield-heart"></i>
-                <h4>Trust stays protected</h4>
-                <p>Sponsored improves visibility only. Featured remains earned through quality, proof-backed reviews, and admin trust checks.</p>
-            </div>
-        </div>
-        <div class="queue-summary-list promotion-summary-list">
-            <div class="queue-summary-item"><span class="status-chip status-featured">Featured Live</span><strong><?php echo number_format((int) $promotion_summary['featured_live']); ?></strong></div>
-            <div class="queue-summary-item"><span class="status-chip status-sponsored">Sponsored Live</span><strong><?php echo number_format((int) $promotion_summary['sponsored_live']); ?></strong></div>
-            <div class="queue-summary-item"><span class="status-chip status-pending">Eligible</span><strong><?php echo number_format((int) $promotion_summary['eligible']); ?></strong></div>
-            <div class="queue-summary-item"><span class="status-chip status-priority-soft">Priority Requested</span><strong><?php echo number_format((int) $promotion_summary['priority_requested']); ?></strong></div>
-            <div class="queue-summary-item"><span class="status-chip status-priority">Priority Active</span><strong><?php echo number_format((int) $promotion_summary['priority_active']); ?></strong></div>
-            <div class="queue-summary-item"><span class="status-chip status-sponsored-soft">Sponsored Requested</span><strong><?php echo number_format((int) $promotion_summary['sponsored_requested']); ?></strong></div>
-        </div>
-        <div class="promotion-guide-note">
-            <i class="fas fa-circle-info"></i>
-            <span>Promotion actions appear inside each project tracker card below. If a project is approved and feature-eligible, you will see <strong>Request Featured Review</strong> and <strong>Upgrade to Priority</strong>. If a project is approved, you can also request <strong>Sponsored</strong> placement.</span>
         </div>
     </div>
 

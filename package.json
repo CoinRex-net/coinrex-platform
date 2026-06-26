@@ -1,0 +1,26 @@
+{
+  "name": "coinrex-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CoinRex smart-contract workspace for Polygon testnet deployments.",
+  "scripts": {
+    "contracts:compile": "hardhat compile",
+    "contracts:test": "hardhat test",
+    "contracts:deploy:amoy": "hardhat run scripts/deploy-rex-token.js --network amoy",
+    "contracts:deploy-distributor:amoy": "hardhat run scripts/deploy-rex-claim-distributor.js --network amoy",
+    "contracts:fund-distributor:amoy": "hardhat run scripts/fund-rex-claim-distributor.js --network amoy",
+    "realtime:start": "node realtime/server.js",
+    "realtime:check": "node --check realtime/server.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "3.0.8",
+    "@openzeppelin/contracts": "5.0.2",
+    "dotenv": "16.4.5",
+    "ethers": "6.13.2",
+    "hardhat": "2.22.10",
+    "solc": "0.8.24"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

@@ -1,64 +1,13 @@
 <?php
-/** Auto-split from legacy functions.php */
-
 /**
- * CoinRex Helper Functions
- * Location: /coinrex/includes/functions.php
+ * CoinRex Core Helper Functions
+ *
+ * Core utility functions used across the platform.
+ * This file was auto-split from the legacy functions.php.
+ *
+ * @package CoinRex
+ * @subpackage Helpers
  */
-
-// Sanitize input
-
-// Normalize email input for consistent lookups/storage
-
-// Normalize referral codes for consistent lookups
-
-// Extract a normalized domain from an email address
-
-// Common disposable email domains blocked during registration
-
-// Block registrations that use disposable email providers
-
-// Validate password strength against registration policy
-
-// Generate unique referral code
-
-// Generate username from email or full name
-
-// Hash password
-
-// Verify password
-
-// Get user by email
-
-// Get user by id
-
-// Get user by username
-
-// Resolve a user by either email address or username
-
-// Get user by referral code
-
-// Check whether a database table contains a specific column
-
-// Validate optional referral code input
-
-// Lightweight session flash messaging
-
-
-// Create a six-digit OTP for email verification
-
-// Store a new verification OTP on the user record
-
-// Check whether SMTP credentials are ready for live OTP delivery
-
-// Send an email through PHPMailer + SMTP
-
-// Send the login OTP email for account verification
-
-// Send the password reset OTP email
-
-// Keep pending email-verification state in session until the verify page is built
-
 
 if (!defined('REMEMBER_ME_COOKIE_NAME')) {
     define('REMEMBER_ME_COOKIE_NAME', 'coinrex_remember');
@@ -68,151 +17,40 @@ if (!defined('REMEMBER_ME_LIFETIME_SECONDS')) {
     define('REMEMBER_ME_LIFETIME_SECONDS', 10 * 24 * 60 * 60);
 }
 
-// Start password reset OTP delivery for the selected user
-
-
-
-
-
-
-
-// Resolve the currently pending email-verification user from session
-
-// Check whether the resend cooldown has elapsed
-
-// Validate the submitted OTP against the database-backed fields
-
-// Finalize email verification on the user record
-
-// Update login metadata and establish the application session
-
-// Get current user ID
-
-// Check if user is verified developer
-
-// Get DevHub database connection
-
-// Process new user registration
-
 if (!defined('APP_CSRF_SESSION_KEY')) {
     define('APP_CSRF_SESSION_KEY', '_app_csrf_token');
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Process login
-
-// Check if user is logged in
-
-// Get current user data
-
-// Logout
-
-// Redirect function
-
+/**
+ * Hash a password using bcrypt with cost factor 12.
+ *
+ * @param string $password The plain-text password.
+ * @return string The bcrypt hash.
+ */
 function hashPassword($password) {
     return password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 }
 
+/**
+ * Verify a password against its bcrypt hash.
+ *
+ * @param string $password The plain-text password to verify.
+ * @param string $hash     The stored bcrypt hash.
+ * @return bool True if the password matches the hash.
+ */
 function verifyPassword($password, $hash) {
     return password_verify($password, $hash);
 }
 
+/**
+ * Check whether a database table contains a specific column.
+ *
+ * Results are cached in a static variable for the duration of the request.
+ *
+ * @param string $table_name  The table name.
+ * @param string $column_name The column name.
+ * @return bool True if the column exists.
+ */
 function tableHasColumn($table_name, $column_name) {
     static $column_cache = [];
 
@@ -237,10 +75,53 @@ function tableHasColumn($table_name, $column_name) {
     return $exists;
 }
 
+/**
+ * Check whether a database table exists.
+ *
+ * Results are cached in a static variable for the duration of the request.
+ *
+ * @param string $table_name The table name.
+ * @return bool True if the table exists.
+ */
+function tableExists($table_name) {
+    static $table_cache = [];
+
+    $cache_key = (string) $table_name;
+    if (array_key_exists($cache_key, $table_cache)) {
+        return $table_cache[$cache_key];
+    }
+
+    $db = getDBConnection();
+    $stmt = $db->prepare("
+        SELECT COUNT(*) AS total
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = ?
+          AND TABLE_NAME = ?
+    ");
+    $stmt->execute([DB_NAME, $table_name]);
+
+    $exists = ((int) ($stmt->fetch()['total'] ?? 0)) > 0;
+    $table_cache[$cache_key] = $exists;
+
+    return $exists;
+}
+
+/**
+ * Set a flash message in the session.
+ *
+ * @param string $key     The flash message key.
+ * @param string $message The message content.
+ */
 function setFlashMessage($key, $message) {
     $_SESSION['_flash'][$key] = $message;
 }
 
+/**
+ * Consume (retrieve and remove) a flash message from the session.
+ *
+ * @param string $key The flash message key.
+ * @return string The message content, or empty string if not found.
+ */
 function consumeFlashMessage($key) {
     if (!isset($_SESSION['_flash'][$key])) {
         return '';
@@ -256,6 +137,12 @@ function consumeFlashMessage($key) {
     return $message;
 }
 
+/**
+ * Start a password reset OTP delivery for the given user.
+ *
+ * @param array $user The user record.
+ * @return array Result with 'success' bool and 'message' string.
+ */
 function startPendingPasswordReset($user) {
     $fresh_user = getUserById($user['id']);
     if (!$fresh_user) {
@@ -296,6 +183,9 @@ function startPendingPasswordReset($user) {
     return $mail_result;
 }
 
+/**
+ * Clear the pending password reset session state.
+ */
 function clearPendingPasswordReset() {
     unset($_SESSION['pending_password_reset_user_id']);
     unset($_SESSION['pending_password_reset_email']);
@@ -304,6 +194,11 @@ function clearPendingPasswordReset() {
     unset($_SESSION['pending_password_reset_verified_at']);
 }
 
+/**
+ * Get the user record for the pending password reset.
+ *
+ * @return array|null The user record, or null if none pending.
+ */
 function getPendingPasswordResetUser() {
     $user_id = $_SESSION['pending_password_reset_user_id'] ?? null;
     if (!$user_id) {
@@ -319,6 +214,11 @@ function getPendingPasswordResetUser() {
     return $user;
 }
 
+/**
+ * Get the remaining cooldown seconds for password reset OTP resend.
+ *
+ * @return int Remaining seconds.
+ */
 function getPasswordResetResendRemainingSeconds() {
     $last_sent_at = (int) ($_SESSION['pending_password_reset_last_sent_at'] ?? 0);
     if ($last_sent_at <= 0) {
@@ -329,6 +229,13 @@ function getPasswordResetResendRemainingSeconds() {
     return max(0, $remaining);
 }
 
+/**
+ * Reset a user's password and clear OTP state.
+ *
+ * @param int    $user_id  The user ID.
+ * @param string $password The new plain-text password.
+ * @return bool True on success.
+ */
 function resetUserPassword($user_id, $password) {
     $db = getDBConnection();
     $hashed_password = hashPassword($password);
@@ -346,6 +253,11 @@ function resetUserPassword($user_id, $password) {
     return $stmt->execute([$hashed_password, $user_id]);
 }
 
+/**
+ * Get the user record for the pending email verification.
+ *
+ * @return array|null The user record, or null if none pending.
+ */
 function getPendingVerificationUser() {
     $user_id = $_SESSION['pending_verification_user_id'] ?? null;
     if (!$user_id) {
@@ -361,6 +273,12 @@ function getPendingVerificationUser() {
     return $user;
 }
 
+/**
+ * Check if a user is a verified developer.
+ *
+ * @param int $user_id The user ID.
+ * @return bool True if the user is a verified developer.
+ */
 function isVerifiedDeveloper($user_id) {
     if (!$user_id) {
         return false;
@@ -402,33 +320,22 @@ function isVerifiedDeveloper($user_id) {
         || (int) ($user['has_verified_badge'] ?? 0) === 1;
 }
 
+/**
+ * Get the DevHub database connection (alias for getDBConnection).
+ *
+ * @return PDO The database connection.
+ */
 function getDevHubDB() {
     return getDBConnection();
 }
 
-function tableExists($table_name) {
-    static $table_cache = [];
-
-    $cache_key = (string) $table_name;
-    if (array_key_exists($cache_key, $table_cache)) {
-        return $table_cache[$cache_key];
-    }
-
-    $db = getDBConnection();
-    $stmt = $db->prepare("
-        SELECT COUNT(*) AS total
-        FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = ?
-          AND TABLE_NAME = ?
-    ");
-    $stmt->execute([DB_NAME, $table_name]);
-
-    $exists = ((int) ($stmt->fetch()['total'] ?? 0)) > 0;
-    $table_cache[$cache_key] = $exists;
-
-    return $exists;
-}
-
+/**
+ * Get available mini tasks for a user with availability status.
+ *
+ * @param int  $user_id The user ID.
+ * @param PDO  $db      Optional database connection.
+ * @return array List of tasks with availability metadata.
+ */
 function getMiniTasksForUser($user_id, PDO $db = null) {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
@@ -501,6 +408,14 @@ function getMiniTasksForUser($user_id, PDO $db = null) {
     return $tasks;
 }
 
+/**
+ * Log a mini task action (completed or blocked).
+ *
+ * @param int    $user_id The user ID.
+ * @param int    $task_id The task ID.
+ * @param string $status  'completed' or 'blocked'.
+ * @param PDO    $db      Optional database connection.
+ */
 function logMiniTaskAction($user_id, $task_id, $status, PDO $db = null) {
     $db = $db ?: getDBConnection();
     $stmt = $db->prepare("
@@ -510,6 +425,16 @@ function logMiniTaskAction($user_id, $task_id, $status, PDO $db = null) {
     $stmt->execute([(int) $user_id, (int) $task_id, $status === 'blocked' ? 'blocked' : 'completed']);
 }
 
+/**
+ * Complete a mini task and award the reward.
+ *
+ * @param int   $user_id The user ID.
+ * @param int   $task_id The task ID.
+ * @param array $payload Optional payload (e.g., proof data for BoostHub).
+ * @param PDO   $db      Optional database connection.
+ * @return array Result with 'entry' or 'submitted' key.
+ * @throws RuntimeException On validation failure.
+ */
 function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = null) {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
@@ -520,10 +445,6 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
     }
 
     enforceUserModuleAccess($user, 'taskhub');
-
-    if (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
-        throw new RuntimeException('MicroTaskHub is available for Beginner accounts only.');
-    }
 
     $task_stmt = $db->prepare("
         SELECT *
@@ -539,8 +460,10 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
         throw new RuntimeException('Mini task not found or inactive.');
     }
 
+    // BoostHub is available to all account levels
     if ((string) ($task['task_group'] ?? 'legacy') === 'boosthub') {
         enforceUserModuleAccess($user, 'boosthub');
+
         $already_completed_stmt = $db->prepare("
             SELECT COUNT(*) AS total
             FROM user_task_logs
@@ -575,10 +498,14 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
         }
 
         $boosthub_proof_data = $proof;
+    } elseif (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
+        throw new RuntimeException('MicroTaskHub is available for Beginner accounts only.');
     }
 
     // TESTING_MODE: Skip security signals, daily limit, cooldown, and anti-farming checks
-    if (!defined('TESTING_MODE') || !TESTING_MODE) {
+    // BoostHub tasks also skip these checks since they have their own cooldown/assignment logic
+    $is_boosthub = (string) ($task['task_group'] ?? 'legacy') === 'boosthub';
+    if ((!defined('TESTING_MODE') || !TESTING_MODE) && !$is_boosthub) {
         $signals = getUserSecuritySignals((int) $user_id, $db);
         if (!empty($signals['is_suspicious'])) {
             logMiniTaskAction($user_id, $task_id, 'blocked', $db);
@@ -663,6 +590,13 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
     }
 }
 
+/**
+ * Calculate the accuracy rate based on approved vs total reviews.
+ *
+ * @param int $approved_count Number of approved reviews.
+ * @param int $total_count    Total number of reviews.
+ * @return float Accuracy percentage (0-100).
+ */
 function calculateAccuracyRate($approved_count, $total_count) {
     $approved_count = max(0, (int) $approved_count);
     $total_count = max(0, (int) $total_count);
@@ -674,6 +608,13 @@ function calculateAccuracyRate($approved_count, $total_count) {
     return round(($approved_count / $total_count) * 100, 2);
 }
 
+/**
+ * Calculate the rejection ratio.
+ *
+ * @param int $rejected_count Number of rejected reviews.
+ * @param int $total_count    Total number of reviews.
+ * @return float Rejection ratio (0-1).
+ */
 function calculateRejectionRatio($rejected_count, $total_count) {
     $rejected_count = max(0, (int) $rejected_count);
     $total_count = max(0, (int) $total_count);
@@ -685,11 +626,27 @@ function calculateRejectionRatio($rejected_count, $total_count) {
     return round($rejected_count / $total_count, 4);
 }
 
+/**
+ * Get the approval lane label for a user or level state.
+ *
+ * @param array $user_or_level_state User record or level state array.
+ * @return string The approval lane label.
+ */
 function getApprovalLaneLabel($user_or_level_state) {
     $level_state = is_array($user_or_level_state) ? $user_or_level_state : getUserLevelState($user_or_level_state);
     return (string) ($level_state['approval_label'] ?? '24-48 hours');
 }
 
+/**
+ * Submit a content flag (for expert moderators).
+ *
+ * @param int    $user_id     The flagging user ID.
+ * @param string $target_type 'review' or 'project'.
+ * @param int    $target_id   The target record ID.
+ * @param string $reason      Optional reason for flagging.
+ * @param PDO    $db          Optional database connection.
+ * @return array Result with 'success' bool and 'message' string.
+ */
 function submitContentFlag($user_id, $target_type, $target_id, $reason = '', PDO $db = null) {
     $db = $db ?: getDBConnection();
     ensureLevelEngineSchema($db);

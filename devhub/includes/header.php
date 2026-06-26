@@ -9,11 +9,18 @@ $is_devhub_route = strpos($current_page, $devhub_prefix) === 0;
 $public_devhub_routes = [
     BASE_URI . '/devhub/pages/auth/login.php',
     BASE_URI . '/devhub/pages/auth/register.php',
-    BASE_URI . '/devhub/pages/auth/forgot-password.php',
     BASE_URI . '/devhub/pages/auth/logout.php',
 ];
 
 $needs_auth = $is_devhub_route && !in_array($current_page, $public_devhub_routes, true);
+
+if ($is_devhub_route && in_array($current_page, $public_devhub_routes, true)) {
+    requireFeatureAccess('devhub_auth');
+}
+
+if ($needs_auth) {
+    requireFeatureAccess('devhub_full');
+}
 
 if ($needs_auth && !isLoggedIn()) {
     $redirect = urlencode($_SERVER['REQUEST_URI']);
@@ -21,18 +28,10 @@ if ($needs_auth && !isLoggedIn()) {
     exit();
 }
 
-if ($needs_auth && isLoggedIn() && $current_page !== BASE_URI . '/devhub/terms.php') {
-    $user_id = getCurrentUserId();
-    $db = getDevHubDB();
-    $stmt = $db->prepare("SELECT id FROM developer_verification WHERE user_id = ? ORDER BY id DESC LIMIT 1");
-    $stmt->execute([$user_id]);
-    $has_dev_record = $stmt->fetch();
-
-    if (!$has_dev_record && $current_page !== BASE_URI . '/devhub/apply.php') {
-        header('Location: ' . BASE_URL . '/devhub/terms.php');
-        exit();
-    }
-}
+// Note: Verification check removed from global guard.
+// Unverified users can now visit Dashboard, Widgets & API, Notifications, etc.
+// Individual pages handle their own verification requirements.
+// The terms/apply flow is still accessible for new users to get started.
 
 // Set active page for sidebar highlighting
 $activePage = $activePage ?? '';
@@ -51,7 +50,7 @@ $devhub_user_name = 'Developer';
 $devhub_user_role = 'Developer';
 $devhub_user_avatar = '';
 $devhub_user_initial = 'D';
-$devhub_user_profile_url = BASE_URL . '/profile.php';
+$devhub_user_profile_url = BASE_URL . '/public/profile.php';
 
 $dev_notification_count = 0;
 $dev_notifications = [];

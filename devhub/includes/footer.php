@@ -25,7 +25,7 @@
                     <a href="<?php echo BASE_URL; ?>/devhub/widget-api.php">
                         <i class="fas fa-plug"></i> Widget API
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/contact.php" target="_blank">
+                    <a href="<?php echo BASE_URL; ?>/public/contact.php" target="_blank">
                         <i class="fas fa-headset"></i> Support
                     </a>
                     <a href="#" id="backToTop">
@@ -233,5 +233,6 @@
     });
 })();
 </script>
+<script src="<?php echo BASE_URL; ?>/assets/js/auto-scrollbar.js?v=<?php echo (int) @filemtime(dirname(__DIR__, 2) . '/assets/js/auto-scrollbar.js'); ?>"></script>
 </body>
 </html>

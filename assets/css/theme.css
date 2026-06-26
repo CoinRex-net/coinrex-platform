@@ -384,3 +384,59 @@ body {
     border-color: var(--color-input-focus);
     box-shadow: 0 0 0 4px var(--color-input-focus-ring);
 }
+
+/*
+ * Global auto-hiding scrollbars.
+ * The companion script adds .is-scrolling to the page or active scroll container.
+ */
+:root,
+* {
+    scrollbar-width: thin !important;
+    scrollbar-color: transparent transparent;
+    scrollbar-gutter: stable;
+}
+
+:root::-webkit-scrollbar,
+*::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important;
+}
+
+:root::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track,
+:root::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+
+:root.is-scrolling,
+*.is-scrolling,
+[data-scrollbar-static] {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(96, 165, 250, 0.72) transparent;
+}
+
+:root.is-scrolling::-webkit-scrollbar-track,
+*.is-scrolling::-webkit-scrollbar-track,
+[data-scrollbar-static]::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+:root.is-scrolling::-webkit-scrollbar-thumb,
+*.is-scrolling::-webkit-scrollbar-thumb,
+[data-scrollbar-static]::-webkit-scrollbar-thumb {
+    background: rgba(96, 165, 250, 0.72);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+
+:root.is-scrolling::-webkit-scrollbar-thumb:hover,
+*.is-scrolling::-webkit-scrollbar-thumb:hover,
+[data-scrollbar-static]::-webkit-scrollbar-thumb:hover {
+    background: rgba(147, 197, 253, 0.9);
+    background-clip: padding-box;
+}

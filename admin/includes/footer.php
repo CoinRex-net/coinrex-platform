@@ -99,5 +99,6 @@
     }
 })();
 </script>
+<script src="<?php echo BASE_URL; ?>/assets/js/auto-scrollbar.js?v=<?php echo (int) @filemtime(dirname(__DIR__, 2) . '/assets/js/auto-scrollbar.js'); ?>"></script>
 </body>
 </html>

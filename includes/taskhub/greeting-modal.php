@@ -5,7 +5,7 @@
         <div class="taskhub-greeting-orb"></div>
         <div class="taskhub-greeting-content">
             <span class="taskhub-greeting-emoji">🚀</span>
-            <h2 id="greetingTitle">Welcome to TaskHub!</h2>
+            <h2 id="greetingTitle">Welcome to LearnHub!</h2>
             <p id="greetingMessage">Start your 10-day MicroMission journey.</p>
             <div class="taskhub-greeting-day-badge" id="greetingDayBadge">
                 <span class="taskhub-greeting-day-label">Day</span>

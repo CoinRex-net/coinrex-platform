@@ -258,9 +258,20 @@ function enforceUserModuleAccess($user, $module) {
 
 function registerUser($full_name, $email, $password, $referral_code = null) {
     $db = getDBConnection();
+    $full_name = sanitize($full_name);
     $email = normalizeEmail($email);
+    $password = (string) $password;
     $referral_code = normalizeReferralCode($referral_code);
     ensureRewardClaimSchema($db);
+    ensureEarlyAirdropSchema($db);
+
+    if (empty($full_name) || empty($email) || empty($password)) {
+        return ['success' => false, 'message' => 'Please fill in all required fields'];
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['success' => false, 'message' => 'Invalid email address'];
+    }
     
     if (isDisposableEmail($email)) {
         return ['success' => false, 'message' => 'Temporary email addresses are not allowed'];
@@ -291,9 +302,6 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
     // Generate username
     $username = generateUsername($full_name, $email);
     
-    // Generate unique referral code
-    $user_referral_code = generateReferralCode();
-    
     // Hash password
     $hashed_password = hashPassword($password);
     
@@ -304,6 +312,8 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
     }
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
     
+    $early_airdrop_active = isEarlyAirdropActive($db);
+
     // Check referral
     $referred_by = null;
     $referral_bonus = 0;
@@ -315,14 +325,20 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
         }
 
         $referred_by = $referral_validation['referrer']['id'];
-        $referral_bonus = REFERRAL_BONUS_REX;
+        $referral_bonus = $early_airdrop_active ? EARLY_AIRDROP_REFERRAL_BONUS : REFERRAL_BONUS_REX;
     }
     
-    // Calculate total bonus
-    $total_bonus = WELCOME_BONUS_REX + $referral_bonus;
+    // Calculate total bonus (use early airdrop amount if active)
+    if ($early_airdrop_active) {
+        $total_bonus = EARLY_AIRDROP_SIGNUP_BONUS + $referral_bonus;
+    } else {
+        $total_bonus = WELCOME_BONUS_REX + $referral_bonus;
+    }
 
     try {
         $db->beginTransaction();
+
+        $user_referral_code = generateUniqueReferralCode($db);
 
         $sql = "INSERT INTO users (
             full_name, email, password, username, referral_code, referred_by,
@@ -362,7 +378,14 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
             $stmt->execute([$referred_by]);
         }
 
-        addRewardLedgerEntry($user_id, WELCOME_BONUS_REX, 'bonus', 'welcome_bonus', 'available', 'welcome_bonus:' . $user_id, $db, 'phase1', 'beginner');
+        // Early Adopter Airdrop: Add 1,000 REX as pending (unlocked at Pro level)
+        // If airdrop is inactive, fall back to standard welcome bonus
+        if ($early_airdrop_active) {
+            addRewardLedgerEntry($user_id, EARLY_AIRDROP_SIGNUP_BONUS, 'bonus', 'early_adopter_airdrop', 'pending', 'early_airdrop:signup:' . $user_id, $db, 'phase1', 'beginner');
+        } else {
+            addRewardLedgerEntry($user_id, WELCOME_BONUS_REX, 'bonus', 'welcome_bonus', 'available', 'welcome_bonus:' . $user_id, $db, 'phase1', 'beginner');
+        }
+
         if ($referral_bonus > 0) {
             addRewardLedgerEntry($user_id, $referral_bonus, 'bonus', 'referral_signup_bonus', 'available', 'referral_signup:' . $user_id, $db, 'phase1', 'beginner');
         }
@@ -380,7 +403,8 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
-        return ['success' => false, 'message' => $e->getMessage()];
+        error_log('Registration failed: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Registration could not be completed right now. Please try again.'];
     }
 }
 
@@ -409,6 +433,19 @@ function getUserMiniTaskStats($user_id, PDO $db = null) {
 }
 
 function getUserSecuritySignals($user_id, PDO $db = null) {
+    // TESTING_MODE: Bypass all security checks for local development
+    if (defined('TESTING_MODE') && TESTING_MODE) {
+        return [
+            'is_suspicious' => false,
+            'reasons' => [],
+            'matching_accounts' => 0,
+            'matching_user_agents' => 0,
+            'signup_ip' => '',
+            'last_ip' => '',
+            'user_agent' => '',
+        ];
+    }
+
     $db = $db ?: getDBConnection();
     $user = getUserById((int) $user_id);
 
@@ -417,6 +454,7 @@ function getUserSecuritySignals($user_id, PDO $db = null) {
             'is_suspicious' => true,
             'reasons' => ['User record not found.'],
             'matching_accounts' => 0,
+            'matching_user_agents' => 0,
         ];
     }
 
@@ -444,21 +482,35 @@ function getUserSecuritySignals($user_id, PDO $db = null) {
         $matching_accounts = (int) ($stmt->fetch()['total'] ?? 0);
     }
 
+    // Count accounts sharing the same user_agent (device fingerprint)
+    $matching_user_agents = 0;
+    if ($user_agent !== '') {
+        $ua_stmt = $db->prepare("
+            SELECT COUNT(*) AS total
+            FROM users
+            WHERE id <> ?
+              AND user_agent = ?
+        ");
+        $ua_stmt->execute([(int) $user_id, $user_agent]);
+        $matching_user_agents = (int) ($ua_stmt->fetch()['total'] ?? 0);
+    }
+
     $reasons = [];
     if ($matching_accounts >= ANTI_FARM_MAX_ACCOUNTS_PER_IP) {
-        $reasons[] = 'Multiple accounts detected from the same IP range.';
+        $reasons[] = 'Multiple accounts (' . ($matching_accounts + 1) . ') detected from the same IP range. Maximum ' . ANTI_FARM_MAX_ACCOUNTS_PER_IP . ' accounts allowed per IP.';
+    }
+    if ($matching_user_agents >= ANTI_FARM_MAX_ACCOUNTS_PER_IP) {
+        $reasons[] = 'Multiple accounts (' . ($matching_user_agents + 1) . ') detected from the same device. Maximum ' . ANTI_FARM_MAX_ACCOUNTS_PER_IP . ' accounts allowed per device.';
     }
     if ((int) ($user['login_attempts'] ?? 0) >= ANTI_FARM_MAX_LOGIN_ATTEMPTS) {
         $reasons[] = 'Excessive login attempts detected.';
-    }
-    if ($user_agent === '') {
-        $reasons[] = 'Missing browser fingerprint information.';
     }
 
     return [
         'is_suspicious' => !empty($reasons),
         'reasons' => $reasons,
         'matching_accounts' => $matching_accounts,
+        'matching_user_agents' => $matching_user_agents,
         'signup_ip' => $signup_ip,
         'last_ip' => $last_ip,
         'user_agent' => $user_agent,
@@ -673,6 +725,20 @@ function getUserLevelState($user_or_id, PDO $db = null, array $stats_override = 
     }
 
     $stats = !empty($stats_override) ? $stats_override : getUserReviewPerformanceStats($user_id, $db);
+
+    // Ensure mission completion, account age, and referral stats are present for level promotion checks
+    if (empty($stats['mission_completed'])) {
+        $stats['mission_completed'] = taskHubMissionCompleted($user_id, $db);
+    }
+    if (empty($stats['account_age_days'])) {
+        $current_user = is_array($user_or_id) ? $user_or_id : getUserById($user_id);
+        $stats['account_age_days'] = (int) floor((time() - strtotime((string) ($current_user['created_at'] ?? 'now'))) / 86400);
+    }
+    if (empty($stats['valid_referrals'])) {
+        $current_user = is_array($user_or_id) ? $user_or_id : getUserById($user_id);
+        $stats['valid_referrals'] = (int) ($current_user['valid_referrals'] ?? 0);
+    }
+    $stats['user_id'] = $user_id;
     $stats['level'] = normalizeUserLevel($stats['level'] ?? $current_level);
     $current_level = normalizeUserLevel($stats['level']);
     $recommended_level = resolveStoredUserLevel($current_level, $stats);
@@ -685,6 +751,14 @@ function getUserLevelState($user_or_id, PDO $db = null, array $stats_override = 
         $next_level = 'pro';
     } elseif ($recommended_level === 'pro') {
         $next_level = 'expert';
+    }
+
+    // Get promotion blockers if user is stuck at current level
+    $promotion_blockers = [];
+    if ($current_level === 'beginner' && $recommended_level === 'beginner') {
+        $promotion_blockers = getLevelPromotionBlockers('pro', $stats);
+    } elseif ($current_level === 'pro' && $recommended_level === 'pro') {
+        $promotion_blockers = getLevelPromotionBlockers('expert', $stats);
     }
 
     return [
@@ -705,6 +779,7 @@ function getUserLevelState($user_or_id, PDO $db = null, array $stats_override = 
         'accuracy' => (float) ($stats['accuracy'] ?? 0),
         'rejection_ratio' => (float) ($stats['rejection_ratio'] ?? 0),
         'next_level' => $next_level,
+        'promotion_blockers' => $promotion_blockers,
     ];
 }
 
@@ -735,16 +810,17 @@ function getUserLevelProgressData($user_or_id, PDO $db = null) {
     if ($next_level !== null) {
         $policy = getLevelPolicy($next_level);
         if ($next_level === 'pro') {
-            $task_ratio = $policy['promotion_completed_tasks'] > 0
-                ? min(1, (int) ($stats['completed_tasks'] ?? 0) / (int) $policy['promotion_completed_tasks'])
-                : 1;
+            $mission_ratio = !empty($stats['mission_completed']) ? 1 : 0;
             $referral_ratio = $policy['promotion_valid_referrals'] > 0
                 ? min(1, (int) ($stats['valid_referrals'] ?? 0) / (int) $policy['promotion_valid_referrals'])
                 : 1;
             $age_ratio = $policy['promotion_account_age_days'] > 0
                 ? min(1, (int) ($stats['account_age_days'] ?? 0) / (int) $policy['promotion_account_age_days'])
                 : 1;
-            $progress = round((($task_ratio + $referral_ratio + $age_ratio) / 3) * 100, 1);
+            $task_ratio = $policy['promotion_completed_tasks'] > 0
+                ? min(1, (int) ($stats['completed_tasks'] ?? 0) / (int) $policy['promotion_completed_tasks'])
+                : 1;
+            $progress = round((($mission_ratio + $referral_ratio + $age_ratio + $task_ratio) / 4) * 100, 1);
         } else {
             $review_ratio = $policy['promotion_approved_reviews'] > 0
                 ? min(1, (int) ($stats['approved_reviews'] ?? 0) / (int) $policy['promotion_approved_reviews'])

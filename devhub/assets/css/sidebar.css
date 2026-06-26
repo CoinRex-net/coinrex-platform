@@ -83,6 +83,27 @@
     box-shadow: var(--dh-shadow-glow-strong);
 }
 
+/* Disabled Menu Item (locked features for unverified users) */
+.dh-menu--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: auto;
+    position: relative;
+}
+
+.dh-menu--disabled:hover {
+    background: transparent;
+    color: var(--dh-text-muted);
+}
+
+.dh-menu--disabled .dh-menu-lock {
+    margin-left: auto;
+    width: auto;
+    font-size: 13px;
+    color: var(--dh-text-soft, #64748b);
+    opacity: 0.7;
+}
+
 /* Bottom Section */
 .dh-bottom {
     padding: 20px 16px;

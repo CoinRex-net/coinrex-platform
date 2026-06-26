@@ -1,0 +1,990 @@
+/* ============================================================
+   BOOSTHUB PREMIUM — Daily Boost Station
+   Dark-Mode Glassmorphism Aesthetic
+   ============================================================ */
+
+/* ── Custom Properties ── */
+.boosthub-premium {
+    --bh-primary: #1D4ED8;
+    --bh-primary-dark: #1E40AF;
+    --bh-primary-light: #93C5FD;
+    --bh-primary-glow: rgba(29, 78, 216, 0.35);
+    --bh-primary-soft: rgba(29, 78, 216, 0.12);
+    --bh-gold: #D4AF37;
+    --bh-gold-light: #FACC15;
+    --bh-gold-soft: rgba(212, 175, 55, 0.15);
+    --bh-green: #22c55e;
+    --bh-green-soft: rgba(34, 197, 94, 0.12);
+    --bh-red: #ef4444;
+    --bh-red-soft: rgba(239, 68, 68, 0.12);
+    --bh-surface: #0d1b34;
+    --bh-surface-elevated: #12254a;
+    --bh-glass: rgba(255, 255, 255, 0.04);
+    --bh-border: rgba(148, 163, 184, 0.10);
+    --bh-border-medium: rgba(148, 163, 184, 0.18);
+    --bh-border-active: rgba(29, 78, 216, 0.30);
+    --bh-text-primary: #ffffff;
+    --bh-text-secondary: #dbeafe;
+    --bh-text-muted: #b9c7e8;
+    --bh-radius: 18px;
+    --bh-radius-sm: 12px;
+    --bh-radius-lg: 24px;
+}
+
+/* ── Page Layout ── */
+.boosthub-premium {
+    min-height: calc(100vh - 72px);
+    background:
+        radial-gradient(circle at 10% 0%, rgba(29, 78, 216, 0.10), transparent 35%),
+        radial-gradient(circle at 90% 8%, rgba(56, 189, 248, 0.08), transparent 35%),
+        var(--bh-surface);
+    padding: 24px 0 64px;
+}
+
+.boosthub-shell {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: grid;
+    gap: 20px;
+}
+
+/* ── Header ── */
+.bh-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px;
+    background: var(--bh-surface);
+    border: 1px solid var(--bh-border);
+    border-radius: var(--bh-radius-lg);
+    backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+}
+
+.bh-header::before {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--bh-primary-glow), transparent 70%);
+    top: -150px;
+    right: -100px;
+    pointer-events: none;
+}
+
+.bh-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+.bh-header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--bh-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.30);
+    color: var(--bh-gold-light);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.bh-header-left h1 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--bh-text-primary);
+    font-weight: 800;
+}
+
+.bh-header-actions {
+    display: flex;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.bh-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid var(--bh-border-medium);
+    color: var(--bh-text-secondary);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    background: rgba(15, 23, 42, 0.74);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(4px);
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.bh-header-btn:hover {
+    transform: translateY(-1px);
+    border-color: var(--bh-border-active);
+    color: var(--bh-text-primary);
+}
+
+.bh-header-btn--primary {
+    border-color: rgba(29, 78, 216, 0.45);
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.92), rgba(30, 64, 175, 0.88));
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(29, 78, 216, 0.24);
+}
+
+.bh-header-btn--primary:hover {
+    border-color: rgba(147, 197, 253, 0.55);
+}
+
+.bh-header-btn--secondary:hover {
+    background: rgba(29, 78, 216, 0.16);
+}
+
+/* ── Hero Card ── */
+.bh-hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(165deg, rgba(10, 18, 34, 0.98), rgba(8, 16, 28, 0.98));
+    border: 1px solid var(--bh-border-active);
+    border-radius: var(--bh-radius-lg);
+    padding: 32px;
+    box-shadow: 0 20px 60px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    animation: bhFadeUp 0.6s ease;
+}
+
+.bh-hero::before {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.08), transparent 65%);
+    top: -200px;
+    right: -150px;
+    pointer-events: none;
+}
+
+.bh-hero::after {
+    content: '';
+    position: absolute;
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.05), transparent 65%);
+    bottom: -120px;
+    left: -80px;
+    pointer-events: none;
+}
+
+.bh-hero > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Claim Area ── */
+.bh-claim-area {
+    text-align: center;
+    padding: 20px 0 10px;
+}
+
+.bh-claim-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    border: none;
+    border-radius: 20px;
+    padding: 20px 48px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, var(--bh-primary), var(--bh-primary-dark));
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 12px 32px rgba(29, 78, 216, 0.3);
+}
+
+.bh-claim-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.10) 100%);
+    pointer-events: none;
+}
+
+.bh-claim-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 48px rgba(29, 78, 216, 0.4);
+}
+
+.bh-claim-btn:active {
+    transform: translateY(0);
+}
+
+.bh-claim-btn i {
+    font-size: 1.4rem;
+}
+
+.bh-claim-sub {
+    margin-top: 14px;
+    color: var(--bh-text-muted);
+    font-size: 0.92rem;
+}
+
+/* ── Stats Row ── */
+.bh-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.bh-stat {
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(2, 6, 23, 0.35);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    text-align: center;
+    transition: all 0.25s ease;
+}
+
+.bh-stat:hover {
+    background: rgba(2, 6, 23, 0.5);
+    transform: translateY(-2px);
+}
+
+.bh-stat-value {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--bh-text-primary);
+    margin-bottom: 4px;
+}
+
+.bh-stat-label {
+    font-size: 0.78rem;
+    color: var(--bh-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ── Already Claimed State ── */
+.bh-claimed {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.bh-claimed-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+}
+
+.bh-claimed h2 {
+    margin: 0 0 6px;
+    color: var(--bh-text-primary);
+    font-size: 1.4rem;
+}
+
+.bh-claimed p {
+    margin: 0;
+    color: var(--bh-text-muted);
+    font-size: 0.92rem;
+}
+
+/* ── Countdown ── */
+.bh-countdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 14px 22px;
+    border-radius: 16px;
+    background: rgba(2, 6, 23, 0.4);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.bh-countdown-icon {
+    font-size: 1.5rem;
+}
+
+.bh-countdown-text {
+    color: var(--bh-text-primary);
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.bh-countdown-label {
+    display: block;
+    color: var(--bh-text-muted);
+    font-size: 0.78rem;
+    margin-top: 2px;
+}
+
+/* ── Countdown Progress Bar ── */
+.bh-progress-wrap {
+    margin-top: 14px;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.bh-progress-track {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.bh-progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--bh-primary), #60a5fa);
+    transition: width 1s linear;
+}
+
+/* ── Claimed Reward Info ── */
+.bh-claimed-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--bh-green-soft);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: var(--bh-green);
+    font-weight: 700;
+    font-size: 0.92rem;
+}
+
+/* ── History Section ── */
+.bh-history {
+    display: grid;
+    gap: 14px;
+}
+
+.bh-history-title {
+    margin: 0;
+    color: var(--bh-text-primary);
+    font-size: 1.1rem;
+}
+
+.bh-history-sub {
+    margin: 4px 0 0;
+    color: var(--bh-text-muted);
+    font-size: 0.86rem;
+}
+
+.bh-history-list {
+    display: grid;
+    gap: 10px;
+}
+
+.bh-history-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(2, 6, 23, 0.3);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    transition: all 0.25s ease;
+}
+
+.bh-history-item:hover {
+    background: rgba(2, 6, 23, 0.45);
+    transform: translateY(-1px);
+}
+
+.bh-history-date {
+    flex-shrink: 0;
+    width: 60px;
+    font-size: 0.78rem;
+    color: var(--bh-text-muted);
+    font-weight: 600;
+}
+
+.bh-history-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bh-history-info strong {
+    display: block;
+    color: var(--bh-text-primary);
+    font-size: 0.9rem;
+    margin-bottom: 2px;
+}
+
+.bh-history-info span {
+    font-size: 0.82rem;
+    color: var(--bh-text-muted);
+}
+
+.bh-history-status {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.bh-history-status.is-approved {
+    background: var(--bh-green-soft);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: var(--bh-green);
+}
+
+.bh-history-status.is-pending {
+    background: var(--bh-gold-soft);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    color: var(--bh-gold-light);
+}
+
+.bh-history-status.is-rejected {
+    background: var(--bh-red-soft);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--bh-red);
+}
+
+.bh-history-reward {
+    flex-shrink: 0;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--bh-gold-light);
+}
+
+.bh-history-empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--bh-text-muted);
+    font-size: 0.9rem;
+}
+
+/* ── Modal ── */
+.bh-modal[hidden] { display: none; }
+
+.bh-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.bh-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 8, 18, 0.78);
+    backdrop-filter: blur(4px);
+}
+
+.bh-modal-dialog {
+    position: relative;
+    width: min(620px, calc(100vw - 32px));
+    max-height: 90vh;
+    background: linear-gradient(165deg, #0a1228, #0d1b34);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: 28px;
+    padding: 0;
+    box-shadow: 
+        0 32px 80px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(29, 78, 216, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    animation: bhFadeUp 0.35s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Modal Header ── */
+.bh-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 22px 28px 0;
+    flex-shrink: 0;
+}
+
+.bh-modal-head-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bh-modal-head-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: #fff;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
+}
+
+.bh-modal-head h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.bh-modal-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(15, 23, 42, 0.9);
+    color: #b9c7e8;
+    cursor: pointer;
+    font-size: 1.15rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.bh-modal-close:hover {
+    background: rgba(29, 78, 216, 0.2);
+    border-color: rgba(29, 78, 216, 0.4);
+    color: #ffffff;
+}
+
+/* ── Modal Body ── */
+.bh-modal-body {
+    padding: 18px 28px 22px;
+    display: grid;
+    gap: 16px;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(29, 78, 216, 0.3) transparent;
+}
+
+.bh-modal-body::-webkit-scrollbar {
+    width: 5px;
+}
+
+.bh-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.bh-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(29, 78, 216, 0.3);
+    border-radius: 10px;
+}
+
+/* ── Task Info Card ── */
+.bh-modal-task-card {
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.06), rgba(29, 78, 216, 0.02));
+    border: 1px solid rgba(29, 78, 216, 0.15);
+    border-radius: 18px;
+    padding: 20px;
+    display: grid;
+    gap: 14px;
+}
+
+.bh-modal-task-badge-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.bh-modal-task-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(29, 78, 216, 0.15);
+    border: 1px solid rgba(29, 78, 216, 0.3);
+    color: #93C5FD;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.bh-modal-reward-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    background: rgba(212, 175, 55, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    color: #FACC15;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.bh-modal-task-title {
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.35;
+}
+
+.bh-modal-task-desc {
+    color: #dbeafe;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── Steps Card ── */
+.bh-modal-steps-card {
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.08), rgba(29, 78, 216, 0.03));
+    border: 1px solid rgba(29, 78, 216, 0.18);
+    border-radius: 18px;
+    padding: 18px 20px;
+    display: grid;
+    gap: 10px;
+}
+
+.bh-modal-steps-card .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #93C5FD;
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.bh-modal-steps-card .card-head i {
+    font-size: 0.95rem;
+}
+
+.bh-modal-steps-card p {
+    margin: 0;
+    color: #dbeafe;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    white-space: pre-line;
+}
+
+/* ── Notes Card ── */
+.bh-modal-notes-card {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.08), rgba(212, 175, 55, 0.03));
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    border-radius: 18px;
+    padding: 18px 20px;
+    display: grid;
+    gap: 10px;
+}
+
+.bh-modal-notes-card .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #FACC15;
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.bh-modal-notes-card .card-head i {
+    font-size: 0.95rem;
+}
+
+.bh-modal-notes-card p {
+    margin: 0;
+    color: #dbeafe;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    white-space: pre-line;
+}
+
+/* ── Evidence Card ── */
+.bh-modal-evidence-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 18px;
+    padding: 18px 20px;
+    display: grid;
+    gap: 12px;
+}
+
+.bh-modal-evidence-card .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.bh-modal-evidence-card .card-head i {
+    font-size: 0.95rem;
+    color: #93C5FD;
+}
+
+.bh-modal-evidence-card textarea {
+    width: 100%;
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: rgba(2, 6, 23, 0.7);
+    color: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 100px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    line-height: 1.55;
+}
+
+.bh-modal-evidence-card textarea:focus {
+    outline: none;
+    border-color: #1D4ED8;
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.2);
+}
+
+.bh-modal-evidence-card textarea::placeholder {
+    color: rgba(185, 199, 232, 0.35);
+}
+
+.bh-modal-counter {
+    text-align: right;
+    font-size: 0.76rem;
+    color: #b9c7e8;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.bh-modal-counter.warn { color: #FACC15; }
+.bh-modal-counter.danger { color: #ef4444; }
+
+/* ── Modal Footer ── */
+.bh-modal-footer {
+    padding: 0 28px 22px;
+    display: flex;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.bh-modal-footer .primary-btn,
+.bh-modal-footer .secondary-btn {
+    min-height: 48px;
+    border-radius: 14px;
+    padding: 0 24px;
+    border: 0;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.25s ease;
+    gap: 8px;
+}
+
+.bh-modal-footer .primary-btn {
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: #ffffff;
+    flex: 1;
+    box-shadow: 0 6px 20px rgba(29, 78, 216, 0.3);
+}
+
+.bh-modal-footer .primary-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(29, 78, 216, 0.4);
+}
+
+.bh-modal-footer .primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bh-modal-footer .primary-btn .spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: bhSpin 0.6s linear infinite;
+}
+
+.bh-modal-footer .primary-btn.loading { pointer-events: none; }
+.bh-modal-footer .primary-btn.loading .spinner { display: inline-block; }
+.bh-modal-footer .primary-btn.loading .btn-text { display: none; }
+.bh-modal-footer .primary-btn.loading .btn-load { display: inline; }
+.bh-modal-footer .primary-btn .btn-load { display: none; }
+
+.bh-modal-footer .secondary-btn {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #dbeafe;
+}
+
+.bh-modal-footer .secondary-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(29, 78, 216, 0.4);
+    background: rgba(29, 78, 216, 0.1);
+    color: #ffffff;
+}
+
+/* ── Celebration Modal ── */
+.bh-celebration {
+    text-align: center;
+    padding: 36px 28px;
+}
+
+.bh-celebration-icon {
+    font-size: 4.5rem;
+    margin-bottom: 18px;
+    animation: bhBounce 0.6s ease;
+}
+
+.bh-celebration h3 {
+    margin: 0 0 10px;
+    color: #ffffff;
+    font-size: 1.4rem;
+    font-weight: 800;
+}
+
+.bh-celebration p {
+    margin: 0 0 28px;
+    color: #dbeafe;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.bh-celebration .primary-btn {
+    min-height: 48px;
+    border-radius: 14px;
+    padding: 0 32px;
+    border: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+    color: #ffffff;
+    transition: all 0.25s ease;
+    gap: 8px;
+    box-shadow: 0 6px 20px rgba(29, 78, 216, 0.3);
+}
+
+.bh-celebration .primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(29, 78, 216, 0.4);
+}
+
+/* ── Confetti Canvas ── */
+#bhConfetti {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1400;
+}
+
+/* ── Panel (for history section) ── */
+.bh-panel {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.10);
+    border-radius: var(--bh-radius-lg);
+    padding: 24px;
+    backdrop-filter: blur(8px);
+}
+
+/* ── Animations ── */
+@keyframes bhFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bhSpin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes bhBounce {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.1); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Scroll Reveal ── */
+.bh-reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.bh-reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .boosthub-premium { padding: 16px 0 48px; }
+    .boosthub-shell { padding: 0 14px; gap: 14px; }
+    .bh-header { padding: 14px 16px; flex-direction: column; align-items: stretch; gap: 10px; }
+    .bh-header-actions { justify-content: flex-end; }
+    .bh-hero { padding: 22px; border-radius: 20px; }
+    .bh-claim-btn { padding: 16px 32px; font-size: 1.1rem; width: 100%; justify-content: center; }
+    .bh-stats { grid-template-columns: 1fr; }
+    .bh-history-item { flex-wrap: wrap; gap: 8px; }
+    .bh-history-date { width: auto; }
+    .bh-modal-dialog { border-radius: 22px; }
+    .bh-modal-head { padding: 18px 20px 0; }
+    .bh-modal-body { padding: 14px 20px 18px; gap: 14px; }
+    .bh-modal-footer { padding: 0 20px 18px; flex-direction: column; }
+    .bh-modal-footer .primary-btn,
+    .bh-modal-footer .secondary-btn { width: 100%; justify-content: center; }
+    .bh-modal-task-card { padding: 16px; }
+    .bh-modal-steps-card,
+    .bh-modal-notes-card,
+    .bh-modal-evidence-card { padding: 16px; }
+    .bh-celebration { padding: 28px 20px; }
+}

@@ -60,8 +60,13 @@ function adminRewardProcessAction(PDO $db, array $current_admin) {
             $completion_steps = trim((string) ($_POST['completion_steps'] ?? ''));
             $proof_notes = trim((string) ($_POST['proof_notes'] ?? ''));
             $cta_label = trim((string) ($_POST['cta_label'] ?? ''));
+            $learning_title = trim((string) ($_POST['learning_title'] ?? ''));
+            $learning_url = trim((string) ($_POST['learning_url'] ?? ''));
+            $day_title = trim((string) ($_POST['day_title'] ?? ''));
+            $required_reading_seconds = max(15, min(120, (int) ($_POST['required_reading_seconds'] ?? 45)));
 
             if ($title === '' || $description === '' || $reward <= 0) {
+
                 throw new RuntimeException('Task title, short description, and reward are required.');
             }
 
@@ -110,9 +115,6 @@ function adminRewardProcessAction(PDO $db, array $current_admin) {
                 $mission_day = null;
                 $mission_step = null;
             } else {
-                if ($task_id <= 0) {
-                    throw new RuntimeException('Mission tasks are preloaded. Edit existing rows instead of creating new mission tasks.');
-                }
                 if ($mission_day === null || $mission_day <= 0 || $mission_day > (int) TASKHUB_TOTAL_DAYS) {
                     throw new RuntimeException('Mission day must be between 1 and ' . (int) TASKHUB_TOTAL_DAYS . '.');
                 }
@@ -120,19 +122,29 @@ function adminRewardProcessAction(PDO $db, array $current_admin) {
                     throw new RuntimeException('Mission step must be 0 or higher.');
                 }
             }
+            // Auto-generate task_key for new mission tasks
+            $auto_task_key = '';
+            if ($task_id <= 0 && $task_group === 'mission') {
+                $count_stmt = $db->prepare("SELECT COUNT(*) FROM mini_tasks WHERE task_group = 'mission' AND mission_day = ? AND task_key LIKE 'day{$mission_day}_custom_%'");
+                $count_stmt->execute([(int) $mission_day]);
+                $next_num = (int) ($count_stmt->fetchColumn() ?: 0) + 1;
+                $auto_task_key = 'day' . (int) $mission_day . '_custom_' . $next_num;
+            }
 
             if ($task_id > 0) {
                 $stmt = $db->prepare("
                     UPDATE mini_tasks
                     SET title = ?, description = ?, reward = ?, daily_limit = ?, cooldown_seconds = ?, is_active = ?, task_group = ?,
                         mission_day = ?, mission_step = ?, verification_mode = ?, requires_quiz = ?, requires_manual_review = ?, min_quiz_score = ?,
-                        task_category = ?, task_link = ?, completion_steps = ?, proof_notes = ?, cta_label = ?
+                        task_category = ?, task_link = ?, completion_steps = ?, proof_notes = ?, cta_label = ?,
+                        learning_title = ?, learning_url = ?, day_title = ?, required_reading_seconds = ?
                     WHERE id = ?
                 ");
                 $stmt->execute([
                     $title, $description, $reward, $daily_limit, $cooldown_seconds, $is_active, $task_group,
                     $mission_day, $mission_step, $verification_mode, $requires_quiz, $requires_manual_review, $min_quiz_score,
-                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label, $task_id
+                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label,
+                    $learning_title, $learning_url, $day_title, $required_reading_seconds, $task_id
                 ]);
                 logAdminActivity((int) $current_admin['id'], 'mini_task_update', 'mini_task', (string) $task_id, json_encode(['title' => $title], JSON_UNESCAPED_UNICODE));
                 $message = 'Task updated.';
@@ -141,28 +153,50 @@ function adminRewardProcessAction(PDO $db, array $current_admin) {
                     INSERT INTO mini_tasks (
                         title, description, reward, daily_limit, cooldown_seconds, is_active, task_group,
                         mission_day, mission_step, verification_mode, requires_quiz, requires_manual_review, min_quiz_score,
-                        task_category, task_link, completion_steps, proof_notes, cta_label
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        task_category, task_link, completion_steps, proof_notes, cta_label,
+                        learning_title, learning_url, day_title, required_reading_seconds, task_key
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
                     $title, $description, $reward, $daily_limit, $cooldown_seconds, $is_active, $task_group,
                     $mission_day, $mission_step, $verification_mode, $requires_quiz, $requires_manual_review, $min_quiz_score,
-                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label
+                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label,
+                    $learning_title, $learning_url, $day_title, $required_reading_seconds, $auto_task_key
                 ]);
                 $new_id = (int) $db->lastInsertId();
                 logAdminActivity((int) $current_admin['id'], 'mini_task_create', 'mini_task', (string) $new_id, json_encode(['title' => $title], JSON_UNESCAPED_UNICODE));
                 $message = 'Task created.';
             }
+        } elseif ($action_type === 'save_day_title') {
+            $mission_day = (int) ($_POST['mission_day'] ?? 0);
+            $day_title = trim((string) ($_POST['day_title'] ?? ''));
+            if ($mission_day <= 0 || $mission_day > (int) TASKHUB_TOTAL_DAYS) {
+                throw new RuntimeException('Invalid mission day.');
+            }
+            $stmt = $db->prepare("UPDATE mini_tasks SET day_title = ? WHERE task_group = 'mission' AND mission_day = ?");
+            $stmt->execute([$day_title, $mission_day]);
+            logAdminActivity((int) $current_admin['id'], 'mini_task_day_title', 'mini_task', (string) $mission_day, json_encode(['day_title' => $day_title], JSON_UNESCAPED_UNICODE));
+            $message = 'Day ' . $mission_day . ' title updated to "' . $day_title . '".';
+        } elseif ($action_type === 'delete_task') {
+
+            $task_id = (int) ($_POST['task_id'] ?? 0);
+            if ($task_id <= 0) {
+                throw new RuntimeException('Valid task ID is required.');
+            }
+            $stmt = $db->prepare("DELETE FROM mini_tasks WHERE id = ?");
+            $stmt->execute([$task_id]);
+            logAdminActivity((int) $current_admin['id'], 'mini_task_delete', 'mini_task', (string) $task_id, '');
+            $message = 'Task deleted.';
         } elseif ($action_type === 'review_taskhub_submission') {
             $log_id = (int) ($_POST['log_id'] ?? 0);
             $decision = (string) ($_POST['decision'] ?? '');
             if ($log_id <= 0 || !in_array($decision, ['approve', 'reject'], true)) {
-                throw new RuntimeException('Invalid TaskHub review action.');
+                throw new RuntimeException('Invalid LearnHub review action.');
             }
 
             $result = reviewTaskHubSubmission($log_id, $decision === 'approve', $db);
             logAdminActivity((int) $current_admin['id'], 'taskhub_submission_review', 'user_task_log', (string) $log_id, json_encode(['decision' => $decision], JSON_UNESCAPED_UNICODE));
-            $label = (string) ($result['task_group'] ?? 'mission') === 'boosthub' ? 'BoostHub' : 'TaskHub';
+            $label = (string) ($result['task_group'] ?? 'mission') === 'boosthub' ? 'BoostHub' : 'LearnHub';
             $message = !empty($result['approved']) ? ($label . ' submission approved.') : ($label . ' submission rejected.');
         } elseif ($action_type === 'toggle_freeze') {
             $user_id = (int) ($_POST['user_id'] ?? 0);
@@ -326,6 +360,7 @@ function adminRewardGetTasks(PDO $db, $task_group, $mission_day = 0) {
 }
 
 function adminRewardGetTaskhubReviewRows(PDO $db) {
+    ensureTaskHubRejectionSchema($db);
     return $db->query("
         SELECT
             utl.id,
@@ -336,6 +371,7 @@ function adminRewardGetTaskhubReviewRows(PDO $db) {
             utl.mission_day,
             utl.mission_step,
             utl.completed_at AS created_at,
+            utl.rejection_count,
             mt.title,
             mt.task_key,
             mt.task_group,
@@ -378,7 +414,9 @@ function adminRewardGetBoosthubReviewRows(PDO $db) {
     ")->fetchAll();
 }
 
-function adminRewardGetUsers(PDO $db, $user_search = '') {
+function adminRewardGetUsers(PDO $db, $user_search = '', $page = 1, $perPage = 20) {
+    $offset = max(0, ((int) $page - 1) * (int) $perPage);
+    $limit = max(1, (int) $perPage);
     $user_sql = "
         SELECT
             u.id,
@@ -411,17 +449,32 @@ function adminRewardGetUsers(PDO $db, $user_search = '') {
         $user_sql .= " WHERE u.full_name LIKE ? OR u.username LIKE ? OR u.email LIKE ? ";
         $user_params = [$needle, $needle, $needle];
     }
-    $user_sql .= " ORDER BY u.id DESC LIMIT 40";
+    $user_sql .= " ORDER BY u.id DESC LIMIT {$limit} OFFSET {$offset}";
     $user_stmt = $db->prepare($user_sql);
     $user_stmt->execute($user_params);
     return $user_stmt->fetchAll();
 }
 
-function adminRewardGetLedgerRows(PDO $db, array $filters = []) {
+function adminRewardGetUsersCount(PDO $db, $user_search = '') {
+    $sql = "SELECT COUNT(*) FROM users u";
+    $params = [];
+    if ($user_search !== '') {
+        $needle = '%' . $user_search . '%';
+        $sql .= " WHERE u.full_name LIKE ? OR u.username LIKE ? OR u.email LIKE ? ";
+        $params = [$needle, $needle, $needle];
+    }
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return (int) ($stmt->fetchColumn() ?: 0);
+}
+
+function adminRewardGetLedgerRows(PDO $db, array $filters = [], $page = 1, $perPage = 20) {
     $user_filter = trim((string) ($filters['user'] ?? ''));
     $source_filter = trim((string) ($filters['source'] ?? ''));
     $phase_filter = trim((string) ($filters['phase'] ?? ''));
     $status_filter = trim((string) ($filters['status'] ?? ''));
+    $offset = max(0, ((int) $page - 1) * (int) $perPage);
+    $limit = max(1, (int) $perPage);
 
     $ledger_sql = "
         SELECT rl.id, rl.user_id, rl.source, rl.reward_phase, rl.action_type, rl.amount, rl.status, rl.reference_id, rl.created_at, u.username
@@ -447,24 +500,68 @@ function adminRewardGetLedgerRows(PDO $db, array $filters = []) {
         $ledger_sql .= " AND rl.status = ? ";
         $ledger_params[] = $status_filter;
     }
-    $ledger_sql .= " ORDER BY rl.id DESC LIMIT 120";
+    $ledger_sql .= " ORDER BY rl.id DESC LIMIT {$limit} OFFSET {$offset}";
     $ledger_stmt = $db->prepare($ledger_sql);
     $ledger_stmt->execute($ledger_params);
     return $ledger_stmt->fetchAll();
 }
 
-function adminRewardGetClaimRows(PDO $db) {
+function adminRewardGetLedgerCount(PDO $db, array $filters = []) {
+    $user_filter = trim((string) ($filters['user'] ?? ''));
+    $source_filter = trim((string) ($filters['source'] ?? ''));
+    $phase_filter = trim((string) ($filters['phase'] ?? ''));
+    $status_filter = trim((string) ($filters['status'] ?? ''));
+
+    $sql = "
+        SELECT COUNT(*)
+        FROM reward_ledger rl
+        LEFT JOIN users u ON u.id = rl.user_id
+        WHERE 1=1
+    ";
+    $params = [];
+    if ($user_filter !== '') {
+        $sql .= " AND (u.username LIKE ? OR CAST(rl.user_id AS CHAR) = ?) ";
+        $params[] = '%' . $user_filter . '%';
+        $params[] = $user_filter;
+    }
+    if ($source_filter !== '' && in_array($source_filter, ['mini_task', 'referral', 'review', 'bonus'], true)) {
+        $sql .= " AND rl.source = ? ";
+        $params[] = $source_filter;
+    }
+    if ($phase_filter !== '' && in_array($phase_filter, ['phase1', 'phase2'], true)) {
+        $sql .= " AND rl.reward_phase = ? ";
+        $params[] = $phase_filter;
+    }
+    if ($status_filter !== '' && in_array($status_filter, ['pending', 'locked', 'available', 'claimed'], true)) {
+        $sql .= " AND rl.status = ? ";
+        $params[] = $status_filter;
+    }
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return (int) ($stmt->fetchColumn() ?: 0);
+}
+
+function adminRewardGetClaimRows(PDO $db, $page = 1, $perPage = 20) {
+    $offset = max(0, ((int) $page - 1) * (int) $perPage);
+    $limit = max(1, (int) $perPage);
     return $db->query("
         SELECT cs.id, cs.user_id, cs.total_amount, cs.nonce, cs.status, cs.created_at, u.username, u.level, u.reward_frozen
         FROM claim_snapshots cs
         LEFT JOIN users u ON u.id = cs.user_id
         ORDER BY cs.id DESC
-        LIMIT 60
+        LIMIT {$limit} OFFSET {$offset}
     ")->fetchAll();
 }
 
-function adminRewardGetReferralRows(PDO $db) {
-    return $db->query("
+function adminRewardGetClaimCount(PDO $db) {
+    return (int) ($db->query("SELECT COUNT(*) FROM claim_snapshots")->fetchColumn() ?: 0);
+}
+
+function adminRewardGetReferralRows(PDO $db, $page = 1, $perPage = 20, $search = '', $status_filter = '') {
+    $offset = max(0, ((int) $page - 1) * (int) $perPage);
+    $limit = max(1, (int) $perPage);
+
+    $sql = "
         SELECT
             child.id,
             child.username,
@@ -475,11 +572,97 @@ function adminRewardGetReferralRows(PDO $db) {
             child.referral_reviewed_at,
             child.referral_qualified_at,
             child.valid_referrals,
+            child.referral_abuse_detected,
+            child.referral_abuse_reason,
             parent.username AS referrer_username,
             parent.id AS referrer_id
         FROM users child
         INNER JOIN users parent ON parent.id = child.referred_by
-        ORDER BY child.id DESC
-        LIMIT 40
-    ")->fetchAll();
+        WHERE 1=1
+    ";
+    $params = [];
+
+    if ($search !== '') {
+        $needle = '%' . $search . '%';
+        $sql .= " AND (child.full_name LIKE ? OR child.username LIKE ? OR child.email LIKE ? OR parent.username LIKE ?) ";
+        $params = array_merge($params, [$needle, $needle, $needle, $needle]);
+    }
+
+    if ($status_filter !== '') {
+        if ($status_filter === 'qualified') {
+            $sql .= " AND child.referral_review_status = 'qualified' ";
+        } elseif (in_array($status_filter, ['pending', 'flagged_manual_review', 'invalid'], true)) {
+            $sql .= " AND COALESCE(child.referral_review_status, 'pending') = ? ";
+            $params[] = $status_filter;
+        }
+    }
+
+    $sql .= " ORDER BY child.id DESC LIMIT {$limit} OFFSET {$offset}";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function adminRewardGetReferralRowsCount(PDO $db, $search = '', $status_filter = '') {
+    $sql = "
+        SELECT COUNT(*)
+        FROM users child
+        INNER JOIN users parent ON parent.id = child.referred_by
+        WHERE 1=1
+    ";
+    $params = [];
+
+    if ($search !== '') {
+        $needle = '%' . $search . '%';
+        $sql .= " AND (child.full_name LIKE ? OR child.username LIKE ? OR child.email LIKE ? OR parent.username LIKE ?) ";
+        $params = array_merge($params, [$needle, $needle, $needle, $needle]);
+    }
+
+    if ($status_filter !== '') {
+        if ($status_filter === 'qualified') {
+            $sql .= " AND child.referral_review_status = 'qualified' ";
+        } elseif (in_array($status_filter, ['pending', 'flagged_manual_review', 'invalid'], true)) {
+            $sql .= " AND COALESCE(child.referral_review_status, 'pending') = ? ";
+            $params[] = $status_filter;
+        }
+    }
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return (int) ($stmt->fetchColumn() ?: 0);
+}
+
+function adminRewardGetReferralMetrics(PDO $db) {
+    $total = (int) ($db->query("
+        SELECT COUNT(*) FROM users
+        WHERE referred_by IS NOT NULL
+    ")->fetchColumn() ?: 0);
+    $valid = (int) ($db->query("
+        SELECT COUNT(*) FROM users
+        WHERE referred_by IS NOT NULL
+        AND referral_review_status = 'qualified'
+    ")->fetchColumn() ?: 0);
+    $pending = (int) ($db->query("
+        SELECT COUNT(*) FROM users
+        WHERE referred_by IS NOT NULL
+        AND COALESCE(referral_review_status, 'pending') = 'pending'
+    ")->fetchColumn() ?: 0);
+    $flagged = (int) ($db->query("
+        SELECT COUNT(*) FROM users
+        WHERE referred_by IS NOT NULL
+        AND referral_review_status = 'flagged_manual_review'
+    ")->fetchColumn() ?: 0);
+    $invalid = (int) ($db->query("
+        SELECT COUNT(*) FROM users
+        WHERE referred_by IS NOT NULL
+        AND referral_review_status = 'invalid'
+    ")->fetchColumn() ?: 0);
+
+    return [
+        'total' => $total,
+        'valid' => $valid,
+        'pending' => $pending,
+        'flagged' => $flagged,
+        'invalid' => $invalid,
+    ];
 }

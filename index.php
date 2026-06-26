@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/functions.php';
 
 if (isLoggedIn()) {
-    redirect(BASE_URL . '/dashboard.php');
+    redirect(BASE_URL . '/public/dashboard.php');
 }
 
 function homeEsc($value) {
@@ -189,6 +189,8 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- New CoinRex Homepage Stylesheet -->
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/homepage-v2.css">
+<!-- Homepage Background Animations -->
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/homepage-animations.css">
 
 <main class="cr-home">
     
@@ -203,17 +205,17 @@ require_once __DIR__ . '/includes/header.php';
                     Crypto Review & Trust Platform
                 </div>
 
-                <!-- Hero Headline - Literal & Clear -->
-                <h1 class="cr-hero-title">
-                    <span class="cr-hero-title-line-1">Real Reviews for Crypto Projects.</span><br>
-                    <span class="cr-hero-title-line-2">Real Rewards for Honest Users.</span>
+                <!-- Hero Headline - Rotating Tagline Animation -->
+                <h1 class="cr-hero-title cr-hero-title-rotating">
+                    <span class="cr-hero-line cr-hero-line-1"><span class="cr-gold">Real Reviews</span> for Crypto Projects.</span>
+                    <span class="cr-hero-line cr-hero-line-2"><span class="cr-gold">Real Rewards</span> for Honest Users.</span>
                 </h1>
 
                 <!-- Hero Description - Plain Language -->
                 <p class="cr-hero-desc">
-                    CoinRex is where <strong>users review crypto projects with proof</strong> and earn 
-                    <strong>$REX rewards</strong> for quality contributions. Developers list their 
-                    projects here to <strong>build public trust</strong> through real user feedback.
+                    CoinRex is where <mark class="cr-highlight">users review crypto projects with proof</mark> and earn 
+                    <mark class="cr-highlight">$REX rewards</mark> for quality contributions. Developers list their 
+                    projects here to <mark class="cr-highlight">build public trust</mark> through real user feedback.
                 </p>
 
                 <!-- Dual CTA Buttons - Clear Paths -->
@@ -838,12 +840,12 @@ require_once __DIR__ . '/includes/header.php';
                             </span>
                         </div>
                         <h3>
-                            <a href="<?php echo BASE_URL; ?>/blog-post.php?slug=<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>">
+                            <a href="<?php echo BASE_URL; ?>/public/blog-post.php/<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>">
                                 <?php echo homeEsc((string) ($blog_post['title'] ?? 'Blog Post')); ?>
                             </a>
                         </h3>
                         <p><?php echo homeEsc(homeExcerpt((string) ($blog_post['excerpt'] ?? ''), 110)); ?></p>
-                        <a href="<?php echo BASE_URL; ?>/blog-post.php?slug=<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>" class="cr-btn cr-btn-secondary cr-blog-link-btn">
+                        <a href="<?php echo BASE_URL; ?>/public/blog-post.php/<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>" class="cr-btn cr-btn-secondary cr-blog-link-btn">
                             Read article
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="5" y1="12" x2="19" y2="12"/>
@@ -855,7 +857,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             
             <div class="cr-blog-cta">
-                <a href="<?php echo BASE_URL; ?>/blog.php" class="cr-btn cr-btn-secondary">View All Articles</a>
+                <a href="<?php echo BASE_URL; ?>/public/blog.php" class="cr-btn cr-btn-secondary">View All Articles</a>
             </div>
         </div>
     </section>
@@ -992,5 +994,8 @@ require_once __DIR__ . '/includes/header.php';
         });
     });
 </script>
+
+<!-- Homepage Background Animation Script -->
+<script src="<?php echo ASSETS_URL; ?>/js/homepage-animations.js"></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ob_end_flush(); ?>

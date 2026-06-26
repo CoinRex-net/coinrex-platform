@@ -1,0 +1,61 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# PHP
+*.php text diff=php
+
+# HTML
+*.html text diff=html
+*.htm text
+
+# CSS
+*.css text diff=css
+
+# JavaScript
+*.js text diff=javascript
+*.mjs text
+*.cjs text
+
+# JSON
+*.json text
+
+# Markdown
+*.md text
+
+# YAML
+*.yml text
+*.yaml text
+
+# SQL
+*.sql text
+
+# Shell scripts
+*.sh text eol=lf
+*.ps1 text
+
+# Config files
+*.env text
+*.env.example text
+.gitignore text
+.gitattributes text
+.editorconfig text
+
+# Binary files - keep as-is
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.rar binary
+
+# Lock files
+composer.lock -diff

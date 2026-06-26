@@ -4,7 +4,12 @@
 # Dependency directories
 /vendor/
 
+# Separate repository workspace
+/rex-wallet/
+
 # Runtime uploads and user-generated content
+/uploads/
+/assets/uploads/
 /uploads/ads/
 /uploads/avatar/
 /uploads/projects_logo/
@@ -38,3 +43,27 @@ Thumbs.db
 # Live environment file (contains real credentials)
 .env
 .env.local
+
+# PHPUnit cache
+.phpunit.cache/
+
+# PHPStan cache
+.tmp/
+
+# Hardhat / smart-contract output
+/artifacts/
+/cache/
+/node_modules/
+/deployments/*.json
+
+# Composer lock (not needed for libraries, but keep for project)
+# composer.lock
+
+# Tools output
+tools/*.log
+tools/*.sql
+tools/cookie.txt
+tools/debug_*.html
+tools/debug_*.php
+tools/login_*.html
+tools/taskhub_admin.html

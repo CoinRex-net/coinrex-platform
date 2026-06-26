@@ -1,232 +1,171 @@
 # CoinRex Repository Structure
 
-> Professional directory layout for the CoinRex platform.
+This document describes the main CoinRex platform repository. The `rex-wallet/` directory is intentionally ignored here because the wallet app is planned for a separate repository.
 
 ## Top-Level Layout
 
 ```text
 /
-├─ admin/          # Admin panel — moderation, settings, user/project/review management
-├─ api/            # JSON API endpoints (consumed by JS frontend)
-├─ assets/         # Static frontend assets (CSS, images, JS)
-├─ auth/           # User authentication, registration, OTP verification
-├─ database/       # Schema migrations and seed files
-├─ devhub/         # Developer/project-owner hub — applications, widgets, reviews
-├─ docs/           # Architecture, security, API, roadmap, structure, and plans documentation
-├─ includes/       # Shared PHP bootstrap, config, helpers, services, and components
-├─ tools/          # Developer utilities, maintenance scripts, and refactoring tools
-├─ uploads/        # Runtime user/project uploads (gitignored)
-│
-├─ index.php       # Public landing page
-├─ about.php       # About CoinRex
-├─ blog.php        # Blog listing
-├─ blog-category.php  # Blog category filter
-├─ blog-post.php   # Single blog post
-├─ blog-tag.php    # Blog tag filter
-├─ contact.php     # Contact/support form
-├─ cookies.php     # Cookie policy page
-├─ dashboard.php   # User dashboard (RexHub)
-├─ faq.php         # Frequently asked questions
-├─ home.php        # Alternative home page
-├─ privacy.php     # Privacy policy
-├─ terms.php       # Terms of service
-├─ profile.php     # User profile page
-├─ projects.php    # Project listing
-├─ project-detail.php  # Single project detail page
-├─ reviews.php     # Public reviews listing
-├─ my-reviews.php  # User's own reviews
-├─ submit-review.php   # Review submission form
-├─ notifications.php   # User notifications
-├─ claims.php      # Claim center
-├─ reward-history.php  # Reward ledger history
-├─ boosthub.php    # BoostHub — task/boost system
-├─ taskhub.php     # TaskHub — micro-mission system
-├─ widget.js       # Embeddable widget script
-│
-├─ composer.json   # PHP dependency manifest
-├─ composer.lock   # Locked dependency versions
-├─ .env.example    # Environment configuration template
-├─ .gitignore      # Git exclusion rules
-└─ README.md       # Project overview and setup guide
+|-- .github/                # CI workflows, issue templates, PR template
+|-- admin/                  # Admin panel, moderation, settings, operations
+|-- api/                    # JSON APIs, API bootstraps, versioned endpoints
+|-- assets/                 # Shared CSS, JavaScript, images, and public media
+|-- auth/                   # Login, registration, logout, password reset, OTP
+|-- contracts/              # Smart-contract sources and related tests
+|-- database/               # SQL migrations and schema recreation scripts
+|-- deployments/            # Local/generated deployment outputs, ignored where needed
+|-- devhub/                 # Developer/project-owner hub
+|-- docs/                   # Architecture, API, security, roadmap, and plans
+|-- includes/               # Shared config, helpers, services, and components
+|-- public/                 # Public-facing route files
+|-- realtime/               # Node realtime/WebSocket server
+|-- scripts/                # Deployment and maintenance scripts
+|-- src/                    # PSR-4 classes under the CoinRex namespace
+|-- test/                   # Smart-contract test workspace
+|-- tests/                  # PHPUnit test suites
+|-- tools/                  # Local developer and maintenance utilities
+|-- uploads/                # Runtime uploads, ignored by Git
+|-- index.php               # Root landing entry point
+|-- composer.json           # PHP dependencies, autoloading, and scripts
+|-- package.json            # Node scripts for contracts and realtime tooling
+`-- README.md               # Project overview and setup guide
 ```
 
-## Domain Breakdown
+## Public Entry Points
 
-### `admin/` — Admin Panel
-```
-admin/
-├─ index.php              # Admin login
-├─ login.php              # Admin authentication
-├─ logout.php             # Admin logout
-├─ dashboard.php          # Admin dashboard
-├─ users.php              # User management
-├─ projects.php           # Project moderation
-├─ reviews.php            # Review moderation
-├─ messages.php           # Contact messages
-├─ rewards.php            # Reward configuration
-├─ reward-ledger.php      # Reward transaction log
-├─ reward-users.php       # User reward management
-├─ referrals.php          # Referral tracking
-├─ blog*.php              # Blog CRUD
-├─ settings.php           # Platform settings
-├─ security-management.php # Security/abuse controls
-├─ task-management.php    # Task configuration
-├─ taskhub-review.php     # TaskHub review queue
-├─ quiz-manager.php       # Quiz management
-├─ boosthub.php           # BoostHub admin
-├─ developers.php         # Developer management
-├─ admins.php             # Admin account management
-├─ create_admin.php       # Create admin
-├─ edit_admin.php         # Edit admin
-├─ delete_admin.php       # Delete admin
-├─ list_admins.php        # List admins
-├─ assets/                # Admin-specific CSS/JS/images
-└─ includes/              # Admin-specific config and auth helpers
-```
+Public-facing route files live under `public/` where possible, with `index.php` kept at the root for the landing page and clean URL compatibility.
 
-### `api/` — JSON API Endpoints
-```
-api/
-├─ _bootstrap.php         # Shared API bootstrap (auth, CORS, response helpers)
-├─ add_reward.php         # Add reward entry
-├─ claim_mystery_box.php  # Mystery box claim
-├─ claim_status.php       # Claim eligibility check
-├─ complete_mini_task.php # Complete a mini task
-├─ generate_claim.php     # Generate claim snapshot
-├─ get_balance.php        # Get user balance
-├─ get_mini_tasks.php     # List mini tasks
-├─ get_notifications.php  # Get user notifications
-├─ get_taskhub_state.php  # Get TaskHub state
-├─ mark_all_notifications_read.php
-├─ mark_notification_read.php
-├─ mark_taskhub_learning.php
-├─ reward_overview.php    # Reward summary
-├─ submit_taskhub_task.php
-├─ learning/              # Learning module API
-└─ v1/                    # Version 1 API (widget/rating)
+```text
+public/
+|-- dashboard.php
+|-- projects.php
+|-- project-detail.php
+|-- reviews.php
+|-- my-reviews.php
+|-- submit-review.php
+|-- about.php
+|-- blog.php
+|-- blog-category.php
+|-- blog-post.php
+|-- blog-tag.php
+|-- contact.php
+|-- cookies.php
+|-- faq.php
+|-- home.php
+|-- privacy.php
+|-- terms.php
+|-- profile.php
+|-- notifications.php
+|-- claims.php
+|-- reward-history.php
+|-- boosthub.php
+|-- taskhub.php
+|-- sponsored-apply.php
+`-- widget.js
 ```
 
-### `auth/` — User Authentication
-```
-auth/
-├─ auth.php               # Login/register
-├─ forgot.php             # Password reset
-├─ logout.php             # Logout
-└─ verify_email.php       # OTP verification
+## Main Domains
+
+### `src/` - PSR-4 Classes
+
+```text
+src/
+|-- Database/               # PDO connection wrapper
+|-- Exception/              # Domain and validation exceptions
+`-- Http/                   # Request and response helpers
 ```
 
-### `devhub/` — Developer Hub
-```
-devhub/
-├─ index.php              # DevHub landing
-├─ apply.php              # Developer application
-├─ reviews.php            # Developer reviews
-├─ notifications.php      # Developer notifications
-├─ terms.php              # DevHub terms
-├─ widget-api.php         # Widget API documentation
-├─ assets/                # DevHub-specific CSS/JS
-├─ includes/              # DevHub-specific helpers
-├─ logs/                  # DevHub runtime logs (gitignored)
-├─ pages/                 # Sub-pages
-└─ projects/              # Project management pages
-```
+### `admin/` - Admin Panel
 
-### `includes/` — Shared Core
-```
+Contains admin authentication, dashboards, moderation queues, user/project/review management, rewards, referrals, security controls, blog management, TaskHub/BoostHub administration, and admin-specific assets/includes.
+
+### `api/` - JSON APIs
+
+Contains shared API bootstraps, user/task/reward endpoints, learning endpoints, admin endpoints, review eligibility APIs, Rex Signer APIs, and the versioned `/api/v1` surface.
+
+### `auth/` - User Authentication
+
+Contains login, registration, logout, password reset, and email verification flows.
+
+### `devhub/` - Developer Hub
+
+Contains developer/project-owner application flows, project management, reviews, notifications, widget documentation, DevHub assets, and DevHub-specific includes.
+
+### `includes/` - Shared Core
+
+```text
 includes/
-├─ config.php             # Environment, DB, session bootstrap
-├─ functions.php          # Core domain helpers (large, being modularized)
-├─ functions_legacy_backup.php  # Legacy backup (kept for reference)
-├─ header.php             # Shared HTML header + navigation
-├─ footer.php             # Shared HTML footer
-├─ functions/             # Modular function files
-│   └─ taskhub.php        # TaskHub-specific helpers
-├─ services/              # Service classes
-└─ taskhub/               # TaskHub component templates
+|-- config.php              # Environment, database, session bootstrap
+|-- functions.php           # Shared function loader
+|-- functions/              # Domain-specific helper modules
+|-- services/               # Service classes
+|-- taskhub/                # TaskHub components
+|-- header.php              # Shared page header
+`-- footer.php              # Shared page footer
 ```
 
-### `assets/` — Static Frontend
-```
+### `assets/` - Static Frontend Assets
+
+```text
 assets/
-├─ css/                   # Stylesheets
-├─ images/                # Images and icons
-├─ js/                    # JavaScript files
-└─ uploads/               # Uploaded media (gitignored)
+|-- css/
+|-- images/
+|-- js/
+`-- uploads/                # Runtime media, ignored by Git
 ```
 
-### `database/` — Schema & Migrations
-```
+### `database/` - Schema and Migrations
+
+```text
 database/
-└─ migrations/            # SQL migration files
+`-- migrations/             # SQL migration files and schema recreation scripts
 ```
 
-### `docs/` — Documentation
-```
-docs/
-├─ ARCHITECTURE.md        # System architecture
-├─ STRUCTURE.md           # This file — repo structure guide
-├─ API.md                 # API documentation
-├─ AUTH.md                # Auth system docs
-├─ DATABASE.md            # Database schema docs
-├─ SECURITY.md            # Security model
-├─ ROADMAP.md             # Development roadmap
-├─ WIDGETS.md             # Widget integration docs
-├─ AI_CONTEXT.md          # AI assistant context
-├─ SYSTEM_HEALTH.md       # Health check guide
-├─ TESTING_MODE_RESTORE.md
-├─ theme.md               # Theme documentation
-├─ purpose-and-use.md     # Platform purpose & use guide
-├─ taskhub.md             # TaskHub system documentation
-├─ coinrex-docs-readme-template.md  # Docs repo template
-└─ plans/                 # UI/theme upgrade plans and design documents
-    ├─ theme-upgrade-visual.md
-    └─ ui-theme-upgrade-plan.md
-```
+### `realtime/` and `contracts/`
 
-### `tools/` — Developer Utilities
-```
-tools/
-├─ retheme_coinrex.ps1          # PowerShell theme refactoring script
-├─ split_functions.php          # PHP function splitter utility
-├─ split_functions.py           # Python function splitter utility
-├─ check_db.php                 # Database schema checker
-├─ clear_opcache.php            # PHP opcache reset utility
-├─ composer-setup.php           # Composer installer (one-time use)
-├─ generate-widget-token.php    # Widget token generator (dev/debug)
-├─ indexV2.php                  # Alternate landing page version
-├─ test_taskhub.php             # Test version of TaskHub
-├─ tmp_list_project_slugs.php   # Temporary debug script
-└─ widget-test.php              # Widget integration test page
-```
+- `realtime/` contains the Node WebSocket/event server used by realtime features.
+- `contracts/` contains smart-contract sources, with root `package.json` scripts for Hardhat compile, tests, deployment, and realtime syntax checks.
+
+## Configuration and Standards
+
+| File | Purpose |
+| --- | --- |
+| `.editorconfig` | Editor formatting consistency |
+| `.gitattributes` | Git line ending normalization |
+| `.gitignore` | Git exclusion rules, including `rex-wallet/` |
+| `.env.example` | Environment variable template |
+| `composer.json` | PHP dependencies, autoloading, and quality scripts |
+| `package.json` | Node scripts for contracts and realtime tooling |
+| `phpunit.xml.dist` | PHPUnit configuration |
+| `phpstan.neon.dist` | PHPStan static analysis configuration |
+| `phpcs.xml.dist` | PHPCS coding standards configuration |
+
+## GitHub Integration
+
+| File | Purpose |
+| --- | --- |
+| `.github/workflows/ci.yml` | CI pipeline for PHPCS, PHPStan, PHPUnit, realtime syntax, and security audit |
+| `.github/ISSUE_TEMPLATE/bug_report.md` | Bug report template |
+| `.github/ISSUE_TEMPLATE/feature_request.md` | Feature request template |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Pull request template |
 
 ## File Classification Guide
 
-### Production files (keep in root)
-These are live entry points accessed by users:
-`index.php`, `about.php`, `blog*.php`, `contact.php`, `cookies.php`, `dashboard.php`, `faq.php`, `home.php`, `privacy.php`, `terms.php`, `profile.php`, `projects.php`, `project-detail.php`, `reviews.php`, `my-reviews.php`, `submit-review.php`, `notifications.php`, `claims.php`, `reward-history.php`, `boosthub.php`, `taskhub.php`, `widget.js`
-
-### Configuration files (keep in root)
-`composer.json`, `composer.lock`, `.env.example`, `.gitignore`, `README.md`
-
-### Utility/dev files (moved to `tools/`)
-Files that are helpful for development/maintenance but not part of the production app:
-- `check_db.php` → database schema checker
-- `clear_opcache.php` → opcache reset utility
-- `tmp_list_project_slugs.php` → temporary debug script
-- `test_taskhub.php` → test version of TaskHub
-- `widget-test.php` → widget integration test page
-- `composer-setup.php` → Composer installer (one-time use)
-- `indexV2.php` → alternate landing page version
-
-### Legacy/backup files (kept for reference)
-- `includes/functions_legacy_backup.php` — preserved for migration safety
+- Root-level PHP should be limited to stable entry points such as `index.php`.
+- Public route files should live under `public/` where clean URL compatibility allows.
+- Local maintenance utilities belong in `tools/`.
+- Runtime uploads, generated artifacts, dependency folders, local secrets, and `rex-wallet/` must stay out of Git.
+- Legacy compatibility files may remain when they protect an ongoing migration, but new logic should prefer modular helpers or PSR-4 classes.
 
 ## Cleanup History
 
 | Date | Change | Status |
-|------|--------|--------|
-| 2026-05-20 | Created STRUCTURE.md | ✅ |
-| 2026-05-20 | Moved utility files to tools/ | ✅ |
-| 2026-05-20 | Deleted dead files (taskhub-features.css, index.css, newupdate.png) | ✅ |
-| 2026-05-20 | Deleted coinrex-docs-local/ (unreferenced local copy) | ✅ |
-| 2026-05-20 | Moved plans/ to docs/plans/ | ✅ |
+| --- | --- | --- |
+| 2026-05-20 | Created repository structure documentation | Done |
+| 2026-05-20 | Moved utility files to `tools/` | Done |
+| 2026-05-20 | Moved plans to `docs/plans/` | Done |
+| 2026-05-28 | Added `src/`, `tests/`, GitHub templates, and quality configs | Done |
+| 2026-05-28 | Added CI workflow and contribution/security docs | Done |
+| 2026-05-28 | Made testing mode environment-driven | Done |
+| 2026-05-28 | Moved public pages to `public/` | Done |
+| 2026-06-27 | Ignored `rex-wallet/` for future extraction to a separate repo | Done |
