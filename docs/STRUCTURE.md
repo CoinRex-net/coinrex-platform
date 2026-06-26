@@ -23,7 +23,6 @@ This document describes the main CoinRex platform repository. The `rex-wallet/` 
 |-- src/                    # PSR-4 classes under the CoinRex namespace
 |-- test/                   # Smart-contract test workspace
 |-- tests/                  # PHPUnit test suites
-|-- tools/                  # Local developer and maintenance utilities
 |-- uploads/                # Runtime uploads, ignored by Git
 |-- index.php               # Root landing entry point
 |-- composer.json           # PHP dependencies, autoloading, and scripts
@@ -153,7 +152,7 @@ database/
 
 - Root-level PHP should be limited to stable entry points such as `index.php`.
 - Public route files should live under `public/` where clean URL compatibility allows.
-- Local maintenance utilities belong in `tools/`.
+- Repeatable maintenance and deployment automation belongs in `scripts/`; one-off local diagnostics should stay untracked.
 - Runtime uploads, generated artifacts, dependency folders, local secrets, and `rex-wallet/` must stay out of Git.
 - Legacy compatibility files may remain when they protect an ongoing migration, but new logic should prefer modular helpers or PSR-4 classes.
 
@@ -162,10 +161,10 @@ database/
 | Date | Change | Status |
 | --- | --- | --- |
 | 2026-05-20 | Created repository structure documentation | Done |
-| 2026-05-20 | Moved utility files to `tools/` | Done |
 | 2026-05-20 | Moved plans to `docs/plans/` | Done |
 | 2026-05-28 | Added `src/`, `tests/`, GitHub templates, and quality configs | Done |
 | 2026-05-28 | Added CI workflow and contribution/security docs | Done |
 | 2026-05-28 | Made testing mode environment-driven | Done |
 | 2026-05-28 | Moved public pages to `public/` | Done |
 | 2026-06-27 | Ignored `rex-wallet/` for future extraction to a separate repo | Done |
+| 2026-06-27 | Removed local tool/debug scripts and source design files from the committed tree | Done |

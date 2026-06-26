@@ -59,7 +59,6 @@ coinrex/
 |-- src/                    # PSR-4 classes under the CoinRex namespace
 |-- test/                   # Hardhat contract tests
 |-- tests/                  # PHPUnit test suites
-|-- tools/                  # Local developer utilities
 |-- uploads/                # Runtime uploads, ignored by Git
 |-- index.php               # Root landing entry point
 |-- composer.json           # PHP dependencies, autoloading, scripts
