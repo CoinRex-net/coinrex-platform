@@ -80,7 +80,7 @@ Contains admin authentication, dashboards, moderation queues, user/project/revie
 
 ### `api/` - JSON APIs
 
-Contains shared API bootstraps, user/task/reward endpoints, learning endpoints, admin endpoints, review eligibility APIs, Rex Signer APIs, and the versioned `/api/v1` surface.
+Contains shared API bootstraps, user/task/reward endpoints, learning endpoints, admin endpoints, review eligibility APIs, RexLink APIs, and the versioned `/api/v1` surface.
 
 ### `auth/` - User Authentication
 

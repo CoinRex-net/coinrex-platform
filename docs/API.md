@@ -104,20 +104,20 @@ Common response format:
   - `claim_status.php` may return `404` when snapshot not found.
   - method mismatch returns `405` via `apiRequireMethod`.
 
-## REX Signer
+## RexLink
 
-REX Signer is the extension-free signer companion for CoinRex. These endpoints are session/pairing foundation only: no private keys, seed phrases, custody, real signing, or on-chain broadcasts are implemented.
+RexLink is the wallet-linking and approval companion for CoinRex. These endpoints are the session, pairing, and approval foundation only: no private keys, seed phrases, custody, real signing, or on-chain broadcasts are implemented.
 
 ### `GET /api/rex-signer/networks.php`
 
-- Returns enabled signer networks.
+- Returns enabled RexLink networks.
 - Current defaults:
   - `polygon-amoy` testnet
   - `plasma-testnet` stub/testnet placeholder
 
 ### `GET /api/rex-signer/assets.php`
 
-- Returns enabled signer networks plus token catalog, logo metadata, placeholder balances, and price metadata.
+- Returns enabled RexLink networks plus token catalog, logo metadata, placeholder balances, and price metadata.
 - POL price is fetched server-side and cached briefly; the mobile app does not call third-party price APIs directly.
 - REX testnet price is returned as `$0.00` with `price_status: testnet_unpriced`.
 - Plasma/XPL pricing is fetched from CoinGecko when available; otherwise it falls back to `unavailable`.
@@ -140,7 +140,7 @@ REX Signer is the extension-free signer companion for CoinRex. These endpoints a
 ### `GET /api/rex-signer/sessions.php`
 
 - Access: logged-in CoinRex user session or `Bearer <session_token>`.
-- Returns active session count and recent signer sessions for the user.
+- Returns active session count and recent RexLink sessions for the user.
 
 ### `POST /api/rex-signer/revoke_session.php`
 
@@ -152,7 +152,7 @@ REX Signer is the extension-free signer companion for CoinRex. These endpoints a
 
 - Access: logged-in CoinRex user session.
 - Body: `network_slug`, optional `request_type`, `title`, `summary`, `amount`, `fee_estimate`, `payload`, `expires_minutes`.
-- Creates a pending approval request for the paired signer queue.
+- Creates a pending approval request for the paired RexLink queue.
 
 ### `GET /api/rex-signer/approval_requests.php`
 
@@ -162,7 +162,7 @@ REX Signer is the extension-free signer companion for CoinRex. These endpoints a
 
 ### `POST /api/rex-signer/approval_decision.php`
 
-- Access: active `Bearer <session_token>` signer session.
+- Access: active `Bearer <session_token>` RexLink session.
 - Body: `request_id`, `decision` (`approved` or `rejected`), optional `note`.
 - Updates a pending approval request. This records approval state only; it does not sign or broadcast transactions.
 
