@@ -188,9 +188,10 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, codin
 
 ## Roadmap
 
-- **Phase 1:** Security hardening, configuration cleanup, and GitHub readiness.
-- **Phase 2:** Modular refactor, API consistency, test coverage, and maintainability improvements.
-- **Phase 3:** Realtime/Web3 scalability, sponsored launch tooling, and platform ecosystem evolution.
+- **Stage 01:** MVP launch with registration, login, email verification, referrals, LearnHub, and the Early Adopter Program.
+- **Stage 02:** Ecosystem launch with DevHub, developer verification, project listings, reviews, and smart-contract deployment.
+- **Stage 03:** Reward economy with TGE, claim rewards, snapshots, trust score, reputation, leaderboards, and developer profiles.
+- **Stage 04:** Market expansion with RexLink Play Store release, liquidity addition, and public DEX trading.
 
 See the full roadmap in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

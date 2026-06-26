@@ -1,113 +1,104 @@
-# CoinRex Modernization Roadmap
+# CoinRex Product Roadmap
 
-## Phase 1 - Critical Fixes and Security Hardening
+This roadmap mirrors the public CoinRex roadmap page served by `public/roadmap.php`. The public page can be managed through the admin roadmap publisher; this document captures the default published roadmap used by the platform.
 
-### Objectives
+## Mission
 
-- Eliminate high-risk security exposures.
-- Stabilize production configuration behavior.
-- Remove dangerous runtime operational patterns.
+**The Road to Web3 Trust**
 
-### Work Items
+CoinRex is building trust, reputation, and utility before token speculation. The current public roadmap emphasizes user validation, RexLink readiness, project-side tools, reward utility, and a staged path toward market expansion.
 
-1. **Secrets and credential safety**
-   - Remove hardcoded SMTP and sensitive defaults from application code.
-   - Move runtime secrets to environment variables.
-   - Rotate exposed credentials where required.
+Current default progress: **68% through Stage 01**
 
-2. **Production-safe configuration profile**
-   - Use explicit environment modes such as `development`, `staging`, and `production`.
-   - Disable `display_errors` in production.
-   - Force secure session cookie flags for HTTPS deployments.
+Progress note: MVP validation is active before RexLink Beta expansion.
 
-3. **CSRF consistency pass**
-   - Enforce CSRF checks on browser-authenticated state-changing routes.
-   - Standardize token generation and validation helpers.
+## Stage 01 - MVP Launch
 
-4. **Remove runtime schema mutation**
-   - Decommission request-path `ALTER TABLE` logic.
-   - Move all schema evolution to migration scripts.
+Status: **Current Stage**  
+Badge: **CURRENT**
 
-5. **Baseline observability**
-   - Add centralized app and security error logging.
-   - Ensure sensitive errors do not leak to client responses.
+Core items:
 
-## Phase 2 - Refactor and Maintainability
+- Registration
+- Login
+- Email verification
+- Referrals
+- LearnHub
+- Early Adopter Program
 
-### Objectives
+Milestone:
 
-- Reduce technical debt.
-- Improve testability and ownership boundaries.
+- RexLink Beta arrives after MVP validation.
 
-### Work Items
+## Stage 02 - Ecosystem Launch
 
-1. **Modularize shared helpers**
-   - Continue extracting large helper files into domain modules and services.
-   - Preserve wrapper functions during the transition where needed.
+Status: **Next Expansion**  
+Badge: **NEXT**
 
-2. **Adopt PSR-4 classes for new logic**
-   - Put new domain classes under `src/`.
-   - Keep legacy entry points stable while internals are modernized.
+Core items:
 
-3. **Request validation layer**
-   - Centralize and reuse input validation and sanitization.
-   - Reduce duplicated inline `$_POST` and `$_GET` checks.
+- DevHub live
+- Developer verification
+- Project listings
+- Reviews live
+- Smart contract deployment
 
-4. **Standardized API responses**
-   - Use reusable response helpers for JSON APIs.
-   - Map validation and domain exceptions to consistent error payloads.
+Goals:
 
-5. **Migration discipline**
-   - Formalize migration ordering and execution.
-   - Track applied migrations with a `schema_migrations` table.
+- 1,000 users
+- 100 listed projects
 
-## Phase 3 - Scalability and Platform Evolution
+## Stage 03 - Reward Economy
 
-### Objectives
+Status: **Utility Layer**  
+Badge: **PLANNED**
 
-- Prepare for growth, reliability, and future architecture flexibility.
+Core items:
 
-### Work Items
+- TGE
+- Claim rewards
+- Snapshot system
+- Trust score
+- Reputation system
+- Leaderboards
+- Developer profiles
 
-1. **Performance optimization**
-   - Profile queries and add indexes for high-volume tables.
-   - Cache expensive dashboard and aggregate queries.
+Goal:
 
-2. **API evolution**
-   - Expand the versioned API namespace under `/api/v1`.
-   - Add token-based external integration options where needed.
+- 5,000 users
 
-3. **Asynchronous workloads**
-   - Move email, moderation side effects, and analytics into queue-friendly flows.
+## Stage 04 - Market Expansion
 
-4. **Automated test coverage**
-   - Prioritize auth, OTP, reward ledger transitions, claims, and task progression.
+Status: **Liquidity Phase**  
+Badge: **PLANNED**
 
-5. **Optional framework migration strategy**
-   - Evaluate an incremental migration path to Laravel or Symfony.
-   - Preserve the database and business rules during any framework transition.
+Core items:
 
-## Promotion Model Principles
+- RexLink Play Store release
+- Liquidity addition
+- Public DEX trading
 
-### Featured = Earned
+## Stage 05 - To Be Announced
 
-- Featured status remains a trust asset.
-- It cannot be purchased directly.
-- It requires quality thresholds, stable review metrics, and admin approval.
+Status: **Future Signal**  
+Badge: **FUTURE**
 
-### Priority Review = Paid Speed Layer
+Milestone:
 
-- Priority Review can accelerate handling of an already eligible project.
-- It affects queue speed only.
-- It must not guarantee Featured approval.
+- Future milestones will be announced after Stage 3 completion.
 
-### Sponsored = Paid Visibility Layer
+## Product Principles
 
-- Sponsored placement is a visibility product.
-- It must always be labeled clearly on public surfaces.
-- Sponsored status must never imply trust-earned quality on its own.
+- **Users first:** validate useful workflows before speculation.
+- **Utility first:** reviews, reputation, rewards, and RexLink flows must have real platform value.
+- **Token later:** token and market expansion happen after stronger product validation.
+- **Trust over money:** paid visibility must not replace evidence-backed trust signals.
+- **RexLink as infrastructure:** wallet linking, realtime approvals, claim sessions, and on-chain eligibility support the trust layer without custody.
 
-### Trust-Over-Money Rule
+## Related Surfaces
 
-- Visibility can be monetized.
-- Trust signals must remain evidence-based and review-driven.
+- Public roadmap page: `public/roadmap.php`
+- Legacy roadmap redirect: `roadmap.php`
+- Roadmap admin page: `admin/roadmap.php`
+- Roadmap data helpers: `includes/functions/roadmap.php`
+- Roadmap migration: `database/migrations/2026_06_20_dynamic_roadmap.sql`
