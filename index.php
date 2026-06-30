@@ -188,7 +188,7 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <!-- New CoinRex Homepage Stylesheet -->
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/homepage-v2.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/homepage-v2.css?v=<?php echo (int) @filemtime(__DIR__ . '/assets/css/homepage-v2.css'); ?>">
 <!-- Homepage Background Animations -->
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/homepage-animations.css">
 
@@ -264,7 +264,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="floating-card card-1 cr-floating-card-primary">
                     <div class="review-header">
                         <?php if ($hero_review_avatar !== ''): ?>
-                            <span class="avatar avatar-image"><img src="<?php echo homeEsc($hero_review_avatar); ?>" alt="<?php echo homeEsc(homeDisplayName($hero_review)); ?> avatar"></span>
+                            <span class="avatar avatar-image" style="background-image: url('<?php echo homeEsc($hero_review_avatar); ?>');" aria-label="<?php echo homeEsc(homeDisplayName($hero_review)); ?> avatar"></span>
                         <?php else: ?>
                             <span class="avatar"><?php echo homeEsc(homeInitial(homeDisplayName($hero_review))); ?></span>
                         <?php endif; ?>

@@ -666,6 +666,15 @@ function shouldAutoApproveReview($user_or_level_state) {
         && !empty($level_state['bonus_active']);
 }
 
+function userCanAccessClaimCenter($user_or_level_state) {
+    if (defined('TESTING_MODE') && TESTING_MODE) {
+        return true;
+    }
+
+    $level_state = is_array($user_or_level_state) ? $user_or_level_state : getUserLevelState($user_or_level_state);
+    return in_array(normalizeUserLevel($level_state['level'] ?? 'beginner'), ['pro', 'expert'], true);
+}
+
 function syncProjectAggregateMetrics($project_id, PDO $db = null) {
     $db = $db ?: getDBConnection();
     $project_id = (int) $project_id;

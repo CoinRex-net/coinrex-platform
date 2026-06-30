@@ -14,7 +14,15 @@ function coinrexNormalizeMediaUrl($path) {
 
     if (preg_match('#^https?://#i', $path)) {
         $parts = parse_url($path);
+        $baseParts = parse_url(BASE_URL);
+        $pathHost = strtolower((string) ($parts['host'] ?? ''));
+        $baseHost = strtolower((string) ($baseParts['host'] ?? ''));
         $mediaPath = trim((string) ($parts['path'] ?? ''));
+
+        if ($pathHost !== '' && $baseHost !== '' && $pathHost !== $baseHost) {
+            return $path;
+        }
+
         if ($mediaPath !== '') {
             $path = $mediaPath;
         } else {

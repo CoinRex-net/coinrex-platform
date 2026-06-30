@@ -148,7 +148,7 @@ $claim_center_accessible_nav = featureIsAccessible('claim_center');
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/theme.css">
-    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/header.css">
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/header.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/header.css'); ?>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <?php if ($is_logged_in): ?>
@@ -340,11 +340,9 @@ $claim_center_accessible_nav = featureIsAccessible('claim_center');
                                 <span class="nex-user-name"><?php echo htmlspecialchars($user_display_name, ENT_QUOTES, 'UTF-8'); ?></span>
                                 <span class="nex-user-balance"><?php echo htmlspecialchars($user_balance_display, ENT_QUOTES, 'UTF-8'); ?></span>
                             </div>
-                            <div class="nex-avatar">
-                                <?php if ($user_avatar_url !== ''): ?>
-                                    <img src="<?php echo htmlspecialchars($user_avatar_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Profile avatar">
-                                <?php else: ?>
-                                    <span><?php echo strtoupper(substr($user_name !== '' ? $user_name : $user_display_name, 0, 1)); ?></span>
+                            <div class="nex-avatar<?php echo $user_avatar_url !== '' ? ' has-avatar-image' : ''; ?>"<?php if ($user_avatar_url !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($user_avatar_url, ENT_QUOTES, 'UTF-8'); ?>');"<?php endif; ?>>
+                                <?php if ($user_avatar_url === ''): ?>
+                                    <span><?php echo htmlspecialchars(strtoupper(substr($user_name !== '' ? $user_name : $user_display_name, 0, 1)), ENT_QUOTES, 'UTF-8'); ?></span>
                                 <?php endif; ?>
                             </div>
                         </button>

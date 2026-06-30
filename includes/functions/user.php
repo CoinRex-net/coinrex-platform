@@ -861,10 +861,5 @@ function getCurrentUser() {
     $db = getDBConnection();
     $stmt = $db->prepare("SELECT * FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
-    $user = $stmt->fetch();
-    if (is_array($user) && array_key_exists('avatar', $user)) {
-        $user['avatar'] = coinrexNormalizeMediaUrl((string) ($user['avatar'] ?? ''));
-    }
-
-    return $user;
+    return $stmt->fetch();
 }

@@ -14,6 +14,40 @@ $db = getDBConnection();
 ensureRewardClaimSchema($db);
 
 $user = getCurrentUser();
+$level_state = syncUserLevelStatus((int) $user['id'], $db) ?: getUserLevelState($user, $db);
+if (!userCanAccessClaimCenter($level_state)) {
+    http_response_code(403);
+    $page_title = 'Claim Center Locked';
+    require_once __DIR__ . '/../includes/header.php';
+    ?>
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/reward-pages.css">
+    <main class="reward-page">
+        <div class="reward-page-shell">
+            <section class="reward-panel">
+                <div>
+                    <span class="reward-tag">PRO Access</span>
+                    <h1>Claim Center unlocks at PRO</h1>
+                    <p>Complete your LearnHub mission, referral, account-age, and security requirements to unlock REX claiming.</p>
+                    <div class="page-actions">
+                        <a href="<?php echo BASE_URL; ?>/public/dashboard.php" class="secondary-btn">Back to Dashboard</a>
+                        <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="primary-btn">Continue LearnHub</a>
+                    </div>
+                </div>
+                <div class="reward-balance-box">
+                    <span>Your level</span>
+                    <strong><?php echo htmlspecialchars(levelDisplayName($level_state['level'] ?? 'beginner'), ENT_QUOTES, 'UTF-8'); ?></strong>
+                    <p class="reward-note">Only PRO-level accounts can open Claim Center.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+    <?php
+    require_once __DIR__ . '/../includes/footer.php';
+    exit;
+}
+
+$user = getUserById((int) $user['id']) ?: $user;
+$user['level'] = $level_state['level'] ?? ($user['level'] ?? 'beginner');
 $user_id = (int) $user['id'];
 unlockPendingEarlyAirdropForUser($user_id, $db);
 syncSubmittedClaimTransactionsForUser($user_id, $db);
@@ -1156,7 +1190,6 @@ require_once __DIR__ . '/../includes/header.php';
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
-                            <p class="reward-note" id="claimModalQrNote">Scan this QR or enter the 6 digit code in RexLink.</p>
                             <small class="claim-pairing-expiry" id="claimModalPairingExpiry" hidden>QR expires soon</small>
                         </div>
                     </div>
@@ -1222,13 +1255,15 @@ require_once __DIR__ . '/../includes/header.php';
     const configuredApiBaseUrl = <?php echo json_encode(BASE_URL); ?>;
     const publicApiBaseUrl = <?php echo json_encode(defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL); ?>;
     const hasConfiguredPublicApiBaseUrl = <?php echo defined('PUBLIC_BASE_URL_CONFIGURED') && PUBLIC_BASE_URL_CONFIGURED ? 'true' : 'false'; ?>;
-    const createPairingUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/create_pairing.php'); ?>;
-    const pairingQrUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/pairing_qr.php'); ?>;
-    const sessionsUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/sessions.php'); ?>;
-    const revokeSessionUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/revoke_session.php'); ?>;
-    const createClaimApprovalUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/create_claim_approval.php'); ?>;
-    const approvalsUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/approval_requests.php'); ?>;
-    const realtimeAuthUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/realtime_auth.php'); ?>;
+    const rexlinkApiBaseUrl = <?php echo json_encode(defined('REXLINK_API_BASE_URL') ? REXLINK_API_BASE_URL : BASE_URL); ?>;
+    const createPairingUrl = rexlinkApiBaseUrl + '/api/rex-signer/create_pairing.php';
+    const pairingQrUrl = rexlinkApiBaseUrl + '/api/rex-signer/pairing_qr.php';
+    const sessionsUrl = rexlinkApiBaseUrl + '/api/rex-signer/sessions.php';
+    const revokeSessionUrl = rexlinkApiBaseUrl + '/api/rex-signer/revoke_session.php';
+    const createClaimApprovalUrl = rexlinkApiBaseUrl + '/api/rex-signer/create_claim_approval.php';
+    const approvalStatusUrl = rexlinkApiBaseUrl + '/api/rex-signer/approval_status.php';
+    const approvalsUrl = rexlinkApiBaseUrl + '/api/rex-signer/approval_requests.php';
+    const realtimeAuthUrl = rexlinkApiBaseUrl + '/api/rex-signer/realtime_auth.php';
     const realtimeDebug = <?php echo in_array(strtolower(trim((string) (getenv('COINREX_REALTIME_DEBUG') ?: ''))), ['1', 'true', 'yes', 'on'], true) ? 'true' : 'false'; ?>;
     const serverClaimEligible = <?php echo !empty($claim_eligibility['eligible']) ? 'true' : 'false'; ?>;
     const initialAvailableBalance = <?php echo json_encode((float) ($balances['available'] ?? 0)); ?>;
@@ -1252,6 +1287,7 @@ require_once __DIR__ . '/../includes/header.php';
     let modalLoadingTimer = null;
     let modalResultState = 'waiting';
     let approvalDecisionMessage = '';
+    let claimFailureMessage = '';
     let hasPendingPairingCode = false;
     let sessionPollTimer = null;
     let sessionPollIntervalMs = 0;
@@ -1351,7 +1387,7 @@ require_once __DIR__ . '/../includes/header.php';
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                credentials: 'same-origin',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body || {}),
                 signal: controller ? controller.signal : undefined,
@@ -1424,21 +1460,28 @@ require_once __DIR__ . '/../includes/header.php';
         if (isLoopbackHost(apiHost)) {
             return 'Phone may not reach this localhost URL. Add COINREX_PUBLIC_BASE_URL with your LAN IP or use a live HTTPS domain.';
         }
-        if (!hasConfiguredPublicApiBaseUrl && (isLocalOrPrivateHost(apiHost) || isLocalOrPrivateHost(pageHost))) {
-            return 'Phone may not reach this website. Open CoinRex with your LAN IP or set COINREX_PUBLIC_BASE_URL.';
+        if (isLoopbackHost(pageHost)) {
+            return 'Phone may not reach this localhost URL. Open CoinRex with your LAN IP or set COINREX_PUBLIC_BASE_URL.';
+        }
+        if (isLocalOrPrivateHost(pageHost) && !isLoopbackHost(pageHost)) {
+            return '';
+        }
+        if (!hasConfiguredPublicApiBaseUrl && apiHost && pageHost && apiHost !== pageHost) {
+            return 'Phone may not reach this website because the QR API host differs from the page host. Set COINREX_PUBLIC_BASE_URL to the same LAN IP.';
         }
         return '';
     }
 
     function compactPairingPayload(payload) {
         payload = payload && typeof payload === 'object' ? payload : {};
+        const normalizedPublicBaseUrl = String(publicApiBaseUrl || configuredApiBaseUrl).replace(/\/+$/, '');
         return {
             type: payload.type || 'coinrex.rex_signer.pairing',
             version: Number(payload.version || 2),
             code: payload.code || '',
-            purpose: payload.purpose || 'claim',
-            api_base_url: String(payload.api_base_url || publicApiBaseUrl || configuredApiBaseUrl).replace(/\/+$/, ''),
-            base_url: String(payload.base_url || publicApiBaseUrl || configuredApiBaseUrl).replace(/\/+$/, ''),
+            purpose: 'claim',
+            api_base_url: normalizedPublicBaseUrl,
+            base_url: normalizedPublicBaseUrl,
             dapp_name: payload.dapp_name || 'CoinRex',
             dapp_url: payload.dapp_url || browserBaseUrl.replace(/\/+$/, ''),
             network_slug: payload.network_slug || 'polygon-amoy',
@@ -1584,7 +1627,7 @@ require_once __DIR__ . '/../includes/header.php';
             logoBadge.classList.toggle('is-visible', state === 'qr-svg' || state === 'qr-image');
         }
         if (qrNote) {
-            qrNote.textContent = note || 'Enter only 6 digits in RexLink.';
+            qrNote.textContent = '';
         }
     }
 
@@ -1593,14 +1636,14 @@ require_once __DIR__ . '/../includes/header.php';
         const qrText = JSON.stringify(qrPayload);
         const fallbackToImage = function() {
             if (!qrImage) {
-                setQrState('empty', 'QR could not load. Please enter the 6 digits manually in RexLink.');
+                setQrState('empty', '');
                 return;
             }
             qrImage.onload = function() {
-                setQrState('qr-image', note || pairingReachabilityWarning() || 'Scan this QR or enter only the 6 digits in RexLink.');
+                setQrState('qr-image', '');
             };
             qrImage.onerror = function() {
-                setQrState('empty', 'QR could not load. Please enter the 6 digits manually in RexLink.');
+                setQrState('empty', '');
             };
             qrImage.src = pairingQrUrl + '?payload=' + encodeURIComponent(qrText);
         };
@@ -1625,9 +1668,6 @@ require_once __DIR__ . '/../includes/header.php';
                 }
                 if (logoBadge) {
                     logoBadge.classList.add('is-visible');
-                }
-                if (qrNote) {
-                    qrNote.textContent = note || pairingReachabilityWarning() || 'Scan this QR or enter only the 6 digits in RexLink.';
                 }
             }).catch(fallbackToImage);
             return;
@@ -1854,7 +1894,7 @@ require_once __DIR__ . '/../includes/header.php';
             return ['Not enough POL', 'Please add a little POL for gas in RexLink, then try again.', 'fa-gas-pump', 'error'];
         }
         if (modalResultState === 'network') {
-            return ['Connection problem', 'We could not send the request because of a network problem. Please try again in a moment.', 'fa-wifi', 'error'];
+            return ['Claim problem', claimFailureMessage || 'We could not complete this claim request. Please try again in a moment.', 'fa-circle-exclamation', 'error'];
         }
         if (modalResultState === 'expired') {
             return ['Request expired', 'The approval window ended. Please send a new request to RexLink.', 'fa-clock', 'error'];
@@ -2048,7 +2088,7 @@ require_once __DIR__ . '/../includes/header.php';
         }
         sessionRefreshInFlight = true;
         try {
-        const response = await fetch(sessionsUrl, { credentials: 'same-origin' });
+        const response = await fetch(sessionsUrl, { credentials: 'include' });
         const data = await response.json();
         if (!data.success) {
             throw new Error(data.message || 'Could not load RexLink sessions.');
@@ -2056,8 +2096,8 @@ require_once __DIR__ . '/../includes/header.php';
         const previousSessionCount = activeSessionCount;
         activeSessionCount = Number(data.active_session_count || 0);
         const sessionState = String(data.session_state || '').toLowerCase();
-        const activeSession = (data.sessions || []).find(function(session) {
-            return session.status === 'active';
+        const activeSession = data.current_session || (data.sessions || []).find(function(session) {
+            return session.status === 'active' && Number(session.remaining_seconds || 0) > 0;
         }) || null;
         activeSessionId = activeSession ? Number(activeSession.id || 0) : 0;
         activeWalletAddress = activeSession && activeSession.wallet_address ? String(activeSession.wallet_address) : '';
@@ -2127,9 +2167,10 @@ require_once __DIR__ . '/../includes/header.php';
         renderClaimModal();
         try {
             const data = await postJson(createPairingUrl, {
+                purpose: 'claim',
                 duration_minutes: selectedDuration,
                 dapp_name: 'CoinRex',
-                dapp_url: browserBaseUrl.replace(/\/+$/, ''),
+                dapp_url: (publicApiBaseUrl || browserBaseUrl).replace(/\/+$/, ''),
                 network_slug: 'polygon-amoy',
                 network_name: 'Polygon Amoy',
                 chain_id: 80002
@@ -2165,9 +2206,15 @@ require_once __DIR__ . '/../includes/header.php';
             startPairingExpiry(Number(data.expires_in_seconds || 300));
             startSessionPolling();
             if (data.qr_payload) {
+                const qrPayload = Object.assign({}, data.qr_payload || {}, {
+                    purpose: 'claim',
+                    api_base_url: String(data.qr_payload.api_base_url || rexlinkApiBaseUrl).replace(/\/+$/, ''),
+                    base_url: String(data.qr_payload.base_url || rexlinkApiBaseUrl).replace(/\/+$/, ''),
+                    dapp_url: (publicApiBaseUrl || browserBaseUrl).replace(/\/+$/, '')
+                });
                 renderPairingQrPayload(
-                    data.qr_payload,
-                    pairingReachabilityWarning() || 'Scan this QR or enter only the 6 digits in RexLink.'
+                    qrPayload,
+                    ''
                 );
             }
             delayedModalStep('Creating RexLink QR...', 'Your QR is almost ready.', 'connect', 700);
@@ -2246,9 +2293,10 @@ require_once __DIR__ . '/../includes/header.php';
         }
         modalResultState = 'waiting';
         approvalDecisionMessage = '';
+        claimFailureMessage = '';
         showModalLoading('Sending approval request...', 'Preparing the RexLink approval screen.', 'approval');
         const amount = selectedAmount();
-        const data = await postJson(createClaimApprovalUrl, { claim_amount: amount.toFixed(8) }, { timeoutMs: 20000 });
+        const data = await postJson(createClaimApprovalUrl, { claim_amount: amount.toFixed(8) }, { timeoutMs: 8000 });
         if (!data.success) {
             modalResultState = classifyFailure(data.message || 'Claim approval could not be created.');
             setClaimModalStep('approval');
@@ -2266,13 +2314,9 @@ require_once __DIR__ . '/../includes/header.php';
 
     function classifyFailure(message) {
         const text = String(message || '').toLowerCase();
+        claimFailureMessage = String(message || '').trim() || 'Claim approval could not be completed.';
         if (/gas|pol|fund|balance|fee/.test(text)) {
-            if (resultMessage) resultMessage.textContent = message;
             return 'gas';
-        }
-        if (/network|rpc|timeout|fetch|connection/.test(text)) {
-            if (resultMessage) resultMessage.textContent = message;
-            return 'network';
         }
         return 'network';
     }
@@ -2283,35 +2327,40 @@ require_once __DIR__ . '/../includes/header.php';
         }
         approvalPollInFlight = true;
         try {
-        const response = await fetch(approvalsUrl + '?status=all', { credentials: 'same-origin' });
+        const response = await fetch(approvalStatusUrl + '?request_id=' + encodeURIComponent(String(activeRequestId)), { credentials: 'include' });
         const data = await response.json();
         if (!data.success) {
             return;
         }
-        const request = (data.approval_requests || []).find(function(item) {
-            return Number(item.id) === Number(activeRequestId);
-        });
+        const request = data.approval_request || null;
         if (!request) {
             return;
         }
         if (request.wallet_address) {
             activeWalletAddress = String(request.wallet_address);
         }
-        if (request.status === 'approved') {
-            const result = request.result || {};
-            if (result.tx_status === 'failed') {
-                stopApprovalPolling();
-                activeRequestId = 0;
+            if (request.status === 'approved') {
+                const result = request.result || {};
+                if (result.tx_status === 'failed') {
+                    stopApprovalPolling();
+                    activeRequestId = 0;
                 hasOpenClaim = false;
                 modalResultState = classifyFailure(result.tx_error || 'Claim transaction could not be submitted. Add POL for gas, then try again.');
+                renderClaimModal();
+                    await refreshOverview();
+                    return;
+                }
+            if (result.tx_status === 'confirmed' || result.claim_snapshot_status === 'used') {
+                stopApprovalPolling();
+                activeRequestId = 0;
+                modalResultState = 'claimed';
                 renderClaimModal();
                 await refreshOverview();
                 return;
             }
-            if (request.tx_hash || result.tx_hash) {
-                stopApprovalPolling();
-                activeRequestId = 0;
-                modalResultState = 'success';
+            if (request.tx_hash || result.tx_hash || result.tx_status === 'submitted') {
+                hasOpenClaim = true;
+                modalResultState = 'submitting';
                 renderClaimModal();
                 await refreshOverview();
                 return;
@@ -2410,6 +2459,11 @@ require_once __DIR__ . '/../includes/header.php';
             await refreshSessions();
             return;
         }
+        if (type === 'pairing.rejected') {
+            const message = event.message || (event.payload && event.payload.message) || 'RexLink pairing was rejected. Please use the wallet linked to this CoinRex account.';
+            resetModalAfterSessionLoss(message);
+            return;
+        }
         if (type === 'approval.intent') {
             const payload = event.payload || {};
             if (Number(payload.request_id || 0) === Number(activeRequestId || 0)) {
@@ -2418,8 +2472,12 @@ require_once __DIR__ . '/../includes/header.php';
                     modalResultState = 'approval_received';
                     renderClaimModal();
                 } else if (decision === 'rejected') {
-                    modalResultState = 'rejection_received';
+                    approvalDecisionMessage = 'The request was rejected in RexLink.';
+                    modalResultState = 'rejected';
+                    activeRequestId = 0;
+                    stopApprovalPolling();
                     renderClaimModal();
+                    refreshOverview().catch(function() {});
                 }
             }
             return;
@@ -2433,7 +2491,9 @@ require_once __DIR__ . '/../includes/header.php';
                     renderClaimModal();
                 } else if (status === 'rejected') {
                     approvalDecisionMessage = payload.decision_note || '';
-                    modalResultState = 'rejection_received';
+                    modalResultState = 'rejected';
+                    activeRequestId = 0;
+                    stopApprovalPolling();
                     renderClaimModal();
                 }
             }
@@ -2458,7 +2518,7 @@ require_once __DIR__ . '/../includes/header.php';
             return;
         }
 
-        const response = await fetch(realtimeAuthUrl, { credentials: 'same-origin' });
+        const response = await fetch(realtimeAuthUrl, { credentials: 'include' });
         const data = await response.json();
         if (!data.success || !data.ws_url || !data.token) {
             throw new Error(data.message || 'Realtime auth failed.');
@@ -2614,17 +2674,10 @@ require_once __DIR__ . '/../includes/header.php';
             });
         copyPromise.then(function() {
             setPairingCopyState(code, true);
-            if (qrNote) {
-                qrNote.textContent = 'Code copied. Paste it in RexLink.';
-            }
             window.setTimeout(function() {
                 setPairingCopyState(code, false);
             }, 1800);
-        }).catch(function() {
-            if (qrNote) {
-                qrNote.textContent = 'Copy failed. Long press or select the code manually.';
-            }
-        });
+        }).catch(function() {});
     });
     amountInput?.addEventListener('input', function() {
         amountInputTouched = true;

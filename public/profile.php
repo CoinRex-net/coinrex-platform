@@ -42,7 +42,7 @@ $user_avatar_url = coinrexNormalizeMediaUrl((string) ($user['avatar'] ?? ''));
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/profile.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/profile.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/profile.css'); ?>">
 
 <main class="profile-page">
     <div class="profile-shell">
@@ -52,10 +52,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <h1>Set up your CoinRex profile</h1>
             </div>
             <div class="profile-identity-card">
-                <div class="profile-avatar-large">
-                    <?php if ($user_avatar_url !== ''): ?>
-                        <img src="<?php echo htmlspecialchars($user_avatar_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Profile avatar">
-                    <?php else: ?>
+                <div class="profile-avatar-large<?php echo $user_avatar_url !== '' ? ' has-avatar-image' : ''; ?>"<?php if ($user_avatar_url !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($user_avatar_url, ENT_QUOTES, 'UTF-8'); ?>');"<?php endif; ?>>
+                    <?php if ($user_avatar_url === ''): ?>
                         <span><?php echo htmlspecialchars($avatar_initial, ENT_QUOTES, 'UTF-8'); ?></span>
                     <?php endif; ?>
                 </div>

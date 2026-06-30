@@ -269,7 +269,7 @@ if ($current_level === 'pro') {
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/dashboard.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/dashboard.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/dashboard.css'); ?>">
 
 <main class="dashboard-main">
     <div class="dashboard-container">
@@ -286,10 +286,8 @@ require_once __DIR__ . '/../includes/header.php';
 
             <div class="hero-left">
                 <div class="hero-top-row">
-                    <div class="hero-avatar">
-                        <?php if ($user_avatar_url !== ''): ?>
-                            <img src="<?php echo htmlspecialchars($user_avatar_url, ENT_QUOTES, 'UTF-8'); ?>" alt="">
-                        <?php else: ?>
+                    <div class="hero-avatar<?php echo $user_avatar_url !== '' ? ' has-avatar-image' : ''; ?>"<?php if ($user_avatar_url !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($user_avatar_url, ENT_QUOTES, 'UTF-8'); ?>');"<?php endif; ?>>
+                        <?php if ($user_avatar_url === ''): ?>
                             <span><?php echo htmlspecialchars($avatar_initial, ENT_QUOTES, 'UTF-8'); ?></span>
                         <?php endif; ?>
                     </div>

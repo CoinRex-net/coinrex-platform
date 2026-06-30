@@ -158,7 +158,7 @@ $verified_or_approved_label = $home_stats['verified_projects'] > 0 ? 'Verified P
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/home.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/home.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/home.css'); ?>">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/rating-badge.css">
 
 <main class="home-test-page">
@@ -308,10 +308,8 @@ require_once __DIR__ . '/../includes/header.php';
                     <article class="home-test-review-card">
                         <div class="home-test-review-head">
                             <div class="home-test-review-user">
-                                <div class="home-test-avatar">
-                                    <?php if ($reviewer_avatar !== ''): ?>
-                                        <img src="<?php echo homeTestEsc($reviewer_avatar); ?>" alt="<?php echo homeTestEsc($reviewer_name); ?> avatar">
-                                    <?php else: ?>
+                                <div class="home-test-avatar<?php echo $reviewer_avatar !== '' ? ' home-test-avatar--image' : ''; ?>"<?php if ($reviewer_avatar !== ''): ?> style="background-image: url('<?php echo homeTestEsc($reviewer_avatar); ?>');" aria-label="<?php echo homeTestEsc($reviewer_name); ?> avatar"<?php endif; ?>>
+                                    <?php if ($reviewer_avatar === ''): ?>
                                         <?php echo homeTestEsc(homeTestInitial($reviewer_name)); ?>
                                     <?php endif; ?>
                                 </div>

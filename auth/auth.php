@@ -945,13 +945,6 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                         <div class="field-feedback" id="referralFeedback" aria-live="polite"></div>
                                     </div>
                                 </div>
-
-                                <div class="register-action">
-                                    <button type="submit" name="register" class="auth-submit" id="registerSubmitButton" <?php echo $is_register_submission && isset($_POST['terms']) ? '' : 'disabled'; ?>>
-                                        <span>Create Account</span>
-                                        <i class="fas fa-arrow-right"></i>
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
@@ -961,6 +954,13 @@ require_once dirname(__DIR__) . '/includes/header.php';
                                 <span class="checkbox-custom"></span>
                                 <span class="checkbox-text">I agree to the <a href="../public/terms.php">Terms of Service</a></span>
                             </label>
+                        </div>
+
+                        <div class="register-action">
+                            <button type="submit" name="register" class="auth-submit" id="registerSubmitButton" <?php echo $is_register_submission && isset($_POST['terms']) ? '' : 'disabled'; ?>>
+                                <span>Create Account</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
                         </div>
 
                         <?php
@@ -1136,9 +1136,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const rexLinkSuccessMessage = document.getElementById('rexLinkSuccessMessage');
     const rexLinkSuccessCountdown = document.getElementById('rexLinkSuccessCountdown');
     const rexLinkPrimaryButton = document.getElementById('rexLinkPrimaryButton');
-    const rexSignerCreatePairingUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/create_pairing.php'); ?>;
-    const rexSignerPairingQrUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/pairing_qr.php'); ?>;
-    const rexSignerLoginFromSessionUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/auth/login_from_session.php'); ?>;
+    const rexlinkApiBaseUrl = <?php echo json_encode(defined('REXLINK_API_BASE_URL') ? REXLINK_API_BASE_URL : BASE_URL); ?>;
+    const rexSignerCreatePairingUrl = rexlinkApiBaseUrl + '/api/rex-signer/create_pairing.php';
+    const rexSignerPairingQrUrl = rexlinkApiBaseUrl + '/api/rex-signer/pairing_qr.php';
+    const rexSignerLoginFromSessionUrl = rexlinkApiBaseUrl + '/api/rex-signer/auth/login_from_session.php';
     const rexSignerPublicBaseUrl = <?php echo json_encode(defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL); ?>;
     const authRedirectTo = <?php echo json_encode($redirect_to !== '' ? BASE_URL . $redirect_to : BASE_URL . '/public/dashboard.php'); ?>;
     const rexLinkReferralCode = <?php echo json_encode((string) $register_referral); ?>;
@@ -1149,6 +1150,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let rexLinkAuthCompleted = false;
     let rexLinkStatusRequestInFlight = false;
     let rexLinkPairingRequestInFlight = false;
+    let rexLinkAuthPairingId = 0;
     function buildDeviceFingerprint() {
         const nav = window.navigator || {};
         const screenInfo = window.screen || {};
@@ -1191,11 +1193,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function rexAuthPostJson(url, body) {
         return fetch(url, {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body || {}),
         }).then(function(response) {
             return response.json();
+        }).catch(function(error) {
+            const message = error && error.message ? error.message : 'network error';
+            throw new Error('RexLink API is not reachable at ' + url + ' (' + message + '). Start the Node RexLink service and try again.');
         });
     }
 
@@ -1259,6 +1264,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rexAuthStopPolling();
         rexLinkStopCountdown();
         rexLinkAuthCompleted = false;
+        rexLinkAuthPairingId = 0;
         rexLinkStatusRequestInFlight = false;
         if (rexLinkRedirectTimer) {
             window.clearTimeout(rexLinkRedirectTimer);
@@ -1388,7 +1394,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         rexLinkStatusRequestInFlight = true;
-        rexAuthPostJson(rexSignerLoginFromSessionUrl, {})
+        rexAuthPostJson(rexSignerLoginFromSessionUrl, { pairing_id: rexLinkAuthPairingId })
             .then(function(data) {
                 if (rexLinkAuthCompleted) {
                     return;
@@ -1413,7 +1419,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     rexLinkSetStep('success');
                     rexLinkRedirectTimer = window.setTimeout(function() {
-                        window.location.href = authRedirectTo || data.redirect_url;
+                        window.location.href = data.redirect_url || authRedirectTo;
                     }, 1200);
                     return;
                 }
@@ -1444,8 +1450,8 @@ document.addEventListener('DOMContentLoaded', function() {
             version: Number(qrPayload.version || 2),
             code: qrPayload.code || '',
             purpose: qrPayload.purpose || 'auth',
-            api_base_url: String(qrPayload.api_base_url || rexSignerPublicBaseUrl || <?php echo json_encode(BASE_URL); ?>).replace(/\/+$/, ''),
-            base_url: String(qrPayload.base_url || rexSignerPublicBaseUrl || <?php echo json_encode(BASE_URL); ?>).replace(/\/+$/, ''),
+            api_base_url: String(qrPayload.api_base_url || rexlinkApiBaseUrl).replace(/\/+$/, ''),
+            base_url: String(qrPayload.base_url || rexlinkApiBaseUrl).replace(/\/+$/, ''),
             dapp_name: qrPayload.dapp_name || 'CoinRex',
             dapp_url: qrPayload.dapp_url || <?php echo json_encode(BASE_URL); ?>,
             network_slug: qrPayload.network_slug || 'polygon-amoy',
@@ -1538,14 +1544,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!data.success) {
                 throw new Error(data.message || 'Could not create RexLink code.');
             }
+            rexLinkAuthPairingId = Number(data.pairing_id || 0);
             if (rexLinkPairingCode) {
                 rexLinkPairingCode.textContent = data.display_code || 'Code ready';
             }
             if (data.qr_payload) {
                 const qrPayload = Object.assign({}, data.qr_payload || {}, {
                     purpose: 'auth',
-                    base_url: rexSignerPublicBaseUrl,
-                    api_base_url: rexSignerPublicBaseUrl
+                    base_url: data.qr_payload.base_url || rexlinkApiBaseUrl,
+                    api_base_url: data.qr_payload.api_base_url || rexlinkApiBaseUrl
                 });
                 rexLinkRenderQrPayload(qrPayload);
             }

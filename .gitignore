@@ -19,6 +19,7 @@
 
 # Runtime logs
 /devhub/logs/*.log
+/rexlink-service/*.log
 
 # OS / editor noise
 .DS_Store

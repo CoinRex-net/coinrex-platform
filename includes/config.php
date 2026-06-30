@@ -290,6 +290,10 @@ $public_base_url = trim((string) (getenv('COINREX_PUBLIC_BASE_URL') ?: ''));
 $public_base_url = $public_base_url !== '' ? rtrim($public_base_url, '/') : '';
 define('PUBLIC_BASE_URL_CONFIGURED', $public_base_url !== '');
 define('PUBLIC_BASE_URL', $public_base_url !== '' ? $public_base_url : BASE_URL);
+$rexlink_api_base_url = trim((string) (getenv('REXLINK_PUBLIC_API_URL') ?: ''));
+$rexlink_api_base_url = $rexlink_api_base_url !== '' ? rtrim($rexlink_api_base_url, '/') : '';
+define('REXLINK_API_BASE_URL', $rexlink_api_base_url !== '' ? $rexlink_api_base_url : BASE_URL);
+define('REXLINK_AUTH_BRIDGE_URL', BASE_URL . '/auth/rexlink_bridge.php');
 define('ASSETS_URL', BASE_URL . '/assets');
 define('AUTH_URL', BASE_URL . '/auth');
 
