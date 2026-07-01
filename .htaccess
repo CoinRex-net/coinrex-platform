@@ -1,4 +1,16 @@
 RewriteEngine On
+DirectoryIndex index.php
+Options -Indexes
+
+<FilesMatch "^(\.env|\.env\.local|\.cpanel\.yml|composer\.(json|lock|phar)|package(-lock)?\.json|phpunit\.xml\.dist|phpstan\.neon\.dist|phpcs\.xml\.dist|README\.md|CHANGELOG\.md|CONTRIBUTING\.md|SECURITY\.md|error_log)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(zip|tar|gz|rar|sql|bak)$">
+    Require all denied
+</FilesMatch>
+
+RedirectMatch 404 ^/(cache/|contracts/|database/|deployments/|docs/|includes/|node_modules/|realtime/|rex-wallet/|rexlink-service/|scripts/|src/|test/|tests/|tools/|vendor/)
 
 RewriteRule ^robots\.txt$ robots.php [L]
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
