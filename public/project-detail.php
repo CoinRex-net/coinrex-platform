@@ -36,7 +36,8 @@ $meta_description = $project_description !== ''
     ? substr($project_description, 0, 155)
     : 'View proof-backed reviews, eligibility requirements, rewards, and trust details for ' . $project_name . ' on CoinRex.';
 $meta_keywords = $project_name . ', crypto project reviews, CoinRex reviews, blockchain trust score';
-$canonical_url = coinrexSeoUrl('/public/project-detail.php?id=' . $project_id);
+$seo_base_url = defined('PUBLIC_BASE_URL') ? rtrim(PUBLIC_BASE_URL, '/') : rtrim(BASE_URL, '/');
+$canonical_url = $seo_base_url . '/public/project-detail.php?id=' . $project_id;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
