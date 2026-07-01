@@ -1,0 +1,7 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/coinwsua/public_html/
+    - /bin/rsync -av --exclude='.git/' --exclude='.env' --exclude='.env.local' --exclude='node_modules/' --exclude='uploads/' --exclude='cache/' --exclude='devhub/logs/' --exclude='composer.phar' ./ $DEPLOYPATH
+    - if [ -x /opt/cpanel/composer/bin/composer ]; then cd $DEPLOYPATH && /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader --no-interaction; fi
+    - if [ -x /usr/local/bin/composer ]; then cd $DEPLOYPATH && /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction; fi
