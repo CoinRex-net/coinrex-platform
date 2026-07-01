@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /cache/
+Disallow: /contracts/
+Disallow: /database/
+Disallow: /deployments/
+Disallow: /docs/
+Disallow: /includes/
+Disallow: /node_modules/
+Disallow: /realtime/
+Disallow: /rexlink-service/
+Disallow: /scripts/
+Disallow: /src/
+Disallow: /tests/
+Disallow: /uploads/
+Disallow: /vendor/
+Disallow: /*?th_embed=
+Disallow: /*?status=
+
+Sitemap: https://coinrex.xyz/sitemap.xml

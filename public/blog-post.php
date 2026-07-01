@@ -118,6 +118,14 @@ if (!$isMarkdown) {
     $postContentHtml .= $inlineAdHtml;
 }
 
+$postTitle = trim((string) ($post['title'] ?? 'CoinRex Blog'));
+$postExcerpt = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($post['excerpt'] ?? $rawContent ?? ''))));
+$page_title = $postTitle . ' | CoinRex';
+$meta_description = $postExcerpt !== ''
+    ? substr($postExcerpt, 0, 155)
+    : 'Read CoinRex insights about crypto reviews, Web3 trust, rewards, and safer participation.';
+$meta_keywords = 'CoinRex blog, crypto education, Web3 guide, crypto reviews';
+$canonical_url = coinrexSeoUrl('/public/blog-post.php/' . rawurlencode($slug));
 require_once __DIR__ . '/../includes/header.php';
 ?>
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/blog.css">

@@ -11,6 +11,42 @@ require_once __DIR__ . '/config.php';
 $current_page = basename($_SERVER['PHP_SELF'], '.php');
 $coinrex_embedded_learning = (string) ($_GET['th_embed'] ?? '') === '1';
 
+if (!function_exists('coinrexSeoUrl')) {
+    function coinrexSeoUrl($path = '') {
+        $base_url = defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL;
+        $base_url = rtrim((string) $base_url, '/');
+        $path = '/' . ltrim((string) $path, '/');
+
+        return $base_url . ($path === '/' ? '' : $path);
+    }
+}
+
+if (!function_exists('coinrexCanonicalUrl')) {
+    function coinrexCanonicalUrl() {
+        $script_path = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $path_info = trim((string) ($_SERVER['PATH_INFO'] ?? ''), '/');
+        $path = $script_path !== '' ? $script_path : '/';
+
+        if ($path_info !== '') {
+            $path .= '/' . $path_info;
+        }
+
+        if (basename($script_path) === 'blog-post.php') {
+            $slug = trim((string) ($_GET['slug'] ?? $path_info));
+            if ($slug !== '') {
+                $path = preg_replace('#/blog-post\.php(?:/.*)?$#', '/blog-post.php/' . rawurlencode($slug), $script_path) ?: $path;
+            }
+        } elseif (basename($script_path) === 'project-detail.php' && isset($_GET['id'])) {
+            $project_id = (int) $_GET['id'];
+            if ($project_id > 0) {
+                $path = $script_path . '?id=' . $project_id;
+            }
+        }
+
+        return coinrexSeoUrl($path);
+    }
+}
+
 if ($coinrex_embedded_learning) {
 ?>
 <!DOCTYPE html>
@@ -130,23 +166,50 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title><?php echo SITE_NAME; ?> - <?php echo SITE_TAGLINE; ?></title>
+    <?php
+    $coinrex_page_title = trim((string) ($page_title ?? ''));
+    $coinrex_meta_description = trim((string) ($meta_description ?? ''));
+    $coinrex_meta_keywords = trim((string) ($meta_keywords ?? ''));
+    $coinrex_canonical_url = trim((string) ($canonical_url ?? ''));
+    $coinrex_page_title = $coinrex_page_title !== '' ? $coinrex_page_title : (SITE_NAME . ' - ' . SITE_TAGLINE);
+    $coinrex_meta_description = $coinrex_meta_description !== ''
+        ? $coinrex_meta_description
+        : 'CoinRex helps crypto users discover projects, publish proof-backed reviews, and earn rewards through trust-driven participation.';
+    $coinrex_meta_keywords = $coinrex_meta_keywords !== ''
+        ? $coinrex_meta_keywords
+        : 'crypto reviews, blockchain projects, verified crypto reviews, crypto rewards, CoinRex';
+    $coinrex_canonical_url = $coinrex_canonical_url !== '' ? $coinrex_canonical_url : coinrexCanonicalUrl();
+    ?>
+    <title><?php echo htmlspecialchars($coinrex_page_title, ENT_QUOTES, 'UTF-8'); ?></title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="Where crypto projects get real, verified reviews from real users and expert developers. Earn rewards for honest reviews.">
-    <meta name="keywords" content="crypto reviews, blockchain projects, verified reviews, earn crypto, coinrex">
+    <meta name="description" content="<?php echo htmlspecialchars($coinrex_meta_description, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="keywords" content="<?php echo htmlspecialchars($coinrex_meta_keywords, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="author" content="CoinRex">
+    <meta name="robots" content="index,follow">
+    <meta name="theme-color" content="#0f172a">
+    <meta property="og:site_name" content="<?php echo htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:title" content="<?php echo htmlspecialchars($coinrex_page_title, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:description" content="<?php echo htmlspecialchars($coinrex_meta_description, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?php echo htmlspecialchars($coinrex_canonical_url, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:image" content="<?php echo htmlspecialchars(coinrexSeoUrl('/assets/images/logo.png'), ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?php echo htmlspecialchars($coinrex_page_title, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:description" content="<?php echo htmlspecialchars($coinrex_meta_description, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:image" content="<?php echo htmlspecialchars(coinrexSeoUrl('/assets/images/logo.png'), ENT_QUOTES, 'UTF-8'); ?>">
     
     <!-- Base URL for JS -->
     <meta name="base-url" content="<?php echo BASE_URL; ?>">
     
     <!-- Canonical URL -->
-    <link rel="canonical" href="<?php echo BASE_URL . $_SERVER['REQUEST_URI']; ?>">
+    <link rel="canonical" href="<?php echo htmlspecialchars($coinrex_canonical_url, ENT_QUOTES, 'UTF-8'); ?>">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.ico">
     <link rel="shortcut icon" type="image/x-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.ico">
     <link rel="apple-touch-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.png">
+    <link rel="manifest" href="<?php echo coinrexSeoUrl('/manifest.json'); ?>">
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/theme.css">

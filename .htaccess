@@ -1,5 +1,8 @@
 RewriteEngine On
 
+RewriteRule ^robots\.txt$ robots.php [L]
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
 <IfModule mod_php.c>
     php_value session.save_path "C:/xampp/htdocs/coinrex/cache/sessions"
 </IfModule>

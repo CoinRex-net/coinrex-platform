@@ -8,7 +8,6 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 requireFeatureAccess('projects');
 requireProjectReviewAccess('/taskhub.php');
-require_once __DIR__ . '/../includes/header.php';
 
 $project_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
@@ -30,6 +29,15 @@ if (!$project) {
 }
 
 $project_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] ?? ''));
+$project_name = trim((string) ($project['name'] ?? 'Project'));
+$project_description = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($project['description'] ?? ''))));
+$page_title = $project_name . ' Reviews, Trust Score & Rewards | CoinRex';
+$meta_description = $project_description !== ''
+    ? substr($project_description, 0, 155)
+    : 'View proof-backed reviews, eligibility requirements, rewards, and trust details for ' . $project_name . ' on CoinRex.';
+$meta_keywords = $project_name . ', crypto project reviews, CoinRex reviews, blockchain trust score';
+$canonical_url = coinrexSeoUrl('/public/project-detail.php?id=' . $project_id);
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/project-detail.css">
