@@ -92,7 +92,7 @@ composer phpstan
 - Always use prepared statements for SQL queries
 - Add CSRF protection to state-changing endpoints
 - Validate and sanitize all user input
-- Report security vulnerabilities privately to support@coinrex.com
+- Report security vulnerabilities privately to support@coinrex.xyz
 
 ## Documentation
 

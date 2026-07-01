@@ -81,8 +81,9 @@ function ensureRewardClaimSchema(PDO $db = null) {
             source VARCHAR(50) NOT NULL,
             action_type VARCHAR(50) NOT NULL,
             amount DECIMAL(18,8) NOT NULL,
-            status ENUM('pending','locked','available','claimed') NOT NULL DEFAULT 'pending',
+            status ENUM('pending','locked','available','claimed','expired') NOT NULL DEFAULT 'pending',
             reference_id VARCHAR(100) NULL,
+            expires_at DATETIME NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY idx_reward_ledger_user_status (user_id, status),
@@ -102,6 +103,39 @@ function ensureRewardClaimSchema(PDO $db = null) {
 
     if (!tableHasColumn('reward_ledger', 'user_level_at_time')) {
         $db->exec("ALTER TABLE reward_ledger ADD COLUMN user_level_at_time VARCHAR(20) NULL AFTER reference_id");
+    }
+
+    if (!tableHasColumn('reward_ledger', 'expires_at')) {
+        $db->exec("ALTER TABLE reward_ledger ADD COLUMN expires_at DATETIME NULL AFTER user_level_at_time");
+    }
+
+    try {
+        $status_definition = $db->query("SHOW COLUMNS FROM reward_ledger LIKE 'status'")->fetch();
+        if ($status_definition && stripos((string) ($status_definition['Type'] ?? ''), 'expired') === false) {
+            $db->exec("ALTER TABLE reward_ledger MODIFY status ENUM('pending','locked','available','claimed','expired') NOT NULL DEFAULT 'pending'");
+        }
+    } catch (Throwable $e) {
+        error_log('Could not expand reward ledger status enum: ' . $e->getMessage());
+    }
+
+    try {
+        $db->exec("ALTER TABLE reward_ledger ADD KEY idx_reward_ledger_expires (expires_at)");
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), '1061') === false && stripos($e->getMessage(), 'Duplicate key name') === false) {
+            error_log('Could not add reward ledger expiry index: ' . $e->getMessage());
+        }
+    }
+
+    try {
+        $db->exec("
+            UPDATE reward_ledger
+            SET expires_at = DATE_ADD(created_at, INTERVAL " . (int) EARLY_AIRDROP_UNLOCK_DAYS . " DAY)
+            WHERE action_type = 'early_adopter_airdrop'
+              AND status = 'pending'
+              AND expires_at IS NULL
+        ");
+    } catch (Throwable $e) {
+        error_log('Could not backfill early airdrop expiry dates: ' . $e->getMessage());
     }
 
     $db->exec("
@@ -334,7 +368,7 @@ function resolveRewardPhase($source, $user_level = null) {
 
 function normalizeLedgerStatus($status) {
     $status = strtolower(trim((string) $status));
-    $allowed_statuses = ['pending', 'locked', 'available', 'claimed'];
+    $allowed_statuses = ['pending', 'locked', 'available', 'claimed', 'expired'];
     return in_array($status, $allowed_statuses, true) ? $status : 'pending';
 }
 
@@ -383,7 +417,7 @@ function syncLegacyRewardCache($user_id, PDO $db = null) {
     return true;
 }
 
-function addRewardLedgerEntry($user_id, $amount, $source, $action_type = 'credit', $status = 'available', $reference_id = null, PDO $db = null, $reward_phase = null, $user_level_at_time = null) {
+function addRewardLedgerEntry($user_id, $amount, $source, $action_type = 'credit', $status = 'available', $reference_id = null, PDO $db = null, $reward_phase = null, $user_level_at_time = null, $expires_at = null) {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
 
@@ -397,6 +431,9 @@ function addRewardLedgerEntry($user_id, $amount, $source, $action_type = 'credit
         : null;
     $user_level_at_time = normalizeUserLevel($user_level_at_time ?? (getUserById($user_id)['level'] ?? 'beginner'));
     $reward_phase = normalizeRewardPhase($reward_phase ?? resolveRewardPhase($source, $user_level_at_time));
+    $expires_at = $expires_at !== null && trim((string) $expires_at) !== ''
+        ? substr(trim((string) $expires_at), 0, 19)
+        : null;
 
     if ($user_id <= 0) {
         throw new InvalidArgumentException('Invalid user ID.');
@@ -415,12 +452,28 @@ function addRewardLedgerEntry($user_id, $amount, $source, $action_type = 'credit
     }
 
     $stmt = $db->prepare("
-        INSERT INTO reward_ledger (user_id, source, reward_phase, action_type, amount, status, reference_id, user_level_at_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO reward_ledger (user_id, source, reward_phase, action_type, amount, status, reference_id, user_level_at_time, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
-    $stmt->execute([$user_id, $source, $reward_phase, $action_type, $amount, $status, $reference_id, $user_level_at_time]);
+    $stmt->execute([$user_id, $source, $reward_phase, $action_type, $amount, $status, $reference_id, $user_level_at_time, $expires_at]);
 
-    if ($amount > 0) {
+    if ($amount > 0 && $action_type === 'early_adopter_airdrop' && $status === 'pending') {
+        $expiry_label = $expires_at ? date('M d, Y', strtotime($expires_at)) : ((int) EARLY_AIRDROP_UNLOCK_DAYS . ' days');
+        createNotification('user', $user_id, [
+            'template_key' => null,
+            'event_key' => 'early_airdrop.reserved',
+            'title' => 'Early Adopter reward reserved',
+            'message' => number_format($amount, 0) . ' $REX has been reserved for you. Complete LearnHub and reach PRO Level within ' . (int) EARLY_AIRDROP_UNLOCK_DAYS . ' days, by ' . $expiry_label . ', to unlock it permanently. If not completed, it returns to the Early Adopter pool.',
+            'action_url' => '/dashboard.php',
+            'priority' => 'high',
+            'meta' => [
+                'source' => $source,
+                'reference_id' => $reference_id,
+                'status' => $status,
+                'expires_at' => $expires_at,
+            ],
+        ], $db);
+    } elseif ($amount > 0) {
         createTemplatedNotification('reward.added', 'user', $user_id, [
             'amount' => number_format($amount, 2),
             'action_type' => $action_type,
@@ -446,6 +499,7 @@ function addRewardLedgerEntry($user_id, $amount, $source, $action_type = 'credit
         'status' => $status,
         'reference_id' => $reference_id,
         'user_level_at_time' => $user_level_at_time,
+        'expires_at' => $expires_at,
     ];
 }
 
@@ -1026,7 +1080,7 @@ function ensureEarlyAirdropSchema(PDO $db = null) {
         $db->exec("
             CREATE TABLE IF NOT EXISTS early_airdrop_pool (
                 id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                remaining_rex DECIMAL(18,8) NOT NULL DEFAULT 70000000.00000000,
+                remaining_rex DECIMAL(18,8) NOT NULL DEFAULT 80000000.00000000,
                 total_allocated_signup DECIMAL(18,8) NOT NULL DEFAULT 0,
                 total_allocated_referral DECIMAL(18,8) NOT NULL DEFAULT 0,
                 signup_count INT UNSIGNED NOT NULL DEFAULT 0,
@@ -1068,6 +1122,23 @@ function ensureEarlyAirdropSchema(PDO $db = null) {
         if (strpos($e->getMessage(), '1061') === false && stripos($e->getMessage(), 'Duplicate key name') === false) {
             error_log('Could not add early airdrop reference unique key: ' . $e->getMessage());
         }
+    }
+
+    try {
+        $pool_stmt = $db->query("SELECT remaining_rex, total_allocated_signup, total_allocated_referral FROM early_airdrop_pool WHERE id = 1");
+        $pool = $pool_stmt ? $pool_stmt->fetch() : null;
+        if ($pool) {
+            $allocated = round((float) ($pool['total_allocated_signup'] ?? 0) + (float) ($pool['total_allocated_referral'] ?? 0), 8);
+            $target_remaining = max(0, round((float) EARLY_AIRDROP_POOL_TOTAL - $allocated, 8));
+            $current_remaining = round((float) ($pool['remaining_rex'] ?? 0), 8);
+            if (abs($current_remaining - $target_remaining) > 0.000001) {
+                $active = $target_remaining >= (float) EARLY_AIRDROP_SIGNUP_BONUS ? 1 : 0;
+                $sync_stmt = $db->prepare("UPDATE early_airdrop_pool SET remaining_rex = ?, is_active = ?, updated_at = NOW() WHERE id = 1");
+                $sync_stmt->execute([$target_remaining, $active]);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Could not sync early airdrop pool total: ' . $e->getMessage());
     }
 
     $schema_ready = true;
@@ -1141,9 +1212,153 @@ function getEarlyAirdropPoolState(PDO $db = null): array {
     }
 }
 
+function earlyAirdropClaimExists(?string $reference_id, PDO $db = null): bool {
+    $reference_id = $reference_id !== null ? trim($reference_id) : '';
+    if ($reference_id === '') {
+        return false;
+    }
+
+    $db = $db ?: getDBConnection();
+    ensureEarlyAirdropSchema($db);
+
+    $stmt = $db->prepare("SELECT id FROM early_airdrop_claims WHERE reference_id = ? LIMIT 1");
+    $stmt->execute([substr($reference_id, 0, 100)]);
+    return (bool) $stmt->fetch();
+}
+
+function reverseEarlyAirdropReservation(int $ledger_id, PDO $db = null): bool {
+    $db = $db ?: getDBConnection();
+    ensureEarlyAirdropSchema($db);
+
+    $started_transaction = !$db->inTransaction();
+    $savepoint = $started_transaction ? null : 'early_airdrop_pool_op';
+    try {
+        if ($started_transaction) {
+            $db->beginTransaction();
+        } else {
+            $db->exec("SAVEPOINT {$savepoint}");
+        }
+
+        $stmt = $db->prepare("
+            SELECT id, user_id, amount, reference_id
+            FROM reward_ledger
+            WHERE id = ?
+              AND action_type = 'early_adopter_airdrop'
+              AND status = 'pending'
+            FOR UPDATE
+        ");
+        $stmt->execute([(int) $ledger_id]);
+        $ledger = $stmt->fetch();
+        if (!$ledger) {
+            if ($started_transaction && $db->inTransaction()) {
+                $db->rollBack();
+            } elseif ($savepoint !== null) {
+                $db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            }
+            return false;
+        }
+
+        $amount = round((float) ($ledger['amount'] ?? 0), 8);
+        $reference_id = trim((string) ($ledger['reference_id'] ?? ''));
+        if ($amount <= 0 || $reference_id === '') {
+            $db->prepare("UPDATE reward_ledger SET status = 'expired' WHERE id = ?")->execute([(int) $ledger_id]);
+            if ($started_transaction && $db->inTransaction()) {
+                $db->commit();
+            } elseif ($savepoint !== null) {
+                $db->exec("RELEASE SAVEPOINT {$savepoint}");
+            }
+            return true;
+        }
+
+        $claim_stmt = $db->prepare("
+            SELECT id
+            FROM early_airdrop_claims
+            WHERE reference_id = ?
+              AND claim_type = 'signup_bonus'
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $claim_stmt->execute([substr($reference_id, 0, 100)]);
+        $claim = $claim_stmt->fetch();
+
+        if ($claim) {
+            $db->prepare("DELETE FROM early_airdrop_claims WHERE id = ?")->execute([(int) $claim['id']]);
+            $db->prepare("
+                UPDATE early_airdrop_pool
+                SET remaining_rex = LEAST(?, remaining_rex + ?),
+                    total_allocated_signup = GREATEST(0, total_allocated_signup - ?),
+                    signup_count = GREATEST(0, signup_count - 1),
+                    is_active = CASE WHEN LEAST(?, remaining_rex + ?) >= ? THEN 1 ELSE is_active END,
+                    updated_at = NOW()
+                WHERE id = 1
+            ")->execute([
+                (float) EARLY_AIRDROP_POOL_TOTAL,
+                $amount,
+                $amount,
+                (float) EARLY_AIRDROP_POOL_TOTAL,
+                $amount,
+                (float) EARLY_AIRDROP_SIGNUP_BONUS,
+            ]);
+        }
+
+        $db->prepare("UPDATE reward_ledger SET status = 'expired' WHERE id = ?")->execute([(int) $ledger_id]);
+        syncLegacyRewardCache((int) ($ledger['user_id'] ?? 0), $db);
+
+        if ($started_transaction && $db->inTransaction()) {
+            $db->commit();
+        } elseif ($savepoint !== null) {
+            $db->exec("RELEASE SAVEPOINT {$savepoint}");
+        }
+        return true;
+    } catch (Throwable $e) {
+        if ($started_transaction && $db->inTransaction()) {
+            $db->rollBack();
+        } elseif ($savepoint !== null && $db->inTransaction()) {
+            try {
+                $db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            } catch (Throwable $rollback_error) {
+                error_log('Early airdrop reverse savepoint rollback failed: ' . $rollback_error->getMessage());
+            }
+        }
+        error_log('Early airdrop reservation reverse failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function expireEarlyAirdropReservations(PDO $db = null, ?int $user_id = null): int {
+    $db = $db ?: getDBConnection();
+    ensureEarlyAirdropSchema($db);
+
+    $where_user = $user_id !== null && $user_id > 0 ? ' AND user_id = ?' : '';
+    $stmt = $db->prepare("
+        SELECT id
+        FROM reward_ledger
+        WHERE action_type = 'early_adopter_airdrop'
+          AND status = 'pending'
+          AND expires_at IS NOT NULL
+          AND expires_at < NOW()
+          {$where_user}
+        ORDER BY id ASC
+        LIMIT 500
+    ");
+    $params = $where_user !== '' ? [(int) $user_id] : [];
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+
+    $expired = 0;
+    foreach ($rows as $row) {
+        if (reverseEarlyAirdropReservation((int) ($row['id'] ?? 0), $db)) {
+            $expired++;
+        }
+    }
+
+    return $expired;
+}
+
 function unlockPendingEarlyAirdropForUser(int $user_id, PDO $db = null): array {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
+    expireEarlyAirdropReservations($db, $user_id);
 
     $user_id = (int) $user_id;
     if ($user_id <= 0) {
@@ -1165,7 +1380,7 @@ function unlockPendingEarlyAirdropForUser(int $user_id, PDO $db = null): array {
     }
 
     $pending_stmt = $db->prepare("
-        SELECT id, amount, action_type
+        SELECT id, amount, action_type, reference_id
         FROM reward_ledger
         WHERE user_id = ?
           AND status = 'pending'
@@ -1189,8 +1404,9 @@ function unlockPendingEarlyAirdropForUser(int $user_id, PDO $db = null): array {
         $claim_type = (string) ($row['action_type'] ?? '') === 'early_adopter_referral'
             ? 'referral_bonus'
             : 'signup_bonus';
+        $reference_id = trim((string) ($row['reference_id'] ?? ''));
 
-        if (!deductEarlyAirdropPool($user_id, $claim_type, $amount, $db)) {
+        if (!earlyAirdropClaimExists($reference_id, $db) && !deductEarlyAirdropPool($user_id, $claim_type, $amount, $db, $reference_id !== '' ? $reference_id : null)) {
             continue;
         }
 
@@ -1221,24 +1437,38 @@ function unlockPendingEarlyAirdropForUser(int $user_id, PDO $db = null): array {
  * Deduct from the early airdrop pool and log the claim.
  * Returns true if deduction succeeded, false if pool is insufficient.
  */
-function deductEarlyAirdropPool(int $user_id, string $claim_type, float $amount, PDO $db = null): bool {
+function deductEarlyAirdropPool(int $user_id, string $claim_type, float $amount, PDO $db = null, ?string $reference_id = null): bool {
     $db = $db ?: getDBConnection();
     ensureEarlyAirdropSchema($db);
 
+    $started_transaction = !$db->inTransaction();
+    $savepoint = $started_transaction ? null : 'early_airdrop_pool_op';
     try {
-        $db->beginTransaction();
+        if ($started_transaction) {
+            $db->beginTransaction();
+        } else {
+            $db->exec("SAVEPOINT {$savepoint}");
+        }
 
         // Lock the pool row for update
         $stmt = $db->query("SELECT remaining_rex, is_active FROM early_airdrop_pool WHERE id = 1 FOR UPDATE");
         $pool = $stmt->fetch();
 
         if (!$pool) {
-            $db->rollBack();
+            if ($started_transaction && $db->inTransaction()) {
+                $db->rollBack();
+            } elseif ($savepoint !== null) {
+                $db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            }
             return false;
         }
 
         if ((int) ($pool['is_active'] ?? 0) !== 1) {
-            $db->rollBack();
+            if ($started_transaction && $db->inTransaction()) {
+                $db->rollBack();
+            } elseif ($savepoint !== null) {
+                $db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            }
             return false;
         }
 
@@ -1246,7 +1476,25 @@ function deductEarlyAirdropPool(int $user_id, string $claim_type, float $amount,
         if ($remaining < $amount) {
             // Deactivate pool since it's exhausted
             $db->exec("UPDATE early_airdrop_pool SET is_active = 0 WHERE id = 1");
-            $db->rollBack();
+            if ($started_transaction && $db->inTransaction()) {
+                $db->rollBack();
+            } elseif ($savepoint !== null) {
+                $db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            }
+            return false;
+        }
+
+        $reference_id = $reference_id !== null && trim($reference_id) !== ''
+            ? substr(trim($reference_id), 0, 100)
+            : 'early_airdrop:' . $claim_type . ':' . $user_id;
+        $existing_claim = $db->prepare("SELECT id FROM early_airdrop_claims WHERE reference_id = ? LIMIT 1");
+        $existing_claim->execute([$reference_id]);
+        if ($existing_claim->fetch()) {
+            if ($started_transaction && $db->inTransaction()) {
+                $db->rollBack();
+            } elseif ($savepoint !== null) {
+                $db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            }
             return false;
         }
 
@@ -1268,14 +1516,6 @@ function deductEarlyAirdropPool(int $user_id, string $claim_type, float $amount,
         $stmt->execute([$amount, $amount]);
 
         // Log the claim
-        $reference_id = 'early_airdrop:' . $claim_type . ':' . $user_id;
-        $existing_claim = $db->prepare("SELECT id FROM early_airdrop_claims WHERE reference_id = ? LIMIT 1");
-        $existing_claim->execute([$reference_id]);
-        if ($existing_claim->fetch()) {
-            $db->rollBack();
-            return false;
-        }
-
         $stmt = $db->prepare("INSERT INTO early_airdrop_claims (user_id, claim_type, amount, reference_id) VALUES (?, ?, ?, ?)");
         $stmt->execute([$user_id, $claim_type, $amount, $reference_id]);
 
@@ -1286,11 +1526,21 @@ function deductEarlyAirdropPool(int $user_id, string $claim_type, float $amount,
             $db->exec("UPDATE early_airdrop_pool SET is_active = 0 WHERE id = 1");
         }
 
-        $db->commit();
+        if ($started_transaction && $db->inTransaction()) {
+            $db->commit();
+        } elseif ($savepoint !== null) {
+            $db->exec("RELEASE SAVEPOINT {$savepoint}");
+        }
         return true;
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
+        if ($started_transaction && $db->inTransaction()) {
             $db->rollBack();
+        } elseif ($savepoint !== null && $db->inTransaction()) {
+            try {
+                $db->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+            } catch (Throwable $rollback_error) {
+                error_log('Early airdrop savepoint rollback failed: ' . $rollback_error->getMessage());
+            }
         }
         return false;
     }
@@ -1313,6 +1563,39 @@ function getPendingAirdropAmount(int $user_id, PDO $db = null): float {
         return (float) ($stmt->fetch()['total'] ?? 0);
     } catch (Throwable $e) {
         return 0;
+    }
+}
+
+function getPendingAirdropDetails(int $user_id, PDO $db = null): array {
+    $db = $db ?: getDBConnection();
+    expireEarlyAirdropReservations($db, $user_id);
+
+    try {
+        $stmt = $db->prepare("
+            SELECT COALESCE(SUM(amount), 0) AS total,
+                   MIN(expires_at) AS expires_at
+            FROM reward_ledger
+            WHERE user_id = ?
+              AND status = 'pending'
+              AND action_type = 'early_adopter_airdrop'
+        ");
+        $stmt->execute([(int) $user_id]);
+        $row = $stmt->fetch() ?: [];
+        $expires_at = (string) ($row['expires_at'] ?? '');
+        $expires_ts = $expires_at !== '' ? strtotime($expires_at) : false;
+        $seconds_remaining = $expires_ts ? max(0, $expires_ts - time()) : null;
+
+        return [
+            'amount' => (float) ($row['total'] ?? 0),
+            'expires_at' => $expires_at,
+            'days_remaining' => $seconds_remaining !== null ? (int) ceil($seconds_remaining / 86400) : null,
+        ];
+    } catch (Throwable $e) {
+        return [
+            'amount' => 0.0,
+            'expires_at' => '',
+            'days_remaining' => null,
+        ];
     }
 }
 

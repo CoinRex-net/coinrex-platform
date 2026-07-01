@@ -122,6 +122,8 @@ $show_devhub_nav = featureIsVisible('devhub_full') || featureIsVisible('devhub_a
 $show_login_nav = featureIsVisible('login');
 $can_access_claim_center_nav = $is_logged_in && $show_claim_center_nav;
 $claim_center_accessible_nav = featureIsAccessible('claim_center');
+$learnhub_nav_url = BASE_URL . '/public/taskhub.php';
+$boosthub_nav_url = BASE_URL . '/public/boosthub.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -244,44 +246,32 @@ $claim_center_accessible_nav = featureIsAccessible('claim_center');
                     <span>Projects</span>
                 </a>
                 <?php endif; ?>
-                <?php if($show_reviews_nav): ?>
-                <a href="<?php echo BASE_URL; ?>/public/reviews.php" class="<?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
-                    <i class="fas fa-star"></i>
-                    <span>Reviews</span>
-                </a>
-                <?php endif; ?>
-                <?php if($can_access_taskhub_nav && $show_learnhub_nav): ?>
-                    <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="<?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
+                <?php if($show_learnhub_nav): ?>
+                    <a href="<?php echo $learnhub_nav_url; ?>" class="<?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
                         <i class="fas fa-list-check"></i>
-                        <span>LearnHub</span>
+                        <span class="nex-nav-label">LearnHub <span class="nex-hot-badge">HOT</span></span>
                     </a>
                 <?php endif; ?>
-                <?php if($is_logged_in && $show_boosthub_nav): ?>
-                    <a href="<?php echo BASE_URL; ?>/public/boosthub.php" class="<?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
+                <?php if($show_boosthub_nav): ?>
+                    <a href="<?php echo $boosthub_nav_url; ?>" class="<?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
                         <i class="fas fa-bolt"></i>
                         <span>BoostHub</span>
                     </a>
                 <?php endif; ?>
-                <?php if($show_devhub_nav): ?>
-                <a href="<?php echo BASE_URL; ?>/devhub/index.php" class="<?php echo $is_devhub_request ? 'active' : ''; ?>">
-                    <i class="fas fa-code"></i>
-                    <span>Dev Hub</span>
-                </a>
-                <?php endif; ?>
-                <?php if(!$is_logged_in): ?>
-                    <a href="<?php echo BASE_URL; ?>/public/roadmap.php" class="<?php echo ($current_page == 'roadmap') ? 'active' : ''; ?>">
-                        <i class="fas fa-route"></i>
-                        <span>Roadmap</span>
-                    </a>
-                    <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="<?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
-                        <i class="fas fa-file-alt"></i>
-                        <span>Litepaper</span>
-                    </a>
-                    <a href="<?php echo BASE_URL; ?>/public/blog.php" class="<?php echo in_array($current_page, ['blog', 'blog-post', 'blog-category', 'blog-tag'], true) ? 'active' : ''; ?>">
-                        <i class="fas fa-blog"></i>
-                        <span>Blog</span>
-                    </a>
-                <?php endif; ?>
+                <?php $resources_active = in_array($current_page, ['roadmap', 'litepaper', 'blog', 'blog-post', 'blog-category', 'blog-tag', 'about'], true); ?>
+                <div class="nex-resource-menu">
+                    <button type="button" class="nex-resource-trigger <?php echo $resources_active ? 'active' : ''; ?>" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-layer-group"></i>
+                        <span>Resources</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="nex-dropdown nex-resource-dropdown">
+                        <a href="<?php echo BASE_URL; ?>/public/roadmap.php"><i class="fas fa-route"></i><span class="nex-dropdown-link-label">Roadmap</span></a>
+                        <a href="<?php echo BASE_URL; ?>/public/litepaper.php"><i class="fas fa-file-alt"></i><span class="nex-dropdown-link-label">Litepaper</span></a>
+                        <a href="<?php echo BASE_URL; ?>/public/blog.php"><i class="fas fa-blog"></i><span class="nex-dropdown-link-label">Blog</span></a>
+                        <a href="<?php echo BASE_URL; ?>/public/about.php"><i class="fas fa-circle-info"></i><span class="nex-dropdown-link-label">About Us</span></a>
+                    </div>
+                </div>
             </div>
 
             <!-- Right Actions -->
@@ -373,61 +363,34 @@ $claim_center_accessible_nav = featureIsAccessible('claim_center');
 
 <!-- Mobile Bottom Navigation Bar (appears only on mobile) -->
 <div class="mobile-bottom-nav">
+    <a href="<?php echo $learnhub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
+        <span class="mobile-nav-icon-wrap">
+            <i class="fas fa-list-check"></i>
+            <span class="mobile-hot-badge">HOT</span>
+        </span>
+        <span class="mobile-nav-label">LearnHub</span>
+    </a>
+    <a href="<?php echo $boosthub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
+        <i class="fas fa-bolt"></i>
+        <span>BoostHub</span>
+    </a>
+    <a href="<?php echo $home_url; ?>" class="mobile-nav-item mobile-nav-home <?php echo $home_active ? 'active' : ''; ?>">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+    </a>
     <?php if($is_logged_in): ?>
-        <?php if ($show_dashboard_nav): ?>
-        <a href="<?php echo $home_url; ?>" class="mobile-nav-item <?php echo $home_active ? 'active' : ''; ?>">
-            <i class="fas fa-gem"></i>
-            <span>RexHub</span>
-        </a>
-        <?php endif; ?>
-        <?php if($show_projects_nav): ?>
         <a href="<?php echo BASE_URL; ?>/public/projects.php" class="mobile-nav-item <?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
             <i class="fas fa-chart-line"></i>
             <span>Projects</span>
         </a>
-        <?php endif; ?>
-        <?php if($show_reviews_nav): ?>
         <a href="<?php echo BASE_URL; ?>/public/reviews.php" class="mobile-nav-item <?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
             <i class="fas fa-star"></i>
             <span>Reviews</span>
         </a>
-        <?php endif; ?>
-        <?php if($can_access_taskhub_nav && $show_learnhub_nav): ?>
-            <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="mobile-nav-item <?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
-                <i class="fas fa-list-check"></i>
-                <span>LearnHub</span>
-            </a>
-        <?php endif; ?>
-        <?php if($show_devhub_nav): ?>
-        <a href="<?php echo BASE_URL; ?>/devhub/index.php" class="mobile-nav-item <?php echo $is_devhub_request ? 'active' : ''; ?>">
-            <i class="fas fa-code"></i>
-            <span>DevHub</span>
-        </a>
-        <?php endif; ?>
     <?php else: ?>
-        <a href="<?php echo $home_url; ?>" class="mobile-nav-item <?php echo $home_active ? 'active' : ''; ?>">
-            <i class="fas fa-home"></i>
-            <span>Home</span>
-        </a>
-        <?php if($show_projects_nav): ?>
-        <a href="<?php echo BASE_URL; ?>/public/projects.php" class="mobile-nav-item <?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
-            <i class="fas fa-chart-line"></i>
-            <span>Projects</span>
-        </a>
-        <?php endif; ?>
-        <?php if($show_reviews_nav): ?>
-        <a href="<?php echo BASE_URL; ?>/public/reviews.php" class="mobile-nav-item <?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
-            <i class="fas fa-star"></i>
-            <span>Reviews</span>
-        </a>
-        <?php endif; ?>
         <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="mobile-nav-item <?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
             <i class="fas fa-file-alt"></i>
             <span>Litepaper</span>
-        </a>
-        <a href="<?php echo BASE_URL; ?>/public/blog.php" class="mobile-nav-item <?php echo in_array($current_page, ['blog', 'blog-post', 'blog-category', 'blog-tag'], true) ? 'active' : ''; ?>">
-            <i class="fas fa-blog"></i>
-            <span>Blog</span>
         </a>
         <a href="<?php echo BASE_URL; ?>/public/roadmap.php" class="mobile-nav-item <?php echo ($current_page == 'roadmap') ? 'active' : ''; ?>">
             <i class="fas fa-route"></i>

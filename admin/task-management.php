@@ -778,7 +778,7 @@ function saveDayTitle(btn) {
                 <div class="modal-tab-content" id="tabDetails">
                     <div class="modal-field">
                         <label>Destination Link <span class="muted">(optional)</span></label>
-                        <input type="text" name="task_link" id="f_task_link" placeholder="https://coinrex.com/some-page">
+                        <input type="text" name="task_link" id="f_task_link" placeholder="https://coinrex.xyz/some-page">
                         <p class="field-hint">URL users must visit to complete the task. Leave empty if not needed.</p>
                     </div>
                     <div class="modal-field">

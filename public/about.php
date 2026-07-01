@@ -1,7 +1,7 @@
 <?php
 /**
  * CoinRex About Us Page
- * Location: /coinrex/about.php
+ * Location: /coinrex/public/about.php
  */
 
 require_once __DIR__ . '/../includes/config.php';
@@ -58,8 +58,8 @@ $reviews_display = formatStatNumber($total_reviews);
                 </div>
                 <h1 class="hero-title animate-fade-up">About <span class="gradient-text">CoinRex</span></h1>
                 <p class="hero-description animate-fade-up delay-1">
-                    CoinRex is a next-generation platform designed to connect crypto projects with real users 
-                    through honest engagement, meaningful contributions, and reward-based participation.
+                    CoinRex is a proof-backed crypto review platform where users explore projects,
+                    submit verified experiences, earn $REX rewards, and help builders grow through public trust.
                 </p>
                 <div class="hero-stats animate-fade-up delay-2">
                     <div class="hero-stat">
@@ -92,22 +92,22 @@ $reviews_display = formatStatNumber($total_reviews);
                     <i class="fas fa-rocket"></i>
                 </div>
                 <h2 class="animate-fade-up">Our Mission</h2>
-                <p class="mission-quote animate-fade-up delay-1">👉 Bring transparency, trust, and real value to the crypto ecosystem</p>
+                <p class="mission-quote animate-fade-up delay-1">Bring transparency, trust, and real value to the crypto ecosystem.</p>
                 <div class="mission-grid">
                     <div class="mission-card animate-fade-up delay-2">
                         <i class="fas fa-chart-line"></i>
                         <h3>Projects gain</h3>
-                        <p>genuine exposure</p>
+                        <p>public credibility</p>
                     </div>
                     <div class="mission-card animate-fade-up delay-3">
                         <i class="fas fa-users"></i>
                         <h3>Users earn through</h3>
-                        <p>real participation</p>
+                        <p>proof-backed participation</p>
                     </div>
                     <div class="mission-card animate-fade-up delay-4">
                         <i class="fas fa-handshake"></i>
-                        <h3>The community grows</h3>
-                        <p>through trust and proof</p>
+                        <h3>The ecosystem grows</h3>
+                        <p>through moderation and proof</p>
                     </div>
                 </div>
             </div>
@@ -127,22 +127,22 @@ $reviews_display = formatStatNumber($total_reviews);
                     <div class="whatwedo-card animate-fade-up delay-2">
                         <i class="fas fa-pen-alt"></i>
                         <h3>Submit quality reviews</h3>
-                        <p>backed by proof (transaction hash & screenshots)</p>
+                        <p>backed by wallet checks, holding details, and optional screenshots</p>
                     </div>
                     <div class="whatwedo-card animate-fade-up delay-3">
-                        <i class="fas fa-vote-yea"></i>
-                        <h3>Cast votes</h3>
-                        <p>on projects</p>
+                        <i class="fas fa-search"></i>
+                        <h3>Explore listed projects</h3>
+                        <p>with ratings, review history, and trust signals</p>
                     </div>
                     <div class="whatwedo-card animate-fade-up delay-4">
                         <i class="fas fa-tasks"></i>
-                        <h3>Complete simple tasks</h3>
-                        <p>and earn rewards</p>
+                        <h3>Complete TaskHub and BoostHub missions</h3>
+                        <p>to learn, progress, and earn rewards</p>
                     </div>
                     <div class="whatwedo-card animate-fade-up delay-5">
                         <i class="fas fa-link"></i>
-                        <h3>Invite others</h3>
-                        <p>and grow through referrals</p>
+                        <h3>Use RexLink and reward tools</h3>
+                        <p>for wallet-linked approvals and claim readiness</p>
                     </div>
                 </div>
                 <p class="whatwedo-footer animate-fade-up delay-6">Every action is designed to ensure real engagement, not artificial metrics.</p>
@@ -158,7 +158,7 @@ $reviews_display = formatStatNumber($total_reviews);
                     <i class="fas fa-coins"></i>
                 </div>
                 <h2 class="animate-fade-up">The $REX Reward System</h2>
-                <p class="animate-fade-up delay-1">At the core of CoinRex is <strong class="highlight">$REX</strong>, our internal reward currency.</p>
+                <p class="animate-fade-up delay-1">At the core of CoinRex is <strong class="highlight">$REX</strong>, our platform reward system.</p>
                 <div class="rex-grid animate-fade-up delay-2">
                     <div class="rex-card">
                         <i class="fas fa-check-circle"></i>
@@ -170,7 +170,7 @@ $reviews_display = formatStatNumber($total_reviews);
                     </div>
                     <div class="rex-card">
                         <i class="fas fa-check-circle"></i>
-                        <span>Participating in voting</span>
+                        <span>Passing proof and eligibility checks</span>
                     </div>
                     <div class="rex-card">
                         <i class="fas fa-check-circle"></i>
@@ -179,7 +179,7 @@ $reviews_display = formatStatNumber($total_reviews);
                 </div>
                 <div class="rex-future animate-fade-up delay-3">
                     <i class="fas fa-chart-line"></i>
-                    <p>🔮 In the future, $REX is planned to evolve into a blockchain-based token, bringing even more utility and value to our ecosystem.</p>
+                    <p>$REX rewards are tracked through the ledger, claim snapshots, and RexLink approval flows as CoinRex moves toward broader on-chain utility.</p>
                 </div>
             </div>
         </div>
@@ -193,7 +193,7 @@ $reviews_display = formatStatNumber($total_reviews);
                     <i class="fas fa-chart-simple"></i>
                 </div>
                 <h2 class="animate-fade-up">Growth & Recognition</h2>
-                <p class="animate-fade-up delay-1">CoinRex isn't just about earning — it's about progression and recognition.</p>
+                <p class="animate-fade-up delay-1">CoinRex is not just about earning; it is about progression, proof, and recognition.</p>
                 <div class="growth-levels animate-fade-up delay-2">
                     <div class="level beginner">
                         <i class="fas fa-seedling"></i>
@@ -204,7 +204,7 @@ $reviews_display = formatStatNumber($total_reviews);
                     </div>
                     <div class="level premium">
                         <i class="fas fa-gem"></i>
-                        <span>Premium</span>
+                        <span>Pro</span>
                     </div>
                     <div class="level-arrow">
                         <i class="fas fa-arrow-right"></i>
@@ -228,7 +228,7 @@ $reviews_display = formatStatNumber($total_reviews);
                         <span>Building strong referral networks</span>
                     </div>
                 </div>
-                <p class="animate-fade-up delay-4">From Beginner to Expert, each level unlocks new status, credibility, and rewards.</p>
+                <p class="animate-fade-up delay-4">From Beginner to Pro to Expert, each level unlocks stronger access, credibility, and reward opportunities.</p>
             </div>
         </div>
     </section>
@@ -240,12 +240,12 @@ $reviews_display = formatStatNumber($total_reviews);
                 <div class="section-icon animate-scale">
                     <i class="fas fa-building"></i>
                 </div>
-                <h2 class="animate-fade-up">🌐 For Projects</h2>
+                <h2 class="animate-fade-up">For Projects</h2>
                 <p class="animate-fade-up delay-1">We provide a platform where crypto projects can:</p>
                 <div class="projects-grid animate-fade-up delay-2">
                     <div class="project-benefit">
                         <i class="fas fa-list"></i>
-                        <span>Get listed and discovered</span>
+                        <span>Submit projects through DevHub</span>
                     </div>
                     <div class="project-benefit">
                         <i class="fas fa-comment-dots"></i>
@@ -253,14 +253,14 @@ $reviews_display = formatStatNumber($total_reviews);
                     </div>
                     <div class="project-benefit">
                         <i class="fas fa-shield-alt"></i>
-                        <span>Build trust through verified reviews</span>
+                        <span>Build trust through proof-backed reviews</span>
                     </div>
                     <div class="project-benefit">
                         <i class="fas fa-chart-line"></i>
-                        <span>Grow organically with real users</span>
+                        <span>Grow through listings, widgets, and sponsored visibility</span>
                     </div>
                 </div>
-                <p class="projects-footer animate-fade-up delay-3">Our goal is to help projects succeed through community-driven validation, not paid hype.</p>
+                <p class="projects-footer animate-fade-up delay-3">Our goal is to help projects earn attention through community validation, moderation, and transparent trust signals.</p>
             </div>
         </div>
     </section>
@@ -295,7 +295,7 @@ $reviews_display = formatStatNumber($total_reviews);
                         <p>real participation</p>
                     </div>
                 </div>
-                <p class="animate-fade-up delay-6">As we grow, we plan to introduce advanced features, expand our reward system, and eventually launch the $REX token to further empower our users.</p>
+                <p class="animate-fade-up delay-6">As we grow, CoinRex will keep expanding reviews, DevHub, rewards, RexLink, and on-chain utility around one principle: trust before hype.</p>
             </div>
         </div>
     </section>
@@ -310,7 +310,7 @@ $reviews_display = formatStatNumber($total_reviews);
                 <h2 class="animate-fade-up">Why CoinRex?</h2>
                 <div class="why-compare animate-fade-up delay-1">
                     <div class="why-bad">
-                        <h3>❌ No</h3>
+                        <h3>No</h3>
                         <ul>
                             <li>Fake engagement</li>
                             <li>Bots</li>
@@ -318,7 +318,7 @@ $reviews_display = formatStatNumber($total_reviews);
                         </ul>
                     </div>
                     <div class="why-good">
-                        <h3>✔ Only</h3>
+                        <h3>Only</h3>
                         <ul>
                             <li>Real users</li>
                             <li>Real actions</li>
@@ -335,7 +335,7 @@ $reviews_display = formatStatNumber($total_reviews);
         <div class="about-container">
             <div class="cta-content">
                 <h2 class="animate-fade-up">Join the Movement</h2>
-                <p class="animate-fade-up delay-1">CoinRex is built for the future of crypto — where trust, transparency, and community come first.</p>
+                <p class="animate-fade-up delay-1">CoinRex is built for the future of crypto, where trust, transparency, and community come first.</p>
                 <div class="cta-buttons animate-fade-up delay-2">
                     <a href="<?php echo BASE_URL; ?>/auth/auth.php?tab=register" class="btn btn-primary">
                         <i class="fas fa-user-plus"></i> Join Now
@@ -344,7 +344,7 @@ $reviews_display = formatStatNumber($total_reviews);
                         <i class="fas fa-chart-line"></i> Explore Projects
                     </a>
                 </div>
-                <p class="cta-subtitle animate-fade-up delay-3">👉 CoinRex is your platform.</p>
+                <p class="cta-subtitle animate-fade-up delay-3">CoinRex is your platform.</p>
             </div>
         </div>
     </section>

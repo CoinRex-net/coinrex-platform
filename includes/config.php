@@ -304,7 +304,7 @@ define('ENCRYPTION_KEY', getenv('COINREX_ENCRYPTION_KEY') ?: '');
 // Site Settings
 define('SITE_NAME', 'CoinRex');
 define('SITE_TAGLINE', 'Where crypto projects get their crown');
-define('SITE_EMAIL', 'support@coinrex.com');
+define('SITE_EMAIL', 'support@coinrex.xyz');
 
 // Mail Settings
 define('MAIL_SMTP_HOST', getenv('COINREX_SMTP_HOST') ?: 'smtp.gmail.com');
@@ -338,10 +338,11 @@ define('FEATURE_MIN_APPROVED_REVIEWS', 100);
 define('REWARD_CLAIM_MINIMUM_REX', 100);
 define('REFERRAL_MIN_COMPLETED_TASKS', 3);
 
-// Early Adopter Airdrop Settings (7% of 1B REX)
-define('EARLY_AIRDROP_POOL_TOTAL', 70000000);
+// Early Adopter Airdrop Settings
+define('EARLY_AIRDROP_POOL_TOTAL', 80000000);
 define('EARLY_AIRDROP_SIGNUP_BONUS', 1000);
 define('EARLY_AIRDROP_REFERRAL_BONUS', 50);
+define('EARLY_AIRDROP_UNLOCK_DAYS', 30);
 define('PRO_MIN_COMPLETED_TASKS', 7);
 define('PRO_MIN_VALID_REFERRALS', 1);
 define('PRO_MIN_ACCOUNT_AGE_DAYS', 7);

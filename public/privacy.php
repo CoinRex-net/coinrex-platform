@@ -1,7 +1,7 @@
 <?php
 /**
  * CoinRex Privacy Policy Page
- * Location: /coinrex/privacy.php
+ * Location: /coinrex/public/privacy.php
  */
 
 require_once __DIR__ . '/../includes/config.php';
@@ -22,7 +22,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <h1 class="hero-title animate-fade-up">Privacy <span class="gradient-text">Policy</span></h1>
                 <p class="hero-description animate-fade-up delay-1">
                     This policy explains what data CoinRex collects, why it is needed, and how we protect
-                    your information across authentication, rewards, and platform activity.
+                    your information across authentication, reviews, rewards, RexLink, and platform activity.
                 </p>
                 <div class="hero-stats animate-fade-up delay-2">
                     <div class="hero-stat">
@@ -95,10 +95,10 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="terms-card-body">
                         <p>We may collect the following information:</p>
                         <div class="terms-dual-grid">
-                            <div class="terms-mini-panel good"><h3>Personal Data</h3><ul class="terms-list"><li><i class="fas fa-check-circle"></i> Full name</li><li><i class="fas fa-check-circle"></i> Email address</li><li><i class="fas fa-check-circle"></i> Account credentials</li></ul></div>
-                            <div class="terms-mini-panel"><h3>Usage Data</h3><ul class="terms-list"><li><i class="fas fa-check-circle"></i> IP address</li><li><i class="fas fa-check-circle"></i> Device and browser information</li><li><i class="fas fa-check-circle"></i> Activity on the platform</li></ul></div>
+                            <div class="terms-mini-panel good"><h3>Account Data</h3><ul class="terms-list"><li><i class="fas fa-check-circle"></i> Name, username, and email address</li><li><i class="fas fa-check-circle"></i> Password hash and verification status</li><li><i class="fas fa-check-circle"></i> Referral and account-level information</li></ul></div>
+                            <div class="terms-mini-panel"><h3>Usage &amp; Security Data</h3><ul class="terms-list"><li><i class="fas fa-check-circle"></i> IP address, device, browser, and session signals</li><li><i class="fas fa-check-circle"></i> Platform actions, task progress, and notification activity</li><li><i class="fas fa-check-circle"></i> Anti-abuse, rate-limit, and fraud review signals</li></ul></div>
                         </div>
-                        <div class="terms-callout info"><i class="fas fa-user-plus"></i><div><p>Optional profile details and referral activity may also be stored when provided by you.</p></div></div>
+                        <div class="terms-callout info"><i class="fas fa-user-plus"></i><div><p>We may also store optional profile details, project/review content, proof uploads, wallet addresses, RexLink pairing/session metadata, claim records, and DevHub project details when you use those features.</p></div></div>
                     </div>
                 </article>
 
@@ -107,7 +107,8 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="terms-card-body">
                         <ul class="terms-list">
                             <li><i class="fas fa-check-circle"></i> Create and manage your account</li>
-                            <li><i class="fas fa-check-circle"></i> Provide platform features and rewards</li>
+                            <li><i class="fas fa-check-circle"></i> Provide reviews, projects, TaskHub, BoostHub, RexLink, DevHub, and reward features</li>
+                            <li><i class="fas fa-check-circle"></i> Verify wallet-linked review eligibility and claim approvals</li>
                             <li><i class="fas fa-check-circle"></i> Improve user experience</li>
                             <li><i class="fas fa-check-circle"></i> Prevent fraud and abuse</li>
                             <li><i class="fas fa-check-circle"></i> Communicate updates and support</li>
@@ -120,7 +121,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="terms-card-body">
                         <ul class="terms-list">
                             <li><i class="fas fa-check-circle"></i> Enhance user experience</li>
-                            <li><i class="fas fa-check-circle"></i> Track platform usage</li>
+                            <li><i class="fas fa-check-circle"></i> Understand platform usage and reliability</li>
                             <li><i class="fas fa-check-circle"></i> Maintain login sessions</li>
                         </ul>
                         <p>You can disable cookies through your browser settings.</p>
@@ -132,7 +133,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="terms-card-body">
                         <p><strong>We do not sell your personal data.</strong></p>
                         <ul class="terms-list">
-                            <li><i class="fas fa-check-circle"></i> With trusted service providers (hosting, analytics)</li>
+                            <li><i class="fas fa-check-circle"></i> With trusted service providers such as hosting, email, analytics, realtime, wallet/RPC, or infrastructure providers</li>
                             <li><i class="fas fa-check-circle"></i> When required by law</li>
                             <li><i class="fas fa-check-circle"></i> To protect platform security</li>
                         </ul>
@@ -161,7 +162,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <article class="terms-card animate-fade-up delay-3">
                     <div class="terms-card-head"><div class="section-number">8</div><div><h2>Third-Party Services</h2><p>External providers may have separate privacy policies.</p></div></div>
                     <div class="terms-card-body">
-                        <p>CoinRex may integrate third-party services (e.g., Google login).</p>
+                        <p>CoinRex may integrate third-party services such as email delivery, hosting, analytics, wallet providers, browser wallets, blockchain RPC services, and realtime infrastructure.</p>
                         <div class="terms-callout info"><i class="fas fa-external-link-alt"></i><div><p>These services have their own privacy policies, and we are not responsible for their practices.</p></div></div>
                     </div>
                 </article>

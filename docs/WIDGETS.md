@@ -10,7 +10,7 @@ CoinRex now supports embeddable rating widgets powered by the existing CoinRex r
 ## Basic embed
 
 ```html
-<script src="https://coinrex.net/widget.js" async></script>
+<script src="https://coinrex.xyz/widget.js" async></script>
 
 <div
   class="coinrex-widget"
@@ -27,7 +27,7 @@ CoinRex now supports embeddable rating widgets powered by the existing CoinRex r
 Use a signed token when embedding on third-party domains in production.
 
 ```html
-<script src="https://coinrex.net/widget.js" async></script>
+<script src="https://coinrex.xyz/widget.js" async></script>
 
 <div
   class="coinrex-widget"

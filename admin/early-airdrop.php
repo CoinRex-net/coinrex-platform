@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/pagination.php';
 
 $db = getDBConnection();
 ensureEarlyAirdropSchema($db);
+expireEarlyAirdropReservations($db);
 
 // ── Stats (always computed) ──
 $pool_total = (float) EARLY_AIRDROP_POOL_TOTAL;
@@ -130,32 +131,52 @@ $recent = $db->prepare("
 $recent->execute([$perPage, $offset]);
 $recent_rows = $recent->fetchAll();
 
-// Handle pool reset
+// Handle pool tracker sync
 $reset_message = '';
 $reset_message_type = 'success';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_pool']) && canCurrentAdmin('manage_rewards')) {
-    $new_total = (float) ($_POST['new_pool_total'] ?? 0);
-    if ($new_total > 0) {
-        $db->prepare("
-            UPDATE early_airdrop_pool
-            SET remaining_rex = ?,
-                total_allocated_signup = 0,
-                total_allocated_referral = 0,
-                signup_count = 0,
-                referral_count = 0,
-                is_active = 1,
-                updated_at = NOW()
-            WHERE id = 1
-        ")->execute([$new_total]);
-        $reset_message = 'Pool reset to ' . number_format($new_total, 0) . ' $REX.';
-        $pool_total = $new_total;
-        $pool_remaining = $new_total;
-        $pool_used = 0;
-        $pool_percent = 0;
-    } else {
-        $reset_message = 'Invalid pool total. Must be greater than zero.';
-        $reset_message_type = 'error';
+    requireAdminCsrf((string) ($_POST['csrf_token'] ?? ''));
+
+    $claim_summary = $db->query("
+        SELECT claim_type, COUNT(*) AS claim_count, COALESCE(SUM(amount), 0) AS total_amount
+        FROM early_airdrop_claims
+        GROUP BY claim_type
+    ")->fetchAll();
+
+    $signup_count = 0;
+    $referral_count = 0;
+    $signup_total = 0.0;
+    $referral_total = 0.0;
+
+    foreach ($claim_summary as $summary_row) {
+        if ((string) ($summary_row['claim_type'] ?? '') === 'signup_bonus') {
+            $signup_count = (int) ($summary_row['claim_count'] ?? 0);
+            $signup_total = (float) ($summary_row['total_amount'] ?? 0);
+        } elseif ((string) ($summary_row['claim_type'] ?? '') === 'referral_bonus') {
+            $referral_count = (int) ($summary_row['claim_count'] ?? 0);
+            $referral_total = (float) ($summary_row['total_amount'] ?? 0);
+        }
     }
+
+    $allocated_total = round($signup_total + $referral_total, 8);
+    $pool_remaining = max(0, round((float) EARLY_AIRDROP_POOL_TOTAL - $allocated_total, 8));
+    $pool_used = $allocated_total;
+    $pool_percent = $pool_total > 0 ? round(($pool_used / $pool_total) * 100, 2) : 0;
+    $is_active = $pool_remaining >= (float) EARLY_AIRDROP_SIGNUP_BONUS ? 1 : 0;
+
+    $db->prepare("
+        UPDATE early_airdrop_pool
+        SET remaining_rex = ?,
+            total_allocated_signup = ?,
+            total_allocated_referral = ?,
+            signup_count = ?,
+            referral_count = ?,
+            is_active = ?,
+            updated_at = NOW()
+        WHERE id = 1
+    ")->execute([$pool_remaining, $signup_total, $referral_total, $signup_count, $referral_count, $is_active]);
+
+    $reset_message = 'Pool tracker synced to the official ' . number_format($pool_total, 0) . ' $REX pool.';
 }
 ?>
 
@@ -410,7 +431,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_pool']) && canC
             <div class="dashboard-header-icon"><i class="fas fa-rocket"></i></div>
             <div class="dashboard-header-text">
                 <h1>Early Adopter Airdrop</h1>
-                <p>Track the 7% REX token airdrop for the first 100,000 users</p>
+                <p>Track the 80,000,000 $REX early adopter pool, pending signup rewards, and valid referral bonuses.</p>
             </div>
         </div>
         <div class="dashboard-header-badge">
@@ -432,7 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_pool']) && canC
             <div>
                 <span class="modal-kicker"><i class="fas fa-database"></i> Pool</span>
                 <h3>Airdrop Pool Status</h3>
-                <p class="muted" style="margin:4px 0 0;font-size:12px;">Live snapshot of the 70,000,000 $REX early adopter pool.</p>
+                <p class="muted" style="margin:4px 0 0;font-size:12px;">Live snapshot of the official 80,000,000 $REX early adopter pool.</p>
             </div>
         </div>
 
@@ -562,17 +583,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_pool']) && canC
         <div class="dashboard-panel-header">
             <div>
                 <span class="modal-kicker"><i class="fas fa-sliders-h"></i> Controls</span>
-                <h3>Pool Reset</h3>
-                <p class="muted" style="margin:4px 0 0;font-size:12px;">Reset the airdrop pool total. This overwrites the current pool amount.</p>
+                <h3>Pool Tracker Sync</h3>
+                <p class="muted" style="margin:4px 0 0;font-size:12px;">Recalculate remaining pool from logged airdrop claims. This does not remove user ledger rewards.</p>
             </div>
         </div>
         <div style="padding:16px 20px 20px;">
-            <form method="POST" class="pool-form" onsubmit="return confirm('Are you sure you want to reset the airdrop pool? This will overwrite the current pool total.');">
+            <form method="POST" class="pool-form" onsubmit="return confirm('Sync pool tracker with logged claims? User ledger rewards will not be removed.');">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
                 <div class="form-group">
-                    <label for="new_pool_total">New Pool Total ($REX)</label>
-                    <input type="number" name="new_pool_total" id="new_pool_total" value="<?php echo (int) $pool_total; ?>" step="1" min="1" required>
+                    <label>Official Pool Total</label>
+                    <input type="text" value="<?php echo number_format($pool_total, 0); ?> $REX" readonly>
                 </div>
-                <button type="submit" name="reset_pool" class="btn btn-danger" style="padding:8px 20px;"><i class="fas fa-redo"></i> Reset Pool</button>
+                <button type="submit" name="reset_pool" class="btn btn-secondary" style="padding:8px 20px;"><i class="fas fa-rotate"></i> Sync Pool Tracker</button>
             </form>
         </div>
     </div>
@@ -588,7 +610,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_pool']) && canC
             <div>
                 <span class="modal-kicker"><i class="fas fa-clock"></i> Activity</span>
                 <h3>Recent Airdrop Activity</h3>
-                <p class="muted" style="margin:4px 0 0;font-size:12px;">Last 50 airdrop signup bonuses and referral bonuses.</p>
+                <p class="muted" style="margin:4px 0 0;font-size:12px;">Paged list of airdrop signup rewards and valid referral bonuses.</p>
             </div>
         </div>
 

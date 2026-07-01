@@ -1,7 +1,7 @@
 <?php
 /**
  * CoinRex Cookie Policy Page
- * Location: /coinrex/cookies.php
+ * Location: /coinrex/public/cookies.php
  */
 
 require_once __DIR__ . '/../includes/config.php';
@@ -35,12 +35,12 @@ body {
                 </div>
                 <h1 class="hero-title animate-fade-up">Cookie <span class="gradient-text">Policy</span></h1>
                 <p class="hero-description animate-fade-up delay-1">
-                    This Cookie Policy explains how CoinRex uses cookies and similar technologies
-                    to keep your session secure, improve platform performance, and personalize your experience.
+                    This Cookie Policy explains how CoinRex uses cookies, sessions, and similar technologies
+                    to keep authentication secure, protect forms, support RexLink flows, and improve platform reliability.
                 </p>
                 <div class="terms-meta animate-fade-up delay-2">
                     <span class="terms-meta-pill"><i class="fas fa-calendar-alt"></i> Last Updated: <?php echo date('F j, Y'); ?></span>
-                    <span class="terms-meta-pill"><i class="fas fa-shield-alt"></i> Secure by default, privacy by design</span>
+                    <span class="terms-meta-pill"><i class="fas fa-shield-alt"></i> Sessions, security, and user control</span>
                 </div>
             </div>
         </div>
@@ -59,7 +59,7 @@ body {
                         </div>
                     </div>
                     <div class="terms-card-body">
-                        <p>Cookies are small data files placed on your device when you visit a website. They help sites remember your login state, preferences, and security context.</p>
+                        <p>Cookies are small data files placed on your device when you visit a website. They help sites remember your login state, remember-me choices, preferences, and security context.</p>
                     </div>
                 </article>
 
@@ -75,6 +75,7 @@ body {
                         <ul class="terms-list">
                             <li><i class="fas fa-check-circle"></i> Maintain secure login sessions</li>
                             <li><i class="fas fa-check-circle"></i> Protect forms with CSRF/session controls</li>
+                            <li><i class="fas fa-check-circle"></i> Support remember-me login, RexLink pairing status, and claim approval flows</li>
                             <li><i class="fas fa-check-circle"></i> Remember user preferences where applicable</li>
                             <li><i class="fas fa-check-circle"></i> Improve reliability and performance diagnostics</li>
                         </ul>
@@ -93,7 +94,7 @@ body {
                         <div class="terms-dual-grid">
                             <div class="terms-mini-panel good">
                                 <h3><i class="fas fa-lock"></i> Essential Cookies</h3>
-                                <p>Required for login, security, and core site operation. Without these, core features may not work.</p>
+                                <p>Required for login, CSRF protection, remember-me behavior, RexLink session checks, and core site operation. Without these, core features may not work.</p>
                             </div>
                             <div class="terms-mini-panel good">
                                 <h3><i class="fas fa-sliders"></i> Functional Cookies</h3>
@@ -103,7 +104,7 @@ body {
                         <div class="terms-dual-grid" style="margin-top:12px;">
                             <div class="terms-mini-panel good">
                                 <h3><i class="fas fa-chart-line"></i> Analytics Cookies</h3>
-                                <p>Used in aggregate form to understand usage patterns and improve platform quality.</p>
+                                <p>May be used in aggregate form to understand usage patterns, reliability, and platform quality.</p>
                             </div>
                             <div class="terms-mini-panel bad">
                                 <h3><i class="fas fa-clock"></i> Session vs Persistent</h3>
@@ -122,7 +123,7 @@ body {
                         </div>
                     </div>
                     <div class="terms-card-body">
-                        <p>When CoinRex integrates third-party providers (e.g., infrastructure, analytics, or embedded services), those services may set cookies under their own policies.</p>
+                        <p>When CoinRex integrates third-party providers such as infrastructure, analytics, email, wallet providers, browser wallets, blockchain RPC services, or embedded services, those services may set cookies or local storage under their own policies.</p>
                         <div class="terms-callout info">
                             <i class="fas fa-info-circle"></i>
                             <div>
@@ -158,7 +159,7 @@ body {
                         </div>
                     </div>
                     <div class="terms-card-body">
-                        <p>We may revise this Cookie Policy periodically. Updated versions will be posted on this page with a refreshed “Last Updated” date.</p>
+                        <p>We may revise this Cookie Policy periodically. Updated versions will be posted on this page with a refreshed "Last Updated" date.</p>
                     </div>
                 </article>
 

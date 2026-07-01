@@ -1,7 +1,7 @@
 <?php
 /**
  * CoinRex Terms of Service Page
- * Location: /coinrex/terms.php
+ * Location: /coinrex/public/terms.php
  */
 
 require_once __DIR__ . '/../includes/config.php';
@@ -26,7 +26,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </p>
                 <div class="hero-stats animate-fade-up delay-2">
                     <div class="hero-stat">
-                        <span class="stat-number">11</span>
+                        <span class="stat-number">12</span>
                         <span class="stat-label">Core Clauses</span>
                     </div>
                     <div class="hero-stat">
@@ -73,7 +73,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <article class="overview-card animate-fade-up delay-2">
                     <i class="fas fa-coins"></i>
                     <h3>$REX Is Internal</h3>
-                    <p>Rewards are platform-based, adjustable over time, and protected by moderation and fraud controls.</p>
+                    <p>Rewards use the CoinRex ledger, claim snapshots, and eligibility controls before any wallet approval flow.</p>
                 </article>
             </div>
         </div>
@@ -145,7 +145,8 @@ require_once __DIR__ . '/../includes/header.php';
                                 <ul class="terms-list">
                                     <li><i class="fas fa-check-circle"></i> Complete tasks</li>
                                     <li><i class="fas fa-check-circle"></i> Submit reviews</li>
-                                    <li><i class="fas fa-check-circle"></i> Participate in voting</li>
+                                    <li><i class="fas fa-check-circle"></i> Explore projects and submit proof-backed reviews</li>
+                                    <li><i class="fas fa-check-circle"></i> Use TaskHub, BoostHub, DevHub, RexLink, and reward history features when available</li>
                                     <li><i class="fas fa-check-circle"></i> Earn internal rewards ($REX)</li>
                                 </ul>
                             </div>
@@ -180,7 +181,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <p>Abuse or manipulation of the reward system may result in account suspension.</p>
                             </div>
                         </div>
-                        <p>Future tokenization of $REX is subject to platform development.</p>
+                        <p>Claim generation, claim approval, and any on-chain reward movement may require eligibility checks, wallet pairing, and security review.</p>
                     </div>
                 </article>
 
@@ -225,6 +226,24 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="terms-card-head">
                         <div class="section-number">8</div>
                         <div>
+                            <h2>Wallet, RexLink &amp; On-Chain Features</h2>
+                            <p>Wallet-linked features are provided for verification, approvals, and claim support.</p>
+                        </div>
+                    </div>
+                    <div class="terms-card-body">
+                        <p>CoinRex may ask you to connect or verify a wallet for review eligibility, RexLink sessions, claim approvals, or similar platform features.</p>
+                        <ul class="terms-list">
+                            <li><i class="fas fa-check-circle"></i> You are responsible for the wallet address and device you connect</li>
+                            <li><i class="fas fa-check-circle"></i> RexLink pairing creates time-limited sessions and approval requests; it does not give CoinRex your private keys or seed phrase</li>
+                            <li><i class="fas fa-check-circle"></i> Blockchain network fees, failed transactions, third-party RPC issues, and wallet provider behavior are outside our direct control</li>
+                        </ul>
+                    </div>
+                </article>
+
+                <article class="terms-card animate-fade-up delay-3">
+                    <div class="terms-card-head">
+                        <div class="section-number">9</div>
+                        <div>
                             <h2>Account Suspension &amp; Termination</h2>
                             <p>Serious policy violations can result in access restrictions or permanent removal.</p>
                         </div>
@@ -242,7 +261,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <article class="terms-card animate-fade-up">
                     <div class="terms-card-head">
-                        <div class="section-number">9</div>
+                        <div class="section-number">10</div>
                         <div>
                             <h2>Limitation of Liability</h2>
                             <p>CoinRex is offered as-is, and some service risks remain outside our control.</p>
@@ -267,7 +286,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <article class="terms-card animate-fade-up delay-1">
                     <div class="terms-card-head">
-                        <div class="section-number">10</div>
+                        <div class="section-number">11</div>
                         <div>
                             <h2>Changes to Terms</h2>
                             <p>We may revise these rules as the platform evolves.</p>
@@ -280,7 +299,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <article class="terms-card animate-fade-up delay-2">
                     <div class="terms-card-head">
-                        <div class="section-number">11</div>
+                        <div class="section-number">12</div>
                         <div>
                             <h2>Contact Us</h2>
                             <p>Questions about these terms can be sent directly to the CoinRex support team.</p>

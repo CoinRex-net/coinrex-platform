@@ -170,8 +170,10 @@ function rexSignerAuthEnsureWalletRegistrationRewards(PDO $db, array $user): voi
         'welcome_bonus:' . $user_id,
     ]);
     if ((int) ($signup_reward_stmt->fetch()['total'] ?? 0) <= 0) {
-        if (isEarlyAirdropActive($db)) {
-            addRewardLedgerEntry($user_id, EARLY_AIRDROP_SIGNUP_BONUS, 'bonus', 'early_adopter_airdrop', 'pending', 'early_airdrop:signup:' . $user_id, $db, 'phase1', 'beginner');
+        $signup_reference_id = 'early_airdrop:signup:' . $user_id;
+        if (isEarlyAirdropActive($db) && deductEarlyAirdropPool($user_id, 'signup_bonus', EARLY_AIRDROP_SIGNUP_BONUS, $db, $signup_reference_id)) {
+            $expires_at = date('Y-m-d H:i:s', time() + ((int) EARLY_AIRDROP_UNLOCK_DAYS * 86400));
+            addRewardLedgerEntry($user_id, EARLY_AIRDROP_SIGNUP_BONUS, 'bonus', 'early_adopter_airdrop', 'pending', $signup_reference_id, $db, 'phase1', 'beginner', $expires_at);
         } else {
             addRewardLedgerEntry($user_id, WELCOME_BONUS_REX, 'bonus', 'welcome_bonus', 'available', 'welcome_bonus:' . $user_id, $db, 'phase1', 'beginner');
         }
@@ -272,8 +274,10 @@ function rexSignerAuthCreateWalletUser(PDO $db, $wallet_address, $device_fingerp
             $update_referrer->execute([$referred_by]);
         }
 
-        if (isEarlyAirdropActive($db)) {
-            addRewardLedgerEntry($user_id, EARLY_AIRDROP_SIGNUP_BONUS, 'bonus', 'early_adopter_airdrop', 'pending', 'early_airdrop:signup:' . $user_id, $db, 'phase1', 'beginner');
+        $signup_reference_id = 'early_airdrop:signup:' . $user_id;
+        if (isEarlyAirdropActive($db) && deductEarlyAirdropPool($user_id, 'signup_bonus', EARLY_AIRDROP_SIGNUP_BONUS, $db, $signup_reference_id)) {
+            $expires_at = date('Y-m-d H:i:s', time() + ((int) EARLY_AIRDROP_UNLOCK_DAYS * 86400));
+            addRewardLedgerEntry($user_id, EARLY_AIRDROP_SIGNUP_BONUS, 'bonus', 'early_adopter_airdrop', 'pending', $signup_reference_id, $db, 'phase1', 'beginner', $expires_at);
         } else {
             addRewardLedgerEntry($user_id, WELCOME_BONUS_REX, 'bonus', 'welcome_bonus', 'available', 'welcome_bonus:' . $user_id, $db, 'phase1', 'beginner');
         }

@@ -336,12 +336,23 @@ require_once __DIR__ . '/../includes/header.php';
 
         <?php
         // Early Adopter Airdrop Widget
-        $pending_airdrop = getPendingAirdropAmount((int) $user['id'], $db);
+        $pending_airdrop_details = getPendingAirdropDetails((int) $user['id'], $db);
+        $pending_airdrop = (float) ($pending_airdrop_details['amount'] ?? 0);
+        $airdrop_days_remaining = $pending_airdrop_details['days_remaining'] ?? null;
+        $airdrop_expiry_label = !empty($pending_airdrop_details['expires_at'])
+            ? date('M d, Y', strtotime((string) $pending_airdrop_details['expires_at']))
+            : '';
         $airdrop_progress = getAirdropProgress((int) $user['id'], $db);
-        $airdrop_active = isEarlyAirdropActive($db);
+        $airdrop_completed_days = (int) ($airdrop_progress['completed_days'] ?? 0);
+        $airdrop_total_days = (int) ($airdrop_progress['total_days'] ?? TASKHUB_TOTAL_DAYS);
+        $airdrop_days_to_finish = max(0, $airdrop_total_days - $airdrop_completed_days);
+        $airdrop_progress_percent = (float) ($airdrop_progress['progress'] ?? 0);
+        $airdrop_next_step = $airdrop_days_to_finish > 0
+            ? ($airdrop_days_to_finish . ' LearnHub day' . ($airdrop_days_to_finish === 1 ? '' : 's') . ' left')
+            : 'Reach PRO Level';
         $is_pro = ($user['level'] ?? '') === 'pro';
         ?>
-        <?php if ($show_airdrop_feature && $airdrop_active && $pending_airdrop > 0 && !$is_pro): ?>
+        <?php if ($show_airdrop_feature && $pending_airdrop > 0 && !$is_pro): ?>
         <section class="airdrop-premium">
             <div class="airdrop-premium-glow airdrop-premium-glow--1"></div>
             <div class="airdrop-premium-glow airdrop-premium-glow--2"></div>
@@ -362,42 +373,57 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="airdrop-premium-progress-header">
                     <span class="airdrop-premium-progress-label">LearnHub Progress</span>
                     <span class="airdrop-premium-progress-count">
-                        <strong><?php echo (int) $airdrop_progress['completed_days']; ?></strong>/<?php echo (int) $airdrop_progress['total_days']; ?> days
+                        <strong><?php echo $airdrop_completed_days; ?></strong>/<?php echo $airdrop_total_days; ?> days
                     </span>
                 </div>
                 <div class="airdrop-premium-progress-track">
-                    <div class="airdrop-premium-progress-fill" style="width: <?php echo (float) $airdrop_progress['progress']; ?>%">
-                        <span class="airdrop-premium-progress-fill-pct"><?php echo (float) $airdrop_progress['progress']; ?>%</span>
+                    <div class="airdrop-premium-progress-fill" style="width: <?php echo $airdrop_progress_percent; ?>%">
+                        <span class="airdrop-premium-progress-fill-pct"><?php echo $airdrop_progress_percent; ?>%</span>
                     </div>
                 </div>
 
                 <div class="airdrop-premium-milestones">
-                    <div class="airdrop-premium-milestone <?php echo (int) $airdrop_progress['completed_days'] >= 1 ? 'airdrop-premium-milestone--done' : ''; ?>">
+                    <div class="airdrop-premium-milestone <?php echo $airdrop_completed_days >= 1 ? 'airdrop-premium-milestone--done' : ''; ?>">
                         <span class="airdrop-premium-milestone-dot"></span>
                         <span class="airdrop-premium-milestone-label">Day 1</span>
                     </div>
-                    <div class="airdrop-premium-milestone <?php echo (int) $airdrop_progress['completed_days'] >= 4 ? 'airdrop-premium-milestone--done' : ''; ?>">
+                    <div class="airdrop-premium-milestone <?php echo $airdrop_completed_days >= 4 ? 'airdrop-premium-milestone--done' : ''; ?>">
                         <span class="airdrop-premium-milestone-dot"></span>
                         <span class="airdrop-premium-milestone-label">Day 4</span>
                     </div>
-                    <div class="airdrop-premium-milestone <?php echo (int) $airdrop_progress['completed_days'] >= 7 ? 'airdrop-premium-milestone--done' : ''; ?>">
+                    <div class="airdrop-premium-milestone <?php echo $airdrop_completed_days >= 7 ? 'airdrop-premium-milestone--done' : ''; ?>">
                         <span class="airdrop-premium-milestone-dot"></span>
                         <span class="airdrop-premium-milestone-label">Day 7</span>
                     </div>
-                    <div class="airdrop-premium-milestone <?php echo (int) $airdrop_progress['completed_days'] >= 10 ? 'airdrop-premium-milestone--done' : ''; ?>">
+                    <div class="airdrop-premium-milestone <?php echo $airdrop_completed_days >= 10 ? 'airdrop-premium-milestone--done' : ''; ?>">
                         <span class="airdrop-premium-milestone-dot"></span>
                         <span class="airdrop-premium-milestone-label">Day 10</span>
+                    </div>
+                </div>
+
+                <div class="airdrop-premium-summary">
+                    <div>
+                        <span>Next step</span>
+                        <strong><?php echo htmlspecialchars($airdrop_next_step, ENT_QUOTES, 'UTF-8'); ?></strong>
+                    </div>
+                    <div>
+                        <span>Deadline</span>
+                        <strong><?php echo htmlspecialchars($airdrop_expiry_label !== '' ? $airdrop_expiry_label : 'Pending', ENT_QUOTES, 'UTF-8'); ?></strong>
+                    </div>
+                    <div>
+                        <span>Time left</span>
+                        <strong><?php echo $airdrop_days_remaining !== null ? ((int) $airdrop_days_remaining . ' day' . ((int) $airdrop_days_remaining === 1 ? '' : 's')) : 'Active'; ?></strong>
                     </div>
                 </div>
 
                 <div class="airdrop-premium-info">
                     <div class="airdrop-premium-info-item">
                         <span class="airdrop-premium-info-icon">🎯</span>
-                        <span class="airdrop-premium-info-text">Complete all <strong>10 LearnHub days</strong> to unlock your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong></span>
+                        <span class="airdrop-premium-info-text">Step 1: complete <strong><?php echo $airdrop_total_days; ?> LearnHub days</strong>. Step 2: reach <strong>PRO Level</strong>. Then your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> unlocks automatically.</span>
                     </div>
                     <div class="airdrop-premium-info-item">
                         <span class="airdrop-premium-info-icon">👥</span>
-                        <span class="airdrop-premium-info-text">Earn <strong><?php echo number_format(EARLY_AIRDROP_REFERRAL_BONUS); ?> $REX</strong> per friend who completes 4 LearnHub days</span>
+                        <span class="airdrop-premium-info-text">Invite a friend. When they complete <strong>4 LearnHub days</strong>, you earn <strong><?php echo number_format(EARLY_AIRDROP_REFERRAL_BONUS); ?> $REX</strong> instantly in your ledger.</span>
                     </div>
                 </div>
 
@@ -429,13 +455,26 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
 
+                <div class="airdrop-premium-info-item airdrop-premium-info-item--warning">
+                    <span class="airdrop-premium-info-icon"><i class="fas fa-triangle-exclamation"></i></span>
+                    <span class="airdrop-premium-info-text">
+                        Your reward is safely reserved for <strong><?php echo (int) EARLY_AIRDROP_UNLOCK_DAYS; ?> days</strong> after signup.
+                        Complete LearnHub and reach <strong>PRO Level</strong> by
+                        <strong><?php echo htmlspecialchars($airdrop_expiry_label !== '' ? $airdrop_expiry_label : 'expiry', ENT_QUOTES, 'UTF-8'); ?></strong>
+                        <?php if ($airdrop_days_remaining !== null): ?>
+                            (<?php echo (int) $airdrop_days_remaining; ?> day<?php echo (int) $airdrop_days_remaining === 1 ? '' : 's'; ?> left)
+                        <?php endif; ?>
+                        to keep it. If time runs out, it simply returns to the airdrop pool.
+                    </span>
+                </div>
+
                 <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="airdrop-premium-cta">
                     <span>Go to LearnHub</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </a>
             </div>
         </section>
-        <?php elseif ($show_airdrop_feature && $airdrop_active && $is_pro && $pending_airdrop > 0): ?>
+        <?php elseif ($show_airdrop_feature && !empty($airdrop_unlock_state['unlocked']) && (float) ($airdrop_unlock_state['amount'] ?? 0) > 0): ?>
         <section class="airdrop-premium airdrop-premium--unlocked">
             <div class="airdrop-premium-glow airdrop-premium-glow--1"></div>
             <div class="airdrop-premium-glow airdrop-premium-glow--2"></div>
@@ -446,7 +485,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <span class="airdrop-premium-badge-text">Unlocked</span>
                 </div>
                 <div class="airdrop-premium-value">
-                    <span class="airdrop-premium-value-amount"><?php echo number_format($pending_airdrop, 0); ?></span>
+                    <span class="airdrop-premium-value-amount"><?php echo number_format((float) ($airdrop_unlock_state['amount'] ?? 0), 0); ?></span>
                     <span class="airdrop-premium-value-currency">$REX</span>
                     <span class="airdrop-premium-value-label">Now Available</span>
                 </div>
@@ -457,7 +496,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <span class="airdrop-premium-unlocked-icon">🎉</span>
                     <div>
                         <strong>Congratulations!</strong>
-                        <p>Your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> airdrop has been unlocked and added to your available balance!</p>
+                        <p>Your <strong><?php echo number_format((float) ($airdrop_unlock_state['amount'] ?? 0), 0); ?> $REX</strong> airdrop has been unlocked and added to your available balance!</p>
                     </div>
                 </div>
             </div>

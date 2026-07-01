@@ -192,28 +192,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span class="contact-channel-icon"><i class="fas fa-headset"></i></span>
                             <div class="contact-channel-info">
                                 <strong>Support</strong>
-                                <a href="mailto:support@coinrex.net">support@coinrex.net</a>
+                                <a href="mailto:support@coinrex.xyz">support@coinrex.xyz</a>
                             </div>
                         </div>
                         <div class="contact-channel">
                             <span class="contact-channel-icon"><i class="fas fa-user-shield"></i></span>
                             <div class="contact-channel-info">
                                 <strong>Admin</strong>
-                                <a href="mailto:admin@coinrex.net">admin@coinrex.net</a>
+                                <a href="mailto:admin@coinrex.xyz">admin@coinrex.xyz</a>
                             </div>
                         </div>
                         <div class="contact-channel">
                             <span class="contact-channel-icon"><i class="fas fa-diagram-project"></i></span>
                             <div class="contact-channel-info">
                                 <strong>Projects</strong>
-                                <a href="mailto:projects@coinrex.net">projects@coinrex.net</a>
+                                <a href="mailto:projects@coinrex.xyz">projects@coinrex.xyz</a>
                             </div>
                         </div>
                         <div class="contact-channel">
                             <span class="contact-channel-icon"><i class="fas fa-bullhorn"></i></span>
                             <div class="contact-channel-info">
                                 <strong>Promotions</strong>
-                                <a href="mailto:promotions@coinrex.net">promotions@coinrex.net</a>
+                                <a href="mailto:promotions@coinrex.xyz">promotions@coinrex.xyz</a>
                             </div>
                         </div>
                     </div>

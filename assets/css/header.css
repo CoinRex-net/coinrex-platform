@@ -93,7 +93,8 @@ body {
     justify-content: center;
 }
 
-.nex-nav-links a {
+.nex-nav-links a,
+.nex-resource-trigger {
     text-decoration: none;
     color: var(--color-text-secondary);
     font-weight: 600;
@@ -107,19 +108,25 @@ body {
     white-space: nowrap;
     position: relative;
     border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
 }
 
-.nex-nav-links a i {
+.nex-nav-links a i,
+.nex-resource-trigger i {
     font-size: 15px;
 }
 
-.nex-nav-links a:hover {
+.nex-nav-links a:hover,
+.nex-resource-trigger:hover {
     color: var(--color-text-primary);
     background: var(--color-bg-hover);
     border-color: rgba(212, 175, 55, 0.10);
 }
 
-.nex-nav-links a.active {
+.nex-nav-links a.active,
+.nex-resource-trigger.active {
     color: #ffffff;
     background: linear-gradient(135deg, rgba(29, 78, 216, 0.28), rgba(212, 175, 55, 0.18));
     border: 1px solid rgba(212, 175, 55, 0.34);
@@ -129,12 +136,73 @@ body {
         inset 0 0 0 1px rgba(212, 175, 55, 0.14);
 }
 
-.nex-nav-links a.active i {
+.nex-nav-links a.active i,
+.nex-resource-trigger.active i {
     color: #facc15;
 }
 
-.nex-nav-links a.active span {
+.nex-nav-links a.active span,
+.nex-resource-trigger.active span {
     letter-spacing: 0.01em;
+}
+
+.nex-resource-menu {
+    position: relative;
+    display: inline-flex;
+}
+
+.nex-resource-trigger .fa-chevron-down {
+    font-size: 11px;
+    opacity: .72;
+}
+
+.nex-resource-menu .nex-resource-dropdown {
+    top: calc(100% + 12px);
+    right: 0;
+    left: auto;
+    width: 220px;
+}
+
+.nex-nav-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.nex-hot-badge,
+.mobile-hot-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #ffffff;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, .58);
+    animation: navHotPulse 1.12s ease-out infinite;
+}
+
+.nex-hot-badge {
+    min-height: 17px;
+    padding: 3px 6px;
+    font-size: 9px;
+    letter-spacing: .04em;
+}
+
+@keyframes navHotPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, .58);
+        transform: scale(1);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+        transform: scale(1.04);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+        transform: scale(1);
+    }
 }
 
 /* Right Actions */
@@ -408,6 +476,13 @@ body {
         visibility: visible;
         transform: translateY(0);
     }
+
+    .nex-resource-menu:hover .nex-resource-dropdown,
+    .nex-resource-menu:focus-within .nex-resource-dropdown {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
 }
 
 /* ========================================
@@ -451,9 +526,36 @@ body {
     font-size: 22px;
 }
 
+.mobile-nav-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+}
+
 .mobile-nav-item span {
     font-size: 11px;
     font-weight: 500;
+}
+
+.mobile-nav-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.mobile-hot-badge {
+    position: absolute;
+    top: -10px;
+    right: -15px;
+    min-height: 13px;
+    padding: 2px 4px;
+    font-size: 7px;
+    letter-spacing: .02em;
+    pointer-events: none;
 }
 
 .mobile-nav-item:hover {
@@ -464,6 +566,42 @@ body {
 .mobile-nav-item.active {
     color: var(--color-primary);
     background: rgba(29, 78, 216, 0.12);
+}
+
+.mobile-nav-home {
+    position: relative;
+    margin-top: -18px;
+    min-height: 66px;
+    justify-content: center;
+    color: #ffffff;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: 1px solid rgba(147, 197, 253, .34);
+    box-shadow: 0 12px 30px rgba(37, 99, 235, .34);
+}
+
+.mobile-nav-home i {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .15);
+    color: #ffffff;
+    font-size: 18px;
+}
+
+.mobile-nav-home span {
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.mobile-nav-home.active,
+.mobile-nav-home:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-color: rgba(191, 219, 254, .44);
+    box-shadow: 0 14px 34px rgba(37, 99, 235, .42);
 }
 
 .claim-soon-open {

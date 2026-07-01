@@ -328,12 +328,7 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
         $referral_bonus = $early_airdrop_active ? EARLY_AIRDROP_REFERRAL_BONUS : REFERRAL_BONUS_REX;
     }
     
-    // Calculate total bonus (use early airdrop amount if active)
-    if ($early_airdrop_active) {
-        $total_bonus = EARLY_AIRDROP_SIGNUP_BONUS + $referral_bonus;
-    } else {
-        $total_bonus = WELCOME_BONUS_REX + $referral_bonus;
-    }
+    $total_bonus = 0;
 
     try {
         $db->beginTransaction();
@@ -378,12 +373,19 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
             $stmt->execute([$referred_by]);
         }
 
-        // Early Adopter Airdrop: Add 1,000 REX as pending (unlocked at Pro level)
+        // Early Adopter Airdrop: reserve 1,000 REX for 30 days, pending Pro unlock.
         // If airdrop is inactive, fall back to standard welcome bonus
-        if ($early_airdrop_active) {
-            addRewardLedgerEntry($user_id, EARLY_AIRDROP_SIGNUP_BONUS, 'bonus', 'early_adopter_airdrop', 'pending', 'early_airdrop:signup:' . $user_id, $db, 'phase1', 'beginner');
+        $signup_reference_id = 'early_airdrop:signup:' . $user_id;
+        if ($early_airdrop_active && deductEarlyAirdropPool($user_id, 'signup_bonus', EARLY_AIRDROP_SIGNUP_BONUS, $db, $signup_reference_id)) {
+            $expires_at = date('Y-m-d H:i:s', time() + ((int) EARLY_AIRDROP_UNLOCK_DAYS * 86400));
+            addRewardLedgerEntry($user_id, EARLY_AIRDROP_SIGNUP_BONUS, 'bonus', 'early_adopter_airdrop', 'pending', $signup_reference_id, $db, 'phase1', 'beginner', $expires_at);
+            $total_bonus = EARLY_AIRDROP_SIGNUP_BONUS + $referral_bonus;
         } else {
             addRewardLedgerEntry($user_id, WELCOME_BONUS_REX, 'bonus', 'welcome_bonus', 'available', 'welcome_bonus:' . $user_id, $db, 'phase1', 'beginner');
+            if ($early_airdrop_active && $referral_bonus === EARLY_AIRDROP_REFERRAL_BONUS) {
+                $referral_bonus = REFERRAL_BONUS_REX;
+            }
+            $total_bonus = WELCOME_BONUS_REX + $referral_bonus;
         }
 
         if ($referral_bonus > 0) {

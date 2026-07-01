@@ -597,29 +597,6 @@ function syncUserLevelStatus($user_id, PDO $db = null) {
     if (in_array($new_level, ['pro', 'expert'], true)) {
         try {
             unlockPendingEarlyAirdropForUser($user_id, $db);
-            // Check if user has pending airdrop to unlock
-            $pending_stmt = $db->prepare("
-                SELECT id, amount FROM reward_ledger
-                WHERE user_id = ?
-                  AND status = 'pending'
-                  AND action_type = 'early_adopter_airdrop'
-                LIMIT 1
-            ");
-            $pending_stmt->execute([$user_id]);
-            $pending = $pending_stmt->fetch();
-
-            if ($pending && isEarlyAirdropActive($db)) {
-                $amount = (float) ($pending['amount'] ?? 0);
-                if ($amount > 0 && deductEarlyAirdropPool($user_id, 'signup_bonus', $amount, $db)) {
-                    // Change pending → available
-                    $update_stmt = $db->prepare("
-                        UPDATE reward_ledger
-                        SET status = 'available', user_level_at_time = 'pro'
-                        WHERE id = ?
-                    ");
-                    $update_stmt->execute([(int) $pending['id']]);
-                }
-            }
         } catch (Throwable $e) {
             // Log but don't block level sync
             error_log('Early airdrop unlock failed for user ' . $user_id . ': ' . $e->getMessage());

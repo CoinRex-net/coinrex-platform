@@ -364,14 +364,15 @@ function maybeActivateReferralQualification($user_id, PDO $db = null) {
     $referrer_id = (int) ($user['referred_by'] ?? 0);
     if ($referrer_id > 0 && isEarlyAirdropActive($db)) {
         $bonus_amount = (float) EARLY_AIRDROP_REFERRAL_BONUS;
-        if (deductEarlyAirdropPool($referrer_id, 'referral_bonus', $bonus_amount, $db)) {
+        $reference_id = 'early_airdrop:referral:' . (int) $user_id;
+        if (deductEarlyAirdropPool($referrer_id, 'referral_bonus', $bonus_amount, $db, $reference_id)) {
             addRewardLedgerEntry(
                 $referrer_id,
                 $bonus_amount,
                 'bonus',
                 'early_adopter_referral',
                 'available',
-                'early_airdrop:referral:' . $user_id,
+                $reference_id,
                 $db,
                 'phase1',
                 'beginner'

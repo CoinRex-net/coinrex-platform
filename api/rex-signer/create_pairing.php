@@ -7,6 +7,9 @@ try {
     $db = getDBConnection();
     $purpose = strtolower(trim((string) rexSignerInput('purpose', 'claim')));
     $is_auth_pairing = $purpose === 'auth';
+    if ($is_auth_pairing && !featureIsAccessible('rexlink_auth')) {
+        apiErrorResponse(403, 'RexLink sign-in is coming soon. Please use email login for now.');
+    }
     $actor = null;
     $user_id = null;
 

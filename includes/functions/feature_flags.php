@@ -26,6 +26,16 @@ function getDefaultFeatureFlags(): array {
             'fallback_cta_label' => 'Back to Home',
             'fallback_cta_url' => $default_cta_guest,
         ],
+        'rexlink_auth' => [
+            'label' => 'RexLink Sign-In',
+            'group' => 'MVP Core',
+            'is_visible' => 1,
+            'is_accessible' => 0,
+            'fallback_title' => 'RexLink sign-in is coming soon',
+            'fallback_message' => 'RexLink wallet sign-in is being finalized for the MVP rollout. Please use email login for now.',
+            'fallback_cta_label' => 'Back to Login',
+            'fallback_cta_url' => BASE_URL . '/auth/auth.php',
+        ],
         'dashboard' => [
             'label' => 'Dashboard',
             'group' => 'MVP Core',

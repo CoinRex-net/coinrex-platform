@@ -52,6 +52,8 @@ if (isset($_GET['ref']) || isset($_GET['referral']) || isset($_GET['referral_cod
 
 $show_login_feature = featureIsVisible('login');
 $show_registration_feature = featureIsVisible('registration');
+$show_rexlink_auth_feature = featureIsVisible('rexlink_auth');
+$rexlink_auth_accessible = featureIsAccessible('rexlink_auth');
 if ($active_tab === 'register') {
     requireFeatureAccess('registration');
 } else {
@@ -203,6 +205,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
     background: rgba(148, 163, 184, .16);
 }
 .rex-auth-button {
+    position: relative;
     width: 100%;
     min-height: 44px;
     border: 1px solid rgba(148, 163, 184, .18);
@@ -213,9 +216,25 @@ require_once dirname(__DIR__) . '/includes/header.php';
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 9px;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 12px;
     transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+.rex-auth-button.is-soon {
+    cursor: not-allowed;
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(15, 23, 42, .58), rgba(2, 6, 23, .28));
+    border-color: rgba(100, 116, 139, .28);
+    color: #cbd5e1;
+}
+.rex-auth-button-main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    gap: 9px;
+    flex: 1;
 }
 .rex-auth-button:hover {
     border-color: rgba(250, 204, 21, .42);
@@ -223,9 +242,53 @@ require_once dirname(__DIR__) . '/includes/header.php';
     color: #facc15;
     transform: none;
 }
+.rex-auth-button.is-soon:hover {
+    border-color: rgba(100, 116, 139, .28);
+    background: linear-gradient(135deg, rgba(15, 23, 42, .58), rgba(2, 6, 23, .28));
+    color: #cbd5e1;
+}
 .rex-auth-button:disabled {
     cursor: not-allowed;
-    opacity: .65;
+}
+.rex-auth-soon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 950;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    box-shadow: none;
+    flex: 0 0 auto;
+}
+.rex-auth-soon-badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, .62);
+    animation: rexAuthSoonPulse 1.15s ease-out infinite;
+}
+@keyframes rexAuthSoonPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, .62);
+        opacity: 1;
+    }
+    70% {
+        box-shadow: 0 0 0 7px rgba(239, 68, 68, 0);
+        opacity: .78;
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        opacity: 1;
+    }
 }
 .rexlink-modal[hidden] {
     display: none;
@@ -836,11 +899,16 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         </button>
                     </form>
 
+                    <?php if ($show_rexlink_auth_feature): ?>
                     <div class="rex-auth-divider"><span>or</span></div>
-                    <button type="button" class="rex-auth-button rex-signer-auth-trigger" id="rexSignerAuthButton">
-                        <span class="rex-auth-lion" aria-hidden="true">🦁</span>
-                        <span>Sign in with RexLink</span>
+                    <button type="button" class="rex-auth-button rex-signer-auth-trigger <?php echo $rexlink_auth_accessible ? '' : 'is-soon'; ?>" id="rexSignerAuthButton" <?php echo $rexlink_auth_accessible ? '' : 'disabled aria-disabled="true"'; ?>>
+                        <span class="rex-auth-button-main">
+                            <span class="rex-auth-lion" aria-hidden="true">🦁</span>
+                            <span>Sign in with RexLink</span>
+                        </span>
+                        <?php if (!$rexlink_auth_accessible): ?><span class="rex-auth-soon-badge">Coming Soon</span><?php endif; ?>
                     </button>
+                    <?php endif; ?>
                 </div>
 
                 <div class="auth-form-container <?php echo $active_tab == 'register' ? 'active' : ''; ?>" id="registerForm">
@@ -977,11 +1045,16 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         </div>
                     </form>
 
+                    <?php if ($show_rexlink_auth_feature): ?>
                     <div class="rex-auth-divider"><span>or</span></div>
-                    <button type="button" class="rex-auth-button rex-signer-auth-trigger">
-                        <span class="rex-auth-lion" aria-hidden="true">🦁</span>
-                        <span>Sign in with RexLink</span>
+                    <button type="button" class="rex-auth-button rex-signer-auth-trigger <?php echo $rexlink_auth_accessible ? '' : 'is-soon'; ?>" <?php echo $rexlink_auth_accessible ? '' : 'disabled aria-disabled="true"'; ?>>
+                        <span class="rex-auth-button-main">
+                            <span class="rex-auth-lion" aria-hidden="true">🦁</span>
+                            <span>Sign in with RexLink</span>
+                        </span>
+                        <?php if (!$rexlink_auth_accessible): ?><span class="rex-auth-soon-badge">Coming Soon</span><?php endif; ?>
                     </button>
+                    <?php endif; ?>
                 </div>
             </section>
 
@@ -1143,6 +1216,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const rexSignerPublicBaseUrl = <?php echo json_encode(defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL); ?>;
     const authRedirectTo = <?php echo json_encode($redirect_to !== '' ? BASE_URL . $redirect_to : BASE_URL . '/public/dashboard.php'); ?>;
     const rexLinkReferralCode = <?php echo json_encode((string) $register_referral); ?>;
+    const rexLinkAuthAccessible = <?php echo $rexlink_auth_accessible ? 'true' : 'false'; ?>;
     let rexSignerAuthPollTimer = null;
     let rexLinkCountdownTimer = null;
     const rexLinkSelectedDuration = 10;
@@ -1600,7 +1674,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     rexSignerAuthButtons.forEach(function(button) {
-        button.addEventListener('click', rexLinkOpenModal);
+        button.addEventListener('click', function(event) {
+            if (!rexLinkAuthAccessible || button.disabled) {
+                event.preventDefault();
+                return;
+            }
+            rexLinkOpenModal();
+        });
     });
 
     if (rexLinkCopyCodeButton) {
