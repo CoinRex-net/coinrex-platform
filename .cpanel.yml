@@ -2,7 +2,15 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/coinwsua/public_html/
-    - /bin/rsync -av --exclude='.git/' --exclude='.env' --exclude='.env.local' --exclude='node_modules/' --exclude='uploads/' --exclude='cache/' --exclude='devhub/logs/' --exclude='composer.phar' ./ $DEPLOYPATH
+    - /bin/rsync -rltv --exclude='.git/' --exclude='.env' --exclude='.env.local' --exclude='node_modules/' --exclude='uploads/' --exclude='cache/' --exclude='devhub/logs/' --exclude='composer.phar' ./ $DEPLOYPATH
     - /bin/rm -f $DEPLOYPATH/coinrex-hosting-upload.zip $DEPLOYPATH/countdown.zip $DEPLOYPATH/composer.phar $DEPLOYPATH/error_log
+    - /bin/chmod 755 $DEPLOYPATH
+    - /usr/bin/find $DEPLOYPATH -type d -exec /bin/chmod 755 {} \;
+    - /usr/bin/find $DEPLOYPATH -type f -exec /bin/chmod 644 {} \;
+    - if [ -f $DEPLOYPATH/.env ]; then /bin/chmod 600 $DEPLOYPATH/.env; fi
+    - if [ -d $DEPLOYPATH/uploads ]; then /bin/chmod 755 $DEPLOYPATH/uploads; fi
+    - if [ -d $DEPLOYPATH/cache ]; then /bin/chmod 755 $DEPLOYPATH/cache; fi
+    - if [ -d $DEPLOYPATH/cache/sessions ]; then /bin/chmod 755 $DEPLOYPATH/cache/sessions; fi
+    - if [ -d $DEPLOYPATH/devhub/logs ]; then /bin/chmod 755 $DEPLOYPATH/devhub/logs; fi
     - if [ -x /opt/cpanel/composer/bin/composer ]; then cd $DEPLOYPATH && /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader --no-interaction; fi
     - if [ -x /usr/local/bin/composer ]; then cd $DEPLOYPATH && /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction; fi
