@@ -368,16 +368,29 @@ body {
     background-color: var(--color-primary);
 }
 
-.nex-avatar span {
+.nex-avatar-initial {
     width: 100%;
     height: 100%;
+    min-width: 100%;
+    min-height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    box-sizing: border-box;
     display: grid;
     place-items: center;
+    align-self: stretch;
+    justify-self: stretch;
+    flex: 0 0 100%;
+    margin: 0;
+    padding: 0;
+    border-radius: inherit;
     line-height: 1;
+    text-align: center;
     font-size: 18px;
     font-weight: 700;
     color: var(--color-text-inverse);
     text-transform: uppercase;
+    transform: none;
 }
 
 .nex-avatar:hover {
@@ -804,9 +817,10 @@ body {
     .nex-avatar {
         width: 36px;
         height: 36px;
+        flex-basis: 36px;
     }
 
-    .nex-avatar span {
+    .nex-avatar-initial {
         font-size: 16px;
     }
 }

@@ -395,7 +395,7 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
                             </div>
                             <div class="nex-avatar<?php echo $user_avatar_url !== '' ? ' has-avatar-image' : ''; ?>"<?php if ($user_avatar_url !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($user_avatar_url, ENT_QUOTES, 'UTF-8'); ?>');"<?php endif; ?>>
                                 <?php if ($user_avatar_url === ''): ?>
-                                    <span><?php echo htmlspecialchars(strtoupper(substr($user_name !== '' ? $user_name : $user_display_name, 0, 1)), ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="nex-avatar-initial"><?php echo htmlspecialchars(strtoupper(substr($user_name !== '' ? $user_name : $user_display_name, 0, 1)), ENT_QUOTES, 'UTF-8'); ?></span>
                                 <?php endif; ?>
                             </div>
                         </button>
