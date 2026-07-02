@@ -204,6 +204,30 @@
     padding: 20px 0 10px;
 }
 
+.bh-task-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 48px;
+    margin-left: 10px;
+    padding: 0 22px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(15, 23, 42, 0.82);
+    color: #dbeafe;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.bh-task-link-btn:hover {
+    transform: translateY(-2px);
+    border-color: rgba(147, 197, 253, 0.54);
+    background: rgba(29, 78, 216, 0.18);
+    color: #ffffff;
+}
+
 .bh-claim-btn {
     display: inline-flex;
     align-items: center;
@@ -972,7 +996,8 @@
     .bh-header { padding: 14px 16px; flex-direction: column; align-items: stretch; gap: 10px; }
     .bh-header-actions { justify-content: flex-end; }
     .bh-hero { padding: 22px; border-radius: 20px; }
-    .bh-claim-btn { padding: 16px 32px; font-size: 1.1rem; width: 100%; justify-content: center; }
+    .bh-claim-btn,
+    .bh-task-link-btn { padding: 16px 32px; font-size: 1.1rem; width: 100%; justify-content: center; margin-left: 0; margin-top: 10px; }
     .bh-stats { grid-template-columns: 1fr; }
     .bh-history-item { flex-wrap: wrap; gap: 8px; }
     .bh-history-date { width: auto; }

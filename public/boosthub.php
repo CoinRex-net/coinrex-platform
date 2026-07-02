@@ -34,6 +34,11 @@ $learnhub_completed = taskHubMissionCompleted($user_id, $db);
 // "finished" = no more tasks
 // "closed" = not available
 $can_claim = ($status === 'open' && !empty($boost_task));
+$boost_task_link = $can_claim ? trim((string) ($boost_task['task_link'] ?? '')) : '';
+$boost_task_cta_label = $can_claim ? trim((string) ($boost_task['cta_label'] ?? '')) : '';
+if ($boost_task_cta_label === '') {
+    $boost_task_cta_label = 'Open Task';
+}
 
 // ── Get last 3 days history ──
 $history = [];
@@ -118,6 +123,12 @@ require_once __DIR__ . '/../includes/header.php';
                     <button type="button" class="bh-claim-btn" id="claimNowBtn">
                         <i class="fas fa-bolt"></i> Claim Now
                     </button>
+                    <?php if ($boost_task_link !== ''): ?>
+                        <a href="<?php echo htmlspecialchars($boost_task_link, ENT_QUOTES, 'UTF-8'); ?>" class="bh-task-link-btn" target="_blank" rel="noopener noreferrer">
+                            <i class="fas fa-arrow-up-right-from-square"></i>
+                            <span><?php echo htmlspecialchars($boost_task_cta_label, ENT_QUOTES, 'UTF-8'); ?></span>
+                        </a>
+                    <?php endif; ?>
                     <p class="bh-claim-sub">1 social task available</p>
                 </div>
 
