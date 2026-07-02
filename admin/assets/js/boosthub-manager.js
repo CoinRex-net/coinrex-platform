@@ -223,7 +223,7 @@
         var toggleBtns = taskListContainer.querySelectorAll('.boosthub-toggle-btn');
         for (var tb = 0; tb < toggleBtns.length; tb++) {
             toggleBtns[tb].addEventListener('click', function () {
-                var id = parseInt(this.getAttribute('data-id'));
+                var id = parseInt(this.getAttribute('data-id'), 10);
                 toggleTask(id);
             });
         }
@@ -232,7 +232,7 @@
         var editBtns = taskListContainer.querySelectorAll('.boosthub-edit-btn');
         for (var eb = 0; eb < editBtns.length; eb++) {
             editBtns[eb].addEventListener('click', function () {
-                var id = parseInt(this.getAttribute('data-id'));
+                var id = parseInt(this.getAttribute('data-id'), 10);
                 openEditModal(id);
             });
         }
@@ -241,7 +241,7 @@
         var deleteBtns = taskListContainer.querySelectorAll('.boosthub-delete-btn');
         for (var db = 0; db < deleteBtns.length; db++) {
             deleteBtns[db].addEventListener('click', function () {
-                var id = parseInt(this.getAttribute('data-id'));
+                var id = parseInt(this.getAttribute('data-id'), 10);
                 pendingDeleteId = id;
                 if (deleteModal) deleteModal.classList.add('show');
             });
@@ -324,7 +324,7 @@
         // Find task in local data
         var t = null;
         for (var i = 0; i < tasks.length; i++) {
-            if (tasks[i].id === id) {
+            if (parseInt(tasks[i].id, 10) === id) {
                 t = tasks[i];
                 break;
             }
@@ -361,16 +361,16 @@
 
     // ─── Save Task ───────────────────────────────────────────────
     function saveTask() {
-        var id = parseInt(taskModalId.value);
+        var id = parseInt(taskModalId.value, 10);
         var title = taskModalTitleInput.value.trim();
         var reward = parseFloat(taskModalReward.value) || 0;
-        var cooldown = parseInt(taskModalCooldown.value) || 86400;
+        var cooldown = parseInt(taskModalCooldown.value, 10) || 86400;
         var description = taskModalDescription.value.trim();
         var link = taskModalLink.value.trim();
         var steps = taskModalSteps.value.trim();
         var proof = taskModalProof.value.trim();
         var cta = taskModalCta.value.trim();
-        var dailyLimit = parseInt(taskModalDailyLimit.value) || 1;
+        var dailyLimit = parseInt(taskModalDailyLimit.value, 10) || 1;
         var isActive = taskModalActive.checked ? 1 : 0;
         var category = taskModalCategory.value;
 
@@ -490,7 +490,7 @@
         var reviewBtns = reviewContainer.querySelectorAll('.boosthub-review-btn');
         for (var rb = 0; rb < reviewBtns.length; rb++) {
             reviewBtns[rb].addEventListener('click', function () {
-                var logId = parseInt(this.getAttribute('data-log-id'));
+                var logId = parseInt(this.getAttribute('data-log-id'), 10);
                 var decision = this.getAttribute('data-decision');
                 openReviewModal(logId, decision);
             });
