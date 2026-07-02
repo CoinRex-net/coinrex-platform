@@ -6,7 +6,8 @@
 (function () {
     'use strict';
 
-    var API_BASE = '/coinrex/api/admin/boosthub.php';
+    var pathPrefix = window.location.pathname.indexOf('/coinrex/') === 0 ? '/coinrex' : '';
+    var API_BASE = pathPrefix + '/api/admin/boosthub.php';
     var tasks = [];
     var reviews = [];
     var taskCategories = {};
