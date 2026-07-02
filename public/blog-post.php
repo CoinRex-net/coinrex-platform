@@ -16,6 +16,16 @@ if ($slug === '') {
     die('Post not found');
 }
 
+$canonicalBlogSlugMap = [
+    'what-is-blockchain-simple-guide-coinrex-beginners' => 'what-is-blockchain-a-simple-guide-for-coinrex-beginners',
+];
+
+if (isset($canonicalBlogSlugMap[$slug])) {
+    $redirect_base_url = defined('PUBLIC_BASE_URL') ? rtrim(PUBLIC_BASE_URL, '/') : rtrim(BASE_URL, '/');
+    header('Location: ' . $redirect_base_url . '/blog-post.php/' . rawurlencode($canonicalBlogSlugMap[$slug]), true, 301);
+    exit;
+}
+
 $db = getDBConnection();
 $stmt = $db->prepare("SELECT p.*, a.name AS author_name FROM blog_posts p LEFT JOIN admins a ON a.id=p.author_admin_id WHERE p.slug=? AND p.status='published' LIMIT 1");
 $stmt->execute([$slug]);
@@ -126,7 +136,7 @@ $meta_description = $postExcerpt !== ''
     : 'Read CoinRex insights about crypto reviews, Web3 trust, rewards, and safer participation.';
 $meta_keywords = 'CoinRex blog, crypto education, Web3 guide, crypto reviews';
 $seo_base_url = defined('PUBLIC_BASE_URL') ? rtrim(PUBLIC_BASE_URL, '/') : rtrim(BASE_URL, '/');
-$canonical_url = $seo_base_url . '/public/blog-post.php/' . rawurlencode($slug);
+$canonical_url = $seo_base_url . '/blog-post.php/' . rawurlencode($slug);
 require_once __DIR__ . '/../includes/header.php';
 ?>
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/blog.css">

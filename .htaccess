@@ -21,6 +21,9 @@ RedirectMatch 404 ^/(cache/|contracts/|database/|deployments/|docs/|includes/|no
 RewriteRule ^robots\.txt$ robots.php [L]
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
+RewriteRule ^blog-post\.php/what-is-blockchain-simple-guide-coinrex-beginners/?$ /blog-post.php/what-is-blockchain-a-simple-guide-for-coinrex-beginners [R=301,L]
+RewriteRule ^public/blog-post\.php/what-is-blockchain-simple-guide-coinrex-beginners/?$ /blog-post.php/what-is-blockchain-a-simple-guide-for-coinrex-beginners [R=301,L]
+
 <IfModule mod_php.c>
     php_value session.save_path "C:/xampp/htdocs/coinrex/cache/sessions"
 </IfModule>

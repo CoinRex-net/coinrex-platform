@@ -5,6 +5,9 @@ require_once __DIR__ . '/includes/functions.php';
 
 $baseUrl = defined('PUBLIC_BASE_URL') ? rtrim(PUBLIC_BASE_URL, '/') : rtrim(BASE_URL, '/');
 $urls = [];
+$canonicalBlogSlugMap = [
+    'what-is-blockchain-simple-guide-coinrex-beginners' => 'what-is-blockchain-a-simple-guide-for-coinrex-beginners',
+];
 
 $addUrl = static function ($loc, $priority = '0.70', $changefreq = 'weekly', $lastmod = null) use (&$urls, $baseUrl) {
     $path = '/' . ltrim((string) $loc, '/');
@@ -52,8 +55,12 @@ try {
                 continue;
             }
 
+            if (isset($canonicalBlogSlugMap[$slug])) {
+                continue;
+            }
+
             $lastmod = substr((string) ($post['updated_at'] ?? $post['published_at'] ?? $post['created_at'] ?? ''), 0, 10);
-            $addUrl('/public/blog-post.php/' . rawurlencode($slug), '0.75', 'weekly', $lastmod ?: null);
+            $addUrl('/blog-post.php/' . rawurlencode($slug), '0.75', 'weekly', $lastmod ?: null);
         }
     }
 } catch (Throwable $e) {
