@@ -5,7 +5,8 @@
 (function () {
     'use strict';
 
-    var API_BASE = '/coinrex/api/admin/quiz.php';
+    var pathPrefix = window.location.pathname.indexOf('/coinrex/') === 0 ? '/coinrex' : '';
+    var API_BASE = pathPrefix + '/api/admin/quiz.php';
     var currentTaskKey = '';
     var questions = [];
 
