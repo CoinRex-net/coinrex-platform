@@ -184,6 +184,10 @@ $hero_review_snippet_source = trim((string) ($hero_review['review_title'] ?? '')
     : ($hero_review['review_content'] ?? '');
 $latest_blog_posts = function_exists('blogGetLatest') ? blogGetLatest(3) : [];
 
+$page_title = 'CoinRex - A Web3 Trust Layer';
+$meta_description = 'CoinRex is a Web3 trust layer for proof-backed crypto project reviews, user rewards, and transparent project discovery.';
+$meta_keywords = 'CoinRex, Web3 trust layer, crypto reviews, blockchain project reviews, proof-backed reviews';
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 

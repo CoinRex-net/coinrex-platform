@@ -303,7 +303,7 @@ define('ENCRYPTION_KEY', getenv('COINREX_ENCRYPTION_KEY') ?: '');
 
 // Site Settings
 define('SITE_NAME', 'CoinRex');
-define('SITE_TAGLINE', 'Where crypto projects get their crown');
+define('SITE_TAGLINE', 'A Web3 Trust Layer');
 define('SITE_EMAIL', 'support@coinrex.xyz');
 
 // Mail Settings
