@@ -2,6 +2,12 @@ RewriteEngine On
 DirectoryIndex index.php
 Options -Indexes
 
+# Canonical production host for search engines.
+RewriteCond %{HTTP_HOST} ^www\.coinrex\.xyz$ [NC,OR]
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP_HOST} ^(?:www\.)?coinrex\.xyz$ [NC]
+RewriteRule ^ https://coinrex.xyz%{REQUEST_URI} [R=301,L]
+
 <FilesMatch "^(\.env|\.env\.local|\.cpanel\.yml|composer\.(json|lock|phar)|package(-lock)?\.json|phpunit\.xml\.dist|phpstan\.neon\.dist|phpcs\.xml\.dist|README\.md|CHANGELOG\.md|CONTRIBUTING\.md|SECURITY\.md|error_log)$">
     Require all denied
 </FilesMatch>
