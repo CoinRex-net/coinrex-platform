@@ -166,14 +166,22 @@ try {
         if ($action === 'review') {
             $log_id = (int) ($_POST['log_id'] ?? 0);
             $decision = (string) ($_POST['decision'] ?? '');
-            if ($log_id <= 0 || !in_array($decision, ['approve', 'reject'], true)) {
+            $review_note = trim((string) ($_POST['review_note'] ?? ''));
+            if ($log_id <= 0 || !in_array($decision, ['approve', 'reject', 'return'], true)) {
                 throw new RuntimeException('Invalid review action.');
             }
 
-            $result = reviewTaskHubSubmission($log_id, $decision === 'approve', $db);
-            logAdminActivity((int) $current_admin['id'], 'taskhub_submission_review', 'user_task_log', (string) $log_id, json_encode(['decision' => $decision], JSON_UNESCAPED_UNICODE));
+            $result = reviewTaskHubSubmission($log_id, $decision === 'approve', $db, [
+                'return_for_correction' => $decision === 'return',
+                'review_note' => $review_note,
+            ]);
+            logAdminActivity((int) $current_admin['id'], 'taskhub_submission_review', 'user_task_log', (string) $log_id, json_encode(['decision' => $decision, 'review_note' => $review_note], JSON_UNESCAPED_UNICODE));
             $label = 'BoostHub';
-            $message = !empty($result['approved']) ? ($label . ' submission approved.') : ($label . ' submission rejected.');
+            if (!empty($result['returned'])) {
+                $message = $label . ' submission returned for correction.';
+            } else {
+                $message = !empty($result['approved']) ? ($label . ' submission approved.') : ($label . ' submission rejected.');
+            }
 
             echo json_encode(['success' => true, 'message' => $message]);
             exit;

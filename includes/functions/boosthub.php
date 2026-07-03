@@ -17,6 +17,32 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
 
     // BoostHub is available to all users — no profile/account-age gates
 
+    $revision_stmt = $db->prepare("
+        SELECT utl.*, mt.*
+        FROM user_task_logs utl
+        INNER JOIN mini_tasks mt ON mt.id = utl.task_id
+        WHERE utl.user_id = ?
+          AND utl.status = 'failed'
+          AND mt.task_group = 'boosthub'
+          AND mt.is_active = 1
+        ORDER BY utl.id DESC
+        LIMIT 1
+    ");
+    $revision_stmt->execute([$user_id]);
+    $revision = $revision_stmt->fetch();
+    if ($revision) {
+        $metadata = !empty($revision['metadata']) ? (json_decode((string) $revision['metadata'], true) ?: []) : [];
+        if (!empty($metadata['correction_requested'])) {
+            return [
+                'status' => 'open',
+                'message' => 'Evidence needs correction. Update it and submit again.',
+                'task' => $revision,
+                'unlock_at' => null,
+                'countdown_seconds' => 0,
+            ];
+        }
+    }
+
     $pending_stmt = $db->prepare("
         SELECT utl.*, mt.*
         FROM user_task_logs utl

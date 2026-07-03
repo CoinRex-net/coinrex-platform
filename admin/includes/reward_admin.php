@@ -190,14 +190,22 @@ function adminRewardProcessAction(PDO $db, array $current_admin) {
         } elseif ($action_type === 'review_taskhub_submission') {
             $log_id = (int) ($_POST['log_id'] ?? 0);
             $decision = (string) ($_POST['decision'] ?? '');
-            if ($log_id <= 0 || !in_array($decision, ['approve', 'reject'], true)) {
+            $review_note = trim((string) ($_POST['review_note'] ?? ''));
+            if ($log_id <= 0 || !in_array($decision, ['approve', 'reject', 'return'], true)) {
                 throw new RuntimeException('Invalid LearnHub review action.');
             }
 
-            $result = reviewTaskHubSubmission($log_id, $decision === 'approve', $db);
-            logAdminActivity((int) $current_admin['id'], 'taskhub_submission_review', 'user_task_log', (string) $log_id, json_encode(['decision' => $decision], JSON_UNESCAPED_UNICODE));
+            $result = reviewTaskHubSubmission($log_id, $decision === 'approve', $db, [
+                'return_for_correction' => $decision === 'return',
+                'review_note' => $review_note,
+            ]);
+            logAdminActivity((int) $current_admin['id'], 'taskhub_submission_review', 'user_task_log', (string) $log_id, json_encode(['decision' => $decision, 'review_note' => $review_note], JSON_UNESCAPED_UNICODE));
             $label = (string) ($result['task_group'] ?? 'mission') === 'boosthub' ? 'BoostHub' : 'LearnHub';
-            $message = !empty($result['approved']) ? ($label . ' submission approved.') : ($label . ' submission rejected.');
+            if (!empty($result['returned'])) {
+                $message = $label . ' submission returned for correction.';
+            } else {
+                $message = !empty($result['approved']) ? ($label . ' submission approved.') : ($label . ' submission rejected.');
+            }
         } elseif ($action_type === 'toggle_freeze') {
             $user_id = (int) ($_POST['user_id'] ?? 0);
             $reward_frozen = !empty($_POST['reward_frozen']) ? 1 : 0;
@@ -401,6 +409,8 @@ function adminRewardGetBoosthubReviewRows(PDO $db) {
             mt.task_key,
             mt.task_group,
             mt.task_category,
+            mt.task_link,
+            mt.proof_notes,
             mt.reward,
             u.username,
             u.email

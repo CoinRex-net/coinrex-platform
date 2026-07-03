@@ -34,6 +34,11 @@ $learnhub_completed = taskHubMissionCompleted($user_id, $db);
 // "finished" = no more tasks
 // "closed" = not available
 $can_claim = ($status === 'open' && !empty($boost_task));
+$boost_task_metadata = !empty($boost_task['metadata']) ? (json_decode((string) $boost_task['metadata'], true) ?: []) : [];
+$boost_correction_note = !empty($boost_task_metadata['correction_requested'])
+    ? (string) ($boost_task_metadata['correction_note'] ?? 'Please update your evidence so the admin team can verify it.')
+    : '';
+$boost_previous_evidence = (string) ($boost_task['proof_data'] ?? '');
 
 // ── Get last 3 days history ──
 $history = [];
@@ -116,9 +121,9 @@ require_once __DIR__ . '/../includes/header.php';
                 <!-- === CLAIM AVAILABLE === -->
                 <div class="bh-claim-area">
                     <button type="button" class="bh-claim-btn" id="claimNowBtn">
-                        <i class="fas fa-bolt"></i> Claim Now
+                        <i class="fas fa-bolt"></i> <?php echo $boost_correction_note !== '' ? 'Update Evidence' : 'Claim Now'; ?>
                     </button>
-                    <p class="bh-claim-sub">1 social task available</p>
+                    <p class="bh-claim-sub"><?php echo $boost_correction_note !== '' ? 'Evidence update requested' : '1 social task available'; ?></p>
                 </div>
 
             <?php elseif ($status === 'locked' || $status === 'awaiting_review'): ?>
@@ -203,12 +208,15 @@ require_once __DIR__ . '/../includes/header.php';
                             $status_class = 'is-approved';
                             $status_icon = '✅';
                         } elseif ($log_status === 'failed') {
-                            $status_label = 'Rejected';
+                            $metadata = !empty($entry['metadata']) ? (is_string($entry['metadata']) ? json_decode($entry['metadata'], true) : $entry['metadata']) : [];
+                            $is_correction = !empty($metadata['correction_requested']);
+                            $status_label = $is_correction ? 'Needs Update' : 'Rejected';
                             $status_class = 'is-rejected';
                             $status_icon = '❌';
-                            // Try to get rejection reason from metadata
-                            $metadata = !empty($entry['metadata']) ? (is_string($entry['metadata']) ? json_decode($entry['metadata'], true) : $entry['metadata']) : [];
-                            $rejection_reason = !empty($metadata['rejection_reason']) ? htmlspecialchars((string) $metadata['rejection_reason'], ENT_QUOTES, 'UTF-8') : '';
+                            // Try to get rejection/correction reason from metadata
+                            $rejection_reason = !empty($metadata['correction_note'])
+                                ? htmlspecialchars((string) $metadata['correction_note'], ENT_QUOTES, 'UTF-8')
+                                : (!empty($metadata['rejection_reason']) ? htmlspecialchars((string) $metadata['rejection_reason'], ENT_QUOTES, 'UTF-8') : '');
                         } else {
                             $status_label = 'Under Review';
                             $status_class = 'is-pending';
@@ -290,11 +298,19 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
 
                 <!-- Evidence Card -->
+                <?php if ($boost_correction_note !== ''): ?>
+                    <div class="bh-modal-notes-card">
+                        <div class="card-head">
+                            <i class="fas fa-rotate-left"></i> Admin note
+                        </div>
+                        <p><?php echo nl2br(htmlspecialchars($boost_correction_note, ENT_QUOTES, 'UTF-8')); ?></p>
+                    </div>
+                <?php endif; ?>
                 <div class="bh-modal-evidence-card">
                     <div class="card-head">
                         <i class="fas fa-file-pen"></i> Evidence <span style="color:var(--bh-primary-light);font-weight:400;text-transform:none;">*</span>
                     </div>
-                    <textarea id="proofInput" rows="4" placeholder="Paste evidence link, screenshot URL, username, handle, or any proof details."></textarea>
+                    <textarea id="proofInput" rows="4" placeholder="Paste evidence link, screenshot URL, username, handle, or any proof details."><?php echo htmlspecialchars($boost_previous_evidence, ENT_QUOTES, 'UTF-8'); ?></textarea>
                     <div class="bh-modal-counter" id="proofCounter">0 characters</div>
                 </div>
 
@@ -308,7 +324,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
                 <button type="button" class="primary-btn" id="submitClaimBtn">
                     <span class="spinner"></span>
-                    <span class="btn-text"><i class="fas fa-paper-plane"></i> Submit Evidence</span>
+                    <span class="btn-text"><i class="fas fa-paper-plane"></i> <?php echo $boost_correction_note !== '' ? 'Resubmit Evidence' : 'Submit Evidence'; ?></span>
                     <span class="btn-load">Submitting...</span>
                 </button>
             </div>
@@ -391,6 +407,7 @@ require_once __DIR__ . '/../includes/header.php';
     var proofInput = document.getElementById('proofInput');
     var proofCounter = document.getElementById('proofCounter');
     if (proofInput && proofCounter) {
+        proofCounter.textContent = proofInput.value.length + ' characters';
         proofInput.addEventListener('input', function() {
             var len = proofInput.value.length;
             proofCounter.textContent = len + ' characters';

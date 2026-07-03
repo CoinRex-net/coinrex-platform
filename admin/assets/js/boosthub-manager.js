@@ -51,7 +51,7 @@
     var reviewModalMessage = document.getElementById('boosthubReviewModalMessage');
     var reviewModalConfirm = document.getElementById('boosthubReviewModalConfirm');
     var reviewModalCancel = document.getElementById('boosthubReviewModalCancel');
-    var pendingReview = null; // { logId, decision }
+    var pendingReview = null; // { logId, decision, reviewNote }
 
     // ─── Init ────────────────────────────────────────────────────
     function init() {
@@ -472,10 +472,15 @@
                     '</td>' +
                     '<td data-label="Evidence">' +
                         '<code>' + escapeHtml(r.proof_data || '') + '</code>' +
+                        (r.proof_notes ? '<br><span class="muted">Expected: ' + escapeHtml(r.proof_notes) + '</span>' : '') +
+                        (r.task_link ? '<br><a href="' + escapeHtml(r.task_link) + '" target="_blank" rel="noopener noreferrer" class="muted">Open task link</a>' : '') +
                     '</td>' +
                     '<td data-label="Action">' +
                         '<button type="button" class="btn btn-primary btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="approve">' +
                             '<i class="fas fa-check"></i> Approve' +
+                        '</button>' +
+                        '<button type="button" class="btn btn-secondary btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="return" style="margin-top:6px;">' +
+                            '<i class="fas fa-rotate-left"></i> Return' +
                         '</button>' +
                         '<button type="button" class="btn btn-danger btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="reject" style="margin-top:6px;">' +
                             '<i class="fas fa-times"></i> Reject' +
@@ -500,12 +505,22 @@
     // ─── Open Review Confirm Modal ───────────────────────────────
     function openReviewModal(logId, decision) {
         if (!reviewModal) return;
-        pendingReview = { logId: logId, decision: decision };
+        var reviewNote = '';
+        if (decision === 'return') {
+            reviewNote = window.prompt('What should the user fix in their evidence?', 'Please submit the correct handle/link so we can verify this task.');
+            if (reviewNote === null) return;
+            reviewNote = reviewNote.trim();
+            if (!reviewNote) {
+                if (typeof showToast === 'function') showToast('Correction note is required.', 'error');
+                return;
+            }
+        }
+        pendingReview = { logId: logId, decision: decision, reviewNote: reviewNote };
 
-        var actionLabel = decision === 'approve' ? 'approve' : 'reject';
+        var actionLabel = decision === 'approve' ? 'approve' : (decision === 'return' ? 'return for correction' : 'reject');
         reviewModalMessage.textContent = 'Are you sure you want to ' + actionLabel + ' this submission?';
-        reviewModalConfirm.textContent = decision === 'approve' ? 'Yes, Approve' : 'Yes, Reject';
-        reviewModalConfirm.className = 'btn ' + (decision === 'approve' ? 'btn-primary' : 'btn-danger');
+        reviewModalConfirm.textContent = decision === 'approve' ? 'Yes, Approve' : (decision === 'return' ? 'Yes, Return' : 'Yes, Reject');
+        reviewModalConfirm.className = 'btn ' + (decision === 'approve' ? 'btn-primary' : (decision === 'return' ? 'btn-secondary' : 'btn-danger'));
 
         reviewModal.classList.add('show');
     }
@@ -518,12 +533,16 @@
 
     // ─── Execute Review ──────────────────────────────────────────
     function executeReview(logId, decision) {
+        var reviewNote = pendingReview && pendingReview.reviewNote ? pendingReview.reviewNote : '';
         closeReviewModal();
 
         var formData = new FormData();
         formData.append('action_type', 'review');
         formData.append('log_id', logId);
         formData.append('decision', decision);
+        if (reviewNote) {
+            formData.append('review_note', reviewNote);
+        }
 
         fetch(API_BASE, {
             method: 'POST',

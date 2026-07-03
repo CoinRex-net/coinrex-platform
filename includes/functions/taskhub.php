@@ -1816,7 +1816,7 @@ function taskHubReportInterruption(string $session_token, string $reason = 'tab_
 }
 
 
-function reviewTaskHubSubmission($log_id, $approve, PDO $db = null) {
+function reviewTaskHubSubmission($log_id, $approve, PDO $db = null, array $options = []) {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
 
@@ -1834,6 +1834,46 @@ function reviewTaskHubSubmission($log_id, $approve, PDO $db = null) {
         throw new RuntimeException('Submission not found.');
     }
 
+    $review_note = trim((string) ($options['review_note'] ?? ''));
+    $return_for_correction = !empty($options['return_for_correction']);
+
+    if (!$approve && $return_for_correction) {
+        $task_group = (string) ($row['task_group'] ?? 'mission');
+        $task_label = $task_group === 'boosthub' ? 'BoostHub' : 'LearnHub';
+        $action_url = $task_group === 'boosthub' ? '/public/boosthub.php' : '/public/taskhub.php';
+        $metadata = !empty($row['metadata']) ? (json_decode((string) $row['metadata'], true) ?: []) : [];
+        $metadata['reviewed_at'] = date('Y-m-d H:i:s');
+        $metadata['review_outcome'] = 'returned_for_correction';
+        $metadata['correction_requested'] = true;
+        $metadata['correction_note'] = $review_note !== '' ? $review_note : 'Please update your evidence so the admin team can verify it.';
+
+        taskHubUpdateLog((int) $row['id'], [
+            'status' => 'failed',
+            'metadata' => $metadata,
+        ], $db);
+
+        createNotification('user', (int) $row['user_id'], [
+            'template_key' => null,
+            'event_key' => $task_group === 'boosthub' ? 'boosthub.evidence.returned' : 'taskhub.evidence.returned',
+            'title' => $task_label . ' evidence needs correction',
+            'message' => 'Your evidence for "' . (string) ($row['title'] ?? ($task_label . ' task')) . '" could not be verified. ' . $metadata['correction_note'],
+            'action_url' => $action_url,
+            'priority' => 'high',
+            'meta' => [
+                'log_id' => (int) $row['id'],
+                'task_id' => (int) $row['task_id'],
+                'task_group' => $task_group,
+                'review_note' => $metadata['correction_note'],
+            ],
+        ], $db);
+
+        return [
+            'approved' => false,
+            'returned' => true,
+            'task_group' => $task_group,
+        ];
+    }
+
     if (!$approve) {
         // Track rejection count for this user+task
         $rejection_count = (int) ($row['rejection_count'] ?? 0) + 1;
@@ -1849,8 +1889,9 @@ function reviewTaskHubSubmission($log_id, $approve, PDO $db = null) {
             ],
         ], $db);
 
-        // If 3rd rejection, reverse all TaskHub rewards and reset user to Day 1
-        if ($rejection_count >= 3) {
+        // If 3rd LearnHub rejection, reverse mission rewards and reset user to Day 1.
+        // BoostHub final rejections do not reset the LearnHub streak.
+        if ((string) ($row['task_group'] ?? 'mission') === 'mission' && $rejection_count >= 3) {
             taskHubReverseTaskHubRewards((int) $row['user_id'], $db);
             taskHubResetUserToDay1((int) $row['user_id'], $db);
             return [

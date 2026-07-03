@@ -485,11 +485,11 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
         }
 
         $pending_assignment_stmt = $db->prepare("
-            SELECT id
+            SELECT id, status, metadata
             FROM user_task_logs
             WHERE user_id = ?
               AND task_id = ?
-              AND status = 'pending'
+              AND status IN ('pending', 'failed')
             ORDER BY id DESC
             LIMIT 1
         ");
@@ -497,6 +497,12 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
         $pending_assignment = $pending_assignment_stmt->fetch();
         if (!$pending_assignment) {
             throw new RuntimeException('This task is not assigned to you yet.');
+        }
+        if ((string) ($pending_assignment['status'] ?? '') === 'failed') {
+            $assignment_metadata = !empty($pending_assignment['metadata']) ? (json_decode((string) $pending_assignment['metadata'], true) ?: []) : [];
+            if (empty($assignment_metadata['correction_requested'])) {
+                throw new RuntimeException('This BoostHub submission was rejected and cannot be resubmitted.');
+            }
         }
 
         $proof = trim((string) ($payload['proof'] ?? ''));
@@ -562,12 +568,14 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
     try {
         $db->beginTransaction();
         if ((string) ($task['task_group'] ?? 'legacy') === 'boosthub') {
+            $was_returned_for_correction = (string) ($pending_assignment['status'] ?? '') === 'failed';
             taskHubUpdateLog((int) ($pending_assignment['id'] ?? 0), [
                 'status' => 'submitted',
                 'proof_data' => $boosthub_proof_data !== '' ? $boosthub_proof_data : null,
                 'metadata' => [
                     'submitted_at' => date('Y-m-d H:i:s'),
                     'review_outcome' => 'pending',
+                    'resubmitted_after_correction' => $was_returned_for_correction,
                 ],
             ], $db);
             $db->commit();
