@@ -176,7 +176,16 @@ function evaluateRegistrationSecurityRisk($email, $device_fingerprint = null, PD
         $fingerprint_match_count = (int) ($stmt->fetch()['total'] ?? 0);
     }
 
+    $ip_blocked = $ip_match_count >= ANTI_FARM_MAX_ACCOUNTS_PER_IP;
+    $fingerprint_blocked = $fingerprint_hash !== '' && $fingerprint_match_count > 0;
     $combined_pattern = $ip_match_count > 0 && $fingerprint_match_count > 0;
+    $messages = [];
+    if ($ip_blocked) {
+        $messages[] = 'Registration limit reached for this IP address.';
+    }
+    if ($fingerprint_blocked) {
+        $messages[] = 'This device has already been used to register an account.';
+    }
 
     return [
         'raw_ip' => $raw_ip,
@@ -184,10 +193,11 @@ function evaluateRegistrationSecurityRisk($email, $device_fingerprint = null, PD
         'fingerprint_hash' => $fingerprint_hash,
         'ip_match_count' => $ip_match_count,
         'fingerprint_match_count' => $fingerprint_match_count,
-        'ip_blocked' => false,
-        'fingerprint_blocked' => false,
+        'ip_blocked' => $ip_blocked,
+        'fingerprint_blocked' => $fingerprint_blocked,
+        'blocked' => $ip_blocked || $fingerprint_blocked,
         'combined_pattern' => $combined_pattern,
-        'message' => $combined_pattern ? 'Security pattern detected. Account flagged for admin review.' : '',
+        'message' => !empty($messages) ? implode(' ', $messages) : ($combined_pattern ? 'Security pattern detected. Account flagged for admin review.' : ''),
     ];
 }
 
@@ -283,6 +293,21 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
     }
 
     $security_risk = evaluateRegistrationSecurityRisk($email, (string) ($_POST['device_fingerprint'] ?? ''), $db);
+    if (!empty($security_risk['blocked'])) {
+        logFraudEvent('registration_blocked_security_policy', 'warning', [
+            'email' => $email,
+            'ip_hash' => $security_risk['ip_hash'] ?? null,
+            'fingerprint_hash' => $security_risk['fingerprint_hash'] ?? null,
+            'ip_match_count' => $security_risk['ip_match_count'] ?? 0,
+            'fingerprint_match_count' => $security_risk['fingerprint_match_count'] ?? 0,
+            'ip_blocked' => !empty($security_risk['ip_blocked']),
+            'fingerprint_blocked' => !empty($security_risk['fingerprint_blocked']),
+        ], $db);
+        return [
+            'success' => false,
+            'message' => (string) ($security_risk['message'] ?? 'Registration is temporarily unavailable from this device.'),
+        ];
+    }
     if (!empty($security_risk['combined_pattern'])) {
         logFraudEvent('registration_pattern_flagged', 'warning', [
             'email' => $email,

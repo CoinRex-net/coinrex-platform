@@ -202,6 +202,20 @@ function rexSignerAuthCreateWalletUser(PDO $db, $wallet_address, $device_fingerp
     $incoming_referral_code = normalizeReferralCode($incoming_referral_code);
     $risk = evaluateRegistrationSecurityRisk('wallet+' . substr($wallet_address, 2) . '@rexsigner.local', $fingerprint, $db);
 
+    if (!empty($risk['blocked'])) {
+        logFraudEvent('wallet_registration_blocked_security_policy', 'warning', [
+            'email' => null,
+            'wallet_address' => $wallet_address,
+            'ip_hash' => $risk['ip_hash'] ?? null,
+            'fingerprint_hash' => $risk['fingerprint_hash'] ?? null,
+            'ip_match_count' => $risk['ip_match_count'] ?? 0,
+            'fingerprint_match_count' => $risk['fingerprint_match_count'] ?? 0,
+            'ip_blocked' => !empty($risk['ip_blocked']),
+            'fingerprint_blocked' => !empty($risk['fingerprint_blocked']),
+        ], $db);
+        throw new RuntimeException((string) ($risk['message'] ?? 'Registration is temporarily unavailable from this device.'));
+    }
+
     if (!empty($risk['combined_pattern'])) {
         logFraudEvent('wallet_registration_pattern_flagged', 'warning', [
             'email' => null,
