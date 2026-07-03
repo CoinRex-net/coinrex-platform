@@ -459,7 +459,9 @@ function revokeRexSignerSessionsForLogout(PDO $db, int $user_id, int $preferred_
           AND status = 'active'
     ");
     $update->execute(array_merge([$user_id], $session_ids));
+    $revoked_count = (int) $update->rowCount();
 
+    $cancelled_count = 0;
     if (function_exists('tableExists') && tableExists('rex_signer_approval_requests')) {
         $cancel = $db->prepare("
             UPDATE rex_signer_approval_requests
@@ -471,6 +473,27 @@ function revokeRexSignerSessionsForLogout(PDO $db, int $user_id, int $preferred_
               AND status = 'pending'
         ");
         $cancel->execute(array_merge([$user_id], $session_ids));
+        $cancelled_count = (int) $cancel->rowCount();
+    }
+
+    if ($revoked_count > 0 && function_exists('coinrexRealtimePublish')) {
+        foreach ($session_ids as $session_id) {
+            coinrexRealtimePublish('session.revoked', [
+                'user_id' => $user_id,
+                'session_id' => (int) $session_id,
+                'status' => 'revoked',
+                'reason' => 'CoinRex logout',
+            ]);
+        }
+
+        if ($cancelled_count > 0) {
+            coinrexRealtimePublish('approval.cancelled', [
+                'user_id' => $user_id,
+                'status' => 'cancelled',
+                'count' => $cancelled_count,
+                'reason' => 'RexLink session ended by CoinRex logout.',
+            ]);
+        }
     }
 }
 

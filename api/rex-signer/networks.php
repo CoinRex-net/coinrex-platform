@@ -6,7 +6,8 @@ try {
     rexSignerExpireOldRows($db);
 
     $stmt = $db->query("
-        SELECT slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment, is_enabled
+        SELECT slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment,
+               chain_family, claim_enabled, token_support_enabled, is_enabled
         FROM rex_signer_networks
         WHERE is_enabled = 1
         ORDER BY sort_order ASC, id ASC

@@ -1034,7 +1034,7 @@ function getClaimEligibility($user_id, PDO $db = null) {
 
     $signals = getUserSecuritySignals((int) $user_id, $db);
     if (!empty($signals['is_suspicious'])) {
-        return ['eligible' => false, 'message' => 'Claim is temporarily unavailable while account activity is reviewed.', 'signals' => $signals];
+        return ['eligible' => false, 'message' => 'Claim is temporarily unavailable. We detected activity that may violate our abuse-prevention rules. If you believe this is a mistake, please contact support.', 'signals' => $signals];
     }
 
     return [

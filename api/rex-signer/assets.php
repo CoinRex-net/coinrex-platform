@@ -103,7 +103,8 @@ try {
     rexSignerExpireOldRows($db);
 
     $stmt = $db->query("
-        SELECT slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment, is_enabled
+        SELECT slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment,
+               chain_family, claim_enabled, token_support_enabled, is_enabled
         FROM rex_signer_networks
         WHERE is_enabled = 1
         ORDER BY sort_order ASC, id ASC
@@ -115,6 +116,96 @@ try {
     $price_cache = rexSignerCachedCoinGeckoPrices();
 
     $network_meta = [
+        'polygon' => [
+            'logo_key' => 'polygon',
+            'logo_url' => 'https://assets.coingecko.com/coins/images/32440/standard/polygon.png',
+            'tokens' => [
+                [
+                    'symbol' => 'POL',
+                    'name' => 'Polygon Gas',
+                    'decimals' => 18,
+                    'asset_type' => 'native',
+                    'contract_address' => null,
+                    'logo_key' => 'polygon',
+                    'logo_url' => 'https://assets.coingecko.com/coins/images/32440/standard/polygon.png',
+                    'send_enabled' => true,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.000',
+                ],
+                [
+                    'symbol' => 'REX',
+                    'name' => 'CoinRex Token',
+                    'decimals' => 18,
+                    'asset_type' => 'planned',
+                    'contract_address' => null,
+                    'logo_key' => 'rex',
+                    'logo_url' => null,
+                    'send_enabled' => false,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.00',
+                ],
+            ],
+        ],
+        'base' => [
+            'logo_key' => 'base',
+            'logo_url' => null,
+            'tokens' => [
+                [
+                    'symbol' => 'ETH',
+                    'name' => 'Base Gas',
+                    'decimals' => 18,
+                    'asset_type' => 'native',
+                    'contract_address' => null,
+                    'logo_key' => 'base',
+                    'logo_url' => null,
+                    'send_enabled' => true,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.000',
+                ],
+                [
+                    'symbol' => 'REX',
+                    'name' => 'CoinRex Token',
+                    'decimals' => 18,
+                    'asset_type' => 'planned',
+                    'contract_address' => null,
+                    'logo_key' => 'rex',
+                    'logo_url' => null,
+                    'send_enabled' => false,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.00',
+                ],
+            ],
+        ],
+        'plasma' => [
+            'logo_key' => 'plasma',
+            'logo_url' => null,
+            'tokens' => [
+                [
+                    'symbol' => 'XPL',
+                    'name' => 'Plasma Gas',
+                    'decimals' => 18,
+                    'asset_type' => 'native',
+                    'contract_address' => null,
+                    'logo_key' => 'plasma',
+                    'logo_url' => null,
+                    'send_enabled' => false,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.000',
+                ],
+                [
+                    'symbol' => 'REX',
+                    'name' => 'CoinRex Token',
+                    'decimals' => 18,
+                    'asset_type' => 'planned',
+                    'contract_address' => null,
+                    'logo_key' => 'rex',
+                    'logo_url' => null,
+                    'send_enabled' => false,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.00',
+                ],
+            ],
+        ],
         'polygon-amoy' => [
             'logo_key' => 'polygon',
             'logo_url' => 'https://assets.coingecko.com/coins/images/32440/standard/polygon.png',
@@ -195,6 +286,9 @@ try {
             'rpc_url' => $row['rpc_url'],
             'explorer_url' => $row['explorer_url'],
             'environment' => (string) $row['environment'],
+            'chain_family' => (string) ($row['chain_family'] ?? 'evm'),
+            'claim_enabled' => (int) ($row['claim_enabled'] ?? 0),
+            'token_support_enabled' => (int) ($row['token_support_enabled'] ?? 0),
             'is_enabled' => (int) $row['is_enabled'],
             'logo_key' => $meta['logo_key'],
             'logo_url' => $meta['logo_url'],

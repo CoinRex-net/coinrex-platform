@@ -571,7 +571,7 @@ const userNotificationsList = document.getElementById('userNotificationsList');
         if (document.visibilityState === 'visible') {
             fetchRexLinkSession();
         }
-    }, 30000);
+    }, 5000);
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible') {
             fetchRexLinkSession();

@@ -18,6 +18,48 @@ $wallet_address = strtolower(trim((string) ($body['wallet_address'] ?? '')));
 $signature = trim((string) ($body['signature'] ?? ''));
 $nonce_state = $_SESSION['review_eligibility_wallet_nonce'] ?? null;
 
+function verifyReviewEligibilityWalletSignature($wallet_address, $message, $signature) {
+    $script = dirname(__DIR__, 2) . '/scripts/verify-evm-message.js';
+    if (!is_file($script)) {
+        throw new RuntimeException('Wallet signature verifier is missing.');
+    }
+
+    $node_binary = trim((string) (getenv('NODE_BINARY') ?: 'node'));
+    $command = escapeshellarg($node_binary) . ' ' . escapeshellarg($script);
+    $descriptor_spec = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $process = proc_open($command, $descriptor_spec, $pipes, dirname(__DIR__, 2));
+    if (!is_resource($process)) {
+        throw new RuntimeException('Wallet signature verifier could not start.');
+    }
+
+    fwrite($pipes[0], json_encode([
+        'wallet_address' => $wallet_address,
+        'message' => $message,
+        'signature' => $signature,
+    ], JSON_UNESCAPED_SLASHES));
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[2]);
+    $exit_code = proc_close($process);
+
+    if ($exit_code !== 0) {
+        throw new RuntimeException(trim((string) $stderr) ?: 'Wallet signature verification failed.');
+    }
+
+    $decoded = json_decode((string) $stdout, true);
+    if (!is_array($decoded) || empty($decoded['valid'])) {
+        throw new RuntimeException('Wallet signature does not match the requested address.');
+    }
+
+    return $decoded;
+}
+
 if (!preg_match('/^0x[a-f0-9]{40}$/', $wallet_address)) {
     apiErrorResponse(422, 'Valid EVM wallet address is required.');
 }
@@ -30,6 +72,16 @@ if (!is_array($nonce_state)
 }
 if (!preg_match('/^0x[a-fA-F0-9]{130}$/', $signature)) {
     apiErrorResponse(422, 'Valid wallet signature is required.');
+}
+
+try {
+    verifyReviewEligibilityWalletSignature(
+        $wallet_address,
+        (string) ($nonce_state['message'] ?? ''),
+        $signature
+    );
+} catch (Throwable $e) {
+    apiErrorResponse(422, $e->getMessage());
 }
 
 $db = getDBConnection();

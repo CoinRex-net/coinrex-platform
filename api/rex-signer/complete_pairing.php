@@ -85,6 +85,17 @@ try {
     $duration = rexSignerClampDuration($pairing['requested_duration_minutes'] ?? 10);
     $session_token = rexSignerRandomToken(32);
 
+    $existing_session_stmt = $db->prepare("
+        SELECT id
+        FROM rex_signer_sessions
+        WHERE user_id = ?
+          AND status = 'active'
+    ");
+    $existing_session_stmt->execute([$pairing_user_id]);
+    $replaced_session_ids = array_map(static function ($row) {
+        return (int) ($row['id'] ?? 0);
+    }, $existing_session_stmt->fetchAll());
+
     $revoke_existing = $db->prepare("
         UPDATE rex_signer_sessions
         SET status = 'revoked',
@@ -133,6 +144,17 @@ try {
     $session_payload = rexSignerSessionPayload($session);
 
     $db->commit();
+
+    foreach ($replaced_session_ids as $replaced_session_id) {
+        if ($replaced_session_id > 0) {
+            coinrexRealtimePublish('session.revoked', [
+                'user_id' => $pairing_user_id,
+                'session_id' => $replaced_session_id,
+                'status' => 'revoked',
+                'reason' => 'Replaced by a new RexLink session',
+            ]);
+        }
+    }
 
     coinrexRealtimePublish('session.connected', [
         'user_id' => $pairing_user_id,

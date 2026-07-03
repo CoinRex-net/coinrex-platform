@@ -1,6 +1,12 @@
 <?php
 $page_title = 'Users';
 $activePage = 'users';
+$is_ajax_request = !empty($_GET['ajax']);
+$users_ajax_buffer_started = false;
+if ($is_ajax_request) {
+    ob_start();
+    $users_ajax_buffer_started = true;
+}
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/pagination.php';
 
@@ -108,7 +114,10 @@ foreach ($users as $summary_user) {
 }
 
 // AJAX mode
-if (!empty($_GET['ajax'])) {
+if ($is_ajax_request) {
+    if ($users_ajax_buffer_started && ob_get_level() > 0) {
+        ob_clean();
+    }
     header('Content-Type: application/json');
 
     $tableBody = '';

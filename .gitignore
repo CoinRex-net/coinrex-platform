@@ -68,3 +68,4 @@ tools/debug_*.html
 tools/debug_*.php
 tools/login_*.html
 tools/taskhub_admin.html
+node_modules

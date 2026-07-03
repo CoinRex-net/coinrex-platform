@@ -84,12 +84,15 @@ $latest_claim = $claim_history[0] ?? null;
 $has_claimed_rewards = (float) ($balances['claimed'] ?? 0) > 0 && (float) ($balances['available'] ?? 0) <= 0;
 $claim_status_label = !empty($claim_eligibility['eligible']) ? 'Ready' : 'Locked';
 $claim_status_note = (string) ($claim_eligibility['message'] ?? '');
+$claim_security_review_locked = empty($claim_eligibility['eligible']) && !empty($claim_eligibility['signals']);
 if ($open_claim) {
     $claim_status_label = 'Processing';
     $claim_status_note = 'Claim is prepared and waiting for the on-chain transaction to finish.';
+    $claim_security_review_locked = false;
 } elseif ($has_claimed_rewards) {
     $claim_status_label = 'Claimed';
     $claim_status_note = 'Your latest REX claim has been sent to your wallet.';
+    $claim_security_review_locked = false;
 }
 
 function claimUiStatusLabel($status) {
@@ -327,6 +330,12 @@ require_once __DIR__ . '/../includes/header.php';
     min-height: 50px;
     padding-inline: 22px;
     font-size: 1rem;
+}
+.claim-support-cta[hidden] {
+    display: none;
+}
+.claim-support-cta {
+    min-height: 50px;
 }
 .claim-detail-stack {
     display: grid;
@@ -1042,6 +1051,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php if ($open_claim): ?>
                             <button type="button" id="trackOpenClaimButton" class="secondary-btn">Track Claim</button>
                         <?php endif; ?>
+                        <a href="<?php echo BASE_URL; ?>/public/contact.php" id="claimSupportCta" class="secondary-btn claim-support-cta" <?php echo $claim_security_review_locked ? '' : 'hidden'; ?>>Contact Support</a>
                     </div>
                 </div>
                 <div class="claim-detail-card">
@@ -1266,11 +1276,13 @@ require_once __DIR__ . '/../includes/header.php';
     const realtimeAuthUrl = rexlinkApiBaseUrl + '/api/rex-signer/realtime_auth.php';
     const realtimeDebug = <?php echo in_array(strtolower(trim((string) (getenv('COINREX_REALTIME_DEBUG') ?: ''))), ['1', 'true', 'yes', 'on'], true) ? 'true' : 'false'; ?>;
     const serverClaimEligible = <?php echo !empty($claim_eligibility['eligible']) ? 'true' : 'false'; ?>;
+    const serverClaimSecurityReviewLocked = <?php echo $claim_security_review_locked ? 'true' : 'false'; ?>;
     const initialAvailableBalance = <?php echo json_encode((float) ($balances['available'] ?? 0)); ?>;
     const initialClaimedBalance = <?php echo json_encode((float) ($balances['claimed'] ?? 0)); ?>;
     const initialOpenClaim = <?php echo $open_claim ? 'true' : 'false'; ?>;
 
     let currentClaimEligible = serverClaimEligible;
+    let currentClaimSecurityReviewLocked = serverClaimSecurityReviewLocked;
     let hasOpenClaim = initialOpenClaim;
     let availableBalanceValue = Number(initialAvailableBalance || 0);
     let claimedBalanceValue = Number(initialClaimedBalance || 0);
@@ -1370,6 +1382,7 @@ require_once __DIR__ . '/../includes/header.php';
     const sessionDisconnectButton = document.getElementById('claimSessionDisconnectButton');
     const heroClaimState = document.getElementById('heroClaimState');
     const heroClaimNote = document.getElementById('heroClaimNote');
+    const claimSupportCta = document.getElementById('claimSupportCta');
     let currentPairingDisplayCode = '';
 
     async function postJson(url, body, options) {
@@ -1831,6 +1844,9 @@ require_once __DIR__ . '/../includes/header.php';
             openButton.disabled = !currentClaimEligible || hasOpenClaim || availableBalanceValue <= 0;
             openButton.textContent = hasOpenClaim ? 'Claim Processing' : (!currentClaimEligible ? 'Claim Locked' : 'Claim REX');
         }
+        if (claimSupportCta) {
+            claimSupportCta.hidden = !currentClaimSecurityReviewLocked || hasOpenClaim || currentClaimEligible;
+        }
         renderLandingSessionCard();
     }
 
@@ -2043,7 +2059,7 @@ require_once __DIR__ . '/../includes/header.php';
         showModalLoading('Checking RexLink session...', 'Looking for an active wallet connection.');
         refreshSessions().then(function() {
             if (activeSessionCount > 0 && activeWalletAddress) {
-                delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 700);
+                delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 120);
                 return;
             }
             if (hasUsablePendingPairing()) {
@@ -2075,6 +2091,7 @@ require_once __DIR__ . '/../includes/header.php';
         availableBalanceValue = Number(data.balances.available || 0);
         claimedBalanceValue = Number(data.balances.claimed || 0);
         currentClaimEligible = !!data.claim_eligibility.eligible;
+        currentClaimSecurityReviewLocked = !currentClaimEligible && !!data.claim_eligibility.signals;
         hasOpenClaim = !!data.open_claim;
         if (landingLocked) landingLocked.textContent = formatRex(Number(data.balances.locked || 0), 2);
         if (landingPending) landingPending.textContent = formatRex(Number(data.balances.pending || 0), 2);
@@ -2119,7 +2136,7 @@ require_once __DIR__ . '/../includes/header.php';
             }
             setPairingCopyState('', false);
             if (!modal.hidden && ['duration', 'connect', 'loading'].includes(modalStep)) {
-                delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 700);
+                delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 120);
             }
         } else if (['expired', 'revoked', 'none'].includes(sessionState)) {
             if (previousSessionCount > 0 || sessionState !== 'none' || activeRequestId > 0 || (modal && !modal.hidden && !['duration', 'connect', 'loading'].includes(modalStep))) {
@@ -2191,7 +2208,7 @@ require_once __DIR__ . '/../includes/header.php';
                 clearPairingExpiry();
                 startCountdown();
                 renderLandingSessionCard();
-                delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 700);
+                delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 120);
                 return;
             }
             hasPendingPairingCode = true;
@@ -2205,6 +2222,9 @@ require_once __DIR__ . '/../includes/header.php';
             setPairingCopyState(data.display_code || '', false);
             startPairingExpiry(Number(data.expires_in_seconds || 300));
             startSessionPolling();
+            window.setTimeout(function() {
+                refreshSessions().catch(function() {});
+            }, 350);
             if (data.qr_payload) {
                 const qrPayload = Object.assign({}, data.qr_payload || {}, {
                     purpose: 'claim',
@@ -2217,7 +2237,7 @@ require_once __DIR__ . '/../includes/header.php';
                     ''
                 );
             }
-            delayedModalStep('Creating RexLink QR...', 'Your QR is almost ready.', 'connect', 700);
+            delayedModalStep('Creating RexLink QR...', 'Your QR is almost ready.', 'connect', 120);
         } catch (error) {
             hasPendingPairingCode = false;
             pairingGenerationFailed = true;
@@ -2276,14 +2296,17 @@ require_once __DIR__ . '/../includes/header.php';
             resetModalAfterSessionLoss('No active RexLink session found.');
             return;
         }
+        const sessionId = activeSessionId;
+        resetModalAfterSessionLoss('Session disconnected. Please connect again to continue.');
         const data = await postJson(revokeSessionUrl, {
-            session_id: activeSessionId,
+            session_id: sessionId,
             reason: 'Revoked from claim checkout page',
         });
         if (!data.success) {
-            throw new Error(data.message || 'Could not disconnect RexLink.');
+            sessionInactiveMessage = 'Local session cleared. Server disconnect will retry when sessions refresh.';
+            renderLandingSessionCard(sessionInactiveMessage);
+            return;
         }
-        resetModalAfterSessionLoss('Session disconnected. Please connect again to continue.');
         refreshSessions().catch(function() {});
     }
 
@@ -2392,7 +2415,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     function startSessionPolling() {
         const wantsFastPairingPoll = modal && !modal.hidden && ['connect', 'loading'].includes(modalStep) && hasPendingPairingCode;
-        const nextInterval = wantsFastPairingPoll ? 1000 : (realtimeConnected ? 12000 : 2000);
+        const nextInterval = wantsFastPairingPoll ? 500 : (realtimeConnected ? 12000 : 1500);
         if (sessionPollTimer && sessionPollIntervalMs === nextInterval) {
             return;
         }

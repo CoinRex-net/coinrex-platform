@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS rex_signer_networks (
     native_symbol VARCHAR(20) NOT NULL,
     rpc_url VARCHAR(500) NULL,
     explorer_url VARCHAR(500) NULL,
-    environment ENUM('testnet','mainnet','stub') NOT NULL DEFAULT 'testnet',
+    environment ENUM('staging','testnet','mainnet','stub') NOT NULL DEFAULT 'testnet',
+    chain_family VARCHAR(20) NOT NULL DEFAULT 'evm',
+    claim_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    token_support_enabled TINYINT(1) NOT NULL DEFAULT 0,
     is_enabled TINYINT(1) NOT NULL DEFAULT 1,
     sort_order INT UNSIGNED NOT NULL DEFAULT 100,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -23,10 +26,12 @@ CREATE TABLE IF NOT EXISTS rex_signer_networks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO rex_signer_networks
-    (slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment, is_enabled, sort_order)
+    (slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment, chain_family, claim_enabled, token_support_enabled, is_enabled, sort_order)
 VALUES
-    ('polygon-amoy', 'Polygon Amoy', 80002, 'POL', 'https://rpc-amoy.polygon.technology', 'https://amoy.polygonscan.com', 'testnet', 1, 10),
-    ('plasma-testnet', 'Plasma Testnet', NULL, 'XPL', NULL, NULL, 'stub', 1, 20)
+    ('polygon', 'Polygon', 137, 'POL', 'https://polygon-rpc.com', 'https://polygonscan.com', 'mainnet', 'evm', 0, 1, 1, 10),
+    ('base', 'Base', 8453, 'ETH', 'https://mainnet.base.org', 'https://basescan.org', 'mainnet', 'evm', 0, 1, 1, 20),
+    ('plasma', 'Plasma', NULL, 'XPL', NULL, NULL, 'mainnet', 'evm', 0, 0, 1, 30),
+    ('polygon-amoy', 'Polygon Amoy', 80002, 'POL', 'https://rpc-amoy.polygon.technology', 'https://amoy.polygonscan.com', 'staging', 'evm', 1, 1, 1, 90)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     chain_id = VALUES(chain_id),
@@ -34,8 +39,13 @@ ON DUPLICATE KEY UPDATE
     rpc_url = VALUES(rpc_url),
     explorer_url = VALUES(explorer_url),
     environment = VALUES(environment),
+    chain_family = VALUES(chain_family),
+    claim_enabled = VALUES(claim_enabled),
+    token_support_enabled = VALUES(token_support_enabled),
     is_enabled = VALUES(is_enabled),
     sort_order = VALUES(sort_order);
+
+UPDATE rex_signer_networks SET is_enabled = 0, environment = 'stub' WHERE slug = 'plasma-testnet';
 
 CREATE TABLE IF NOT EXISTS rex_signer_pairing_codes (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
