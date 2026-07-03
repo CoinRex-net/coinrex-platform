@@ -29,7 +29,11 @@
     }
 
     function showModal(title, message, onConfirm) {
-        if (!modal || !modalTitle || !modalMessage || !modalAction) return;
+        if (!modal || !modalTitle || !modalMessage || !modalAction) {
+            window.alert((title ? title + ': ' : '') + (message || 'Something went wrong.'));
+            if (typeof onConfirm === 'function') onConfirm();
+            return;
+        }
         modalTitle.textContent = title;
         modalMessage.textContent = message;
         modal.hidden = false;
@@ -75,6 +79,25 @@
         } catch (e) {
             // If JSON parsing fails, throw with the HTTP status info
             throw new Error('Server returned ' + response.status + ' ' + response.statusText + '. Invalid response format.');
+        }
+    }
+
+    function setActionButtonLoading(btn, loadingText) {
+        if (!btn || btn.tagName !== 'BUTTON') return;
+        if (!btn.dataset.originalHtml) {
+            btn.dataset.originalHtml = btn.innerHTML;
+        }
+        btn.disabled = true;
+        btn.classList.add('is-loading');
+        btn.textContent = loadingText || 'Submitting...';
+    }
+
+    function restoreActionButton(btn) {
+        if (!btn || btn.tagName !== 'BUTTON') return;
+        btn.disabled = false;
+        btn.classList.remove('is-loading');
+        if (btn.dataset.originalHtml) {
+            btn.innerHTML = btn.dataset.originalHtml;
         }
     }
 
@@ -806,8 +829,7 @@
         // Find the actual action button in the row to disable it
         const actionBtn = row.querySelector('[data-th-action]') || btn;
         if (actionBtn && actionBtn.disabled) return;
-        if (actionBtn) actionBtn.disabled = true;
-        if (actionBtn && actionBtn.tagName === 'BUTTON') actionBtn.textContent = 'Submitting...';
+        setActionButtonLoading(actionBtn, 'Submitting...');
 
         const payload = { task_key: taskKey };
 
@@ -831,10 +853,7 @@
             const hasX = !!(payload.x_handle && payload.x_handle.trim());
             const hasTelegram = !!(payload.telegram_handle && payload.telegram_handle.trim());
             if (!hasX && !hasTelegram) {
-                if (actionBtn && actionBtn.tagName === 'BUTTON') {
-                    actionBtn.disabled = false;
-                    actionBtn.textContent = 'Submit for Review';
-                }
+                restoreActionButton(actionBtn);
                 // Highlight empty fields
                 if (xHandle && !xHandle.value.trim()) {
                     xHandle.classList.add('is-error');
@@ -858,10 +877,7 @@
             const hasPlatform = !!(payload.platform && payload.platform.trim());
             const hasProof = !!(payload.proof && payload.proof.trim());
             if (!hasPlatform || !hasProof) {
-                if (actionBtn && actionBtn.tagName === 'BUTTON') {
-                    actionBtn.disabled = false;
-                    actionBtn.textContent = 'Submit for Review';
-                }
+                restoreActionButton(actionBtn);
                 // Highlight empty fields
                 if (sharePlatform && !sharePlatform.value) {
                     sharePlatform.style.borderColor = 'var(--th-red)';
@@ -893,6 +909,7 @@
                     }
                 });
                 if (!allAnswered) {
+                    restoreActionButton(actionBtn);
                     showModal('Incomplete Quiz', 'Please answer all questions correctly before submitting.');
                     return;
                 }
@@ -903,11 +920,7 @@
         const isCheckIn = taskKey && (taskKey.includes('_check_in') || taskKey.includes('_checkin'));
 
         // Disable the action button (if it's a real button element)
-        if (actionBtn && actionBtn.tagName === 'BUTTON') {
-            actionBtn.disabled = true;
-            actionBtn.classList.add('is-loading');
-            actionBtn.textContent = 'Submitting...';
-        }
+        setActionButtonLoading(actionBtn, 'Submitting...');
 
 
         try {
@@ -930,19 +943,11 @@
                     setTimeout(() => location.reload(), 1800);
                 }
             } else {
-                if (actionBtn && actionBtn.tagName === 'BUTTON') {
-                    actionBtn.disabled = false;
-                    actionBtn.classList.remove('is-loading');
-                    actionBtn.textContent = 'Submit';
-                }
+                restoreActionButton(actionBtn);
                 showModal('Error', data.message || 'Failed to submit task.');
             }
         } catch (err) {
-            if (actionBtn && actionBtn.tagName === 'BUTTON') {
-                actionBtn.disabled = false;
-                actionBtn.classList.remove('is-loading');
-                actionBtn.textContent = 'Submit';
-            }
+            restoreActionButton(actionBtn);
 
             // Try to extract the actual error message from the response
             const errorMsg = (err && err.message) ? err.message : 'Network error. Please try again.';
