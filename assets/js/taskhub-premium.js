@@ -89,6 +89,7 @@
         }
         btn.disabled = true;
         btn.classList.add('is-loading');
+        btn.setAttribute('aria-busy', 'true');
         btn.textContent = loadingText || 'Submitting...';
     }
 
@@ -96,6 +97,7 @@
         if (!btn || btn.tagName !== 'BUTTON') return;
         btn.disabled = false;
         btn.classList.remove('is-loading');
+        btn.removeAttribute('aria-busy');
         if (btn.dataset.originalHtml) {
             btn.innerHTML = btn.dataset.originalHtml;
         }
@@ -829,9 +831,11 @@
         // Find the actual action button in the row to disable it
         const actionBtn = row.querySelector('[data-th-action]') || btn;
         if (actionBtn && actionBtn.disabled) return;
-        setActionButtonLoading(actionBtn, 'Submitting...');
 
         const payload = { task_key: taskKey };
+        const isCheckIn = taskKey && (taskKey.includes('_check_in') || taskKey.includes('_checkin'));
+        const loadingText = isCheckIn ? 'Checking in...' : 'Submitting...';
+        setActionButtonLoading(actionBtn, loadingText);
 
         const walletInput = row.querySelector('.task-wallet-input');
         if (walletInput && walletInput.value.trim()) {
@@ -917,10 +921,8 @@
             }
         }
 
-        const isCheckIn = taskKey && (taskKey.includes('_check_in') || taskKey.includes('_checkin'));
-
         // Disable the action button (if it's a real button element)
-        setActionButtonLoading(actionBtn, 'Submitting...');
+        setActionButtonLoading(actionBtn, loadingText);
 
 
         try {
