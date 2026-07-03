@@ -16,9 +16,22 @@ try {
         throw new InvalidArgumentException('Valid task_id is required.');
     }
 
-    $result = completeMiniTask($user_id, $task_id, [
+    $payload = [
         'proof' => trim((string) ($_POST['proof'] ?? '')),
-    ]);
+    ];
+    foreach (['wallet_address', 'x_handle', 'telegram_handle', 'platform'] as $field) {
+        if (isset($_POST[$field])) {
+            $payload[$field] = trim((string) $_POST[$field]);
+        }
+    }
+    if (!empty($_POST['answers_json'])) {
+        $answers = json_decode((string) $_POST['answers_json'], true);
+        if (is_array($answers)) {
+            $payload['answers'] = $answers;
+        }
+    }
+
+    $result = completeMiniTask($user_id, $task_id, $payload);
 
     apiSuccessResponse([
         'message' => !empty($result['submitted']) ? 'Evidence submitted. Waiting for admin approval.' : 'Mini task completed and reward added.',

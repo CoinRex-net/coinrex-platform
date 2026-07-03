@@ -460,6 +460,14 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
         throw new RuntimeException('Mini task not found or inactive.');
     }
 
+    if ((string) ($task['task_group'] ?? 'legacy') === 'mission' && trim((string) ($task['task_key'] ?? '')) !== '') {
+        if (!function_exists('submitTaskHubTask')) {
+            throw new RuntimeException('TaskHub submission handler is unavailable.');
+        }
+
+        return submitTaskHubTask((int) $user_id, (string) $task['task_key'], $payload, $db);
+    }
+
     // BoostHub is available to all account levels
     if ((string) ($task['task_group'] ?? 'legacy') === 'boosthub') {
         enforceUserModuleAccess($user, 'boosthub');
