@@ -458,6 +458,7 @@
         for (var i = 0; i < reviews.length; i++) {
             var r = reviews[i];
             var catLabel = taskCategories[r.task_category] || r.task_category || 'Custom Task';
+            var proofData = r.proof_data || '';
 
             html += '' +
                 '<tr data-log-id="' + r.id + '">' +
@@ -471,9 +472,14 @@
                         '<span class="muted">Reward: ' + parseFloat(r.reward || 0).toFixed(2) + ' $REX</span>' +
                     '</td>' +
                     '<td data-label="Evidence">' +
-                        '<code>' + escapeHtml(r.proof_data || '') + '</code>' +
+                        '<div class="boosthub-evidence-box">' +
+                            '<code>' + escapeHtml(proofData) + '</code>' +
+                            '<button type="button" class="btn btn-secondary btn-sm boosthub-copy-evidence-btn" data-proof="' + escapeHtml(proofData) + '" title="Copy evidence">' +
+                                '<i class="fas fa-copy"></i> Copy' +
+                            '</button>' +
+                        '</div>' +
                         (r.proof_notes ? '<br><span class="muted">Expected: ' + escapeHtml(r.proof_notes) + '</span>' : '') +
-                        (r.task_link ? '<br><a href="' + escapeHtml(r.task_link) + '" target="_blank" rel="noopener noreferrer" class="muted">Open task link</a>' : '') +
+                        (r.task_link ? '<br><a href="' + escapeHtml(r.task_link) + '" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm boosthub-open-task-link"><i class="fas fa-arrow-up-right-from-square"></i> Open task link</a>' : '') +
                     '</td>' +
                     '<td data-label="Action">' +
                         '<button type="button" class="btn btn-primary btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="approve">' +
@@ -498,6 +504,13 @@
                 var logId = parseInt(this.getAttribute('data-log-id'), 10);
                 var decision = this.getAttribute('data-decision');
                 openReviewModal(logId, decision);
+            });
+        }
+
+        var copyBtns = reviewContainer.querySelectorAll('.boosthub-copy-evidence-btn');
+        for (var cb = 0; cb < copyBtns.length; cb++) {
+            copyBtns[cb].addEventListener('click', function () {
+                copyEvidence(this, this.getAttribute('data-proof') || '');
             });
         }
     }
@@ -568,6 +581,50 @@
 
     function numberFormat(num) {
         return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    function copyEvidence(button, text) {
+        if (!text) {
+            if (typeof showToast === 'function') showToast('No evidence to copy.', 'error');
+            return;
+        }
+
+        function onCopied() {
+            var original = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-check"></i> Copied';
+            if (typeof showToast === 'function') showToast('Evidence copied to clipboard.', 'success');
+            setTimeout(function () {
+                button.innerHTML = original;
+            }, 1400);
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(onCopied).catch(function () {
+                fallbackCopy(text, onCopied);
+            });
+            return;
+        }
+
+        fallbackCopy(text, onCopied);
+    }
+
+    function fallbackCopy(text, onCopied) {
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+            document.execCommand('copy');
+            onCopied();
+        } catch (err) {
+            if (typeof showToast === 'function') showToast('Copy failed. Please copy manually.', 'error');
+        }
+
+        document.body.removeChild(textarea);
     }
 
     // ─── Boot ────────────────────────────────────────────────────

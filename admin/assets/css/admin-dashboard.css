@@ -2772,6 +2772,35 @@
     transform: translateX(20px);
 }
 
+.boosthub-evidence-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 420px;
+}
+
+.boosthub-evidence-box code {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 300px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.boosthub-copy-evidence-btn,
+.boosthub-open-task-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.boosthub-open-task-link {
+    margin-top: 8px;
+    text-decoration: none;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .boosthub-task-card-head {
@@ -2791,6 +2820,15 @@
 
     .boosthub-task-card-foot {
         flex-wrap: wrap;
+    }
+
+    .boosthub-evidence-box {
+        flex-direction: column;
+        max-width: none;
+    }
+
+    .boosthub-evidence-box code {
+        max-width: 100%;
     }
 }
 
