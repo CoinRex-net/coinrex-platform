@@ -1623,7 +1623,14 @@ function submitTaskHubTask($user_id, $task_key, array $payload = [], PDO $db = n
     if ((!defined('TESTING_MODE') || !TESTING_MODE) && !LOCAL_TEST_MODE) {
         $signals = getUserSecuritySignals((int) $user_id, $db);
         if (!empty($signals['is_suspicious'])) {
-            throw new RuntimeException('Suspicious activity detected. Try again later.');
+            logFraudEvent('taskhub_soft_security_signal', 'info', [
+                'user_id' => (int) $user_id,
+                'email' => (string) ($user['email'] ?? ''),
+                'matching_accounts' => (int) ($signals['matching_accounts'] ?? 0),
+                'matching_user_agents' => (int) ($signals['matching_user_agents'] ?? 0),
+                'reasons' => $signals['reasons'] ?? [],
+                'action' => 'allowed_taskhub_submit',
+            ], $db);
         }
     }
 
