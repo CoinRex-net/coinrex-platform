@@ -1589,15 +1589,19 @@ require_once __DIR__ . '/../includes/header.php';
 
     function renderCountdown() {
         const remaining = remainingNow();
-        [modalCountdownText, landingCountdownText].forEach(function(element) {
-            if (!element) {
-                return;
-            }
-            element.hidden = activeSessionCount <= 0 && remaining <= 0;
-            element.textContent = countdownLabel(remaining);
-            element.classList.toggle('is-warning', remaining > 0 && remaining <= 120);
-            element.classList.toggle('is-expired', remaining <= 0);
-        });
+        if (modalCountdownText) {
+            modalCountdownText.hidden = activeSessionCount <= 0 && remaining <= 0;
+            modalCountdownText.textContent = countdownLabel(remaining);
+            modalCountdownText.classList.toggle('is-warning', remaining > 0 && remaining <= 120);
+            modalCountdownText.classList.toggle('is-expired', remaining <= 0);
+        }
+        if (landingCountdownText) {
+            const showLandingCountdown = activeSessionCount > 0 && remaining > 0;
+            landingCountdownText.hidden = !showLandingCountdown;
+            landingCountdownText.textContent = countdownLabel(remaining);
+            landingCountdownText.classList.toggle('is-warning', remaining > 0 && remaining <= 120);
+            landingCountdownText.classList.toggle('is-expired', remaining <= 0);
+        }
         if (activeSessionCount > 0 && remaining <= 0 && !sessionExpiryRefreshQueued) {
             sessionExpiryRefreshQueued = true;
             refreshSessions().catch(function() {});
@@ -2702,6 +2706,9 @@ require_once __DIR__ . '/../includes/header.php';
             sessionInactiveMessage = error.message || 'Could not disconnect RexLink.';
             renderLandingSessionCard(sessionInactiveMessage);
         });
+    });
+    window.addEventListener('rexlink:session-expired', function() {
+        clearSessionState('Session disconnected. Please connect again to continue.');
     });
     trackButton?.addEventListener('click', function() {
         openClaimModal(true);

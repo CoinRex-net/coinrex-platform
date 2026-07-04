@@ -19,6 +19,21 @@ if ($user && taskHubMissionCompleted((int) $user['id'], $db)) {
 }
 
 $state = getTaskHubState((int) $user['id'], $db);
+$learnhub_share_referral_link = !empty($user['referral_code'])
+    ? BASE_URL . '/auth/auth.php?ref=' . rawurlencode((string) $user['referral_code'])
+    : BASE_URL . '/public/taskhub.php';
+$learnhub_share_rewards = [];
+foreach (($state['days'] ?? []) as $share_day) {
+    $share_day_number = (int) ($share_day['day'] ?? 0);
+    if ($share_day_number <= 0) {
+        continue;
+    }
+    $share_day_reward = 0.0;
+    foreach (($share_day['tasks'] ?? []) as $share_task) {
+        $share_day_reward += (float) ($share_task['reward'] ?? 0);
+    }
+    $learnhub_share_rewards[$share_day_number] = round($share_day_reward, 2);
+}
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -262,7 +277,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
 
                 <!-- Share Button -->
-                <button type="button" class="th-pro-share-btn" data-share-progress data-day="<?php echo (int) ($state['current_day'] ?? 1); ?>">
+                <button type="button" class="th-pro-share-btn" data-share-progress data-day="<?php echo (int) ($state['current_day'] ?? 1); ?>" data-reward="<?php echo htmlspecialchars((string) ($learnhub_share_rewards[(int) ($state['current_day'] ?? 1)] ?? 0), ENT_QUOTES, 'UTF-8'); ?>">
                     📤 Share Your Progress
                 </button>
             </div>
@@ -438,7 +453,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     <?php endif; ?>
                                     
                                     <!-- Share Progress Button -->
-                                    <button type="button" class="th-share-btn" data-share-progress data-day="<?php echo $day_num; ?>">
+                                    <button type="button" class="th-share-btn" data-share-progress data-day="<?php echo $day_num; ?>" data-reward="<?php echo htmlspecialchars((string) ($learnhub_share_rewards[$day_num] ?? round($today_earnings, 2)), ENT_QUOTES, 'UTF-8'); ?>">
                                         📤 Share Your Progress
                                     </button>
                                 <?php elseif ($day_num >= 10): ?>
@@ -794,6 +809,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 <?php require_once __DIR__ . '/../includes/taskhub/mystery-box.php'; ?>
 
+<script>
+window.coinrexLearnHubShareConfig = {
+    referralLink: <?php echo json_encode($learnhub_share_referral_link, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>,
+};
+</script>
 <script src="<?php echo ASSETS_URL; ?>/js/taskhub-premium.js?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/js/taskhub-premium.js'); ?>"></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

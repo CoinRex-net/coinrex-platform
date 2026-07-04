@@ -1352,34 +1352,62 @@
     // ============================================================
     // SHARE PROGRESS BUTTON
     // ============================================================
-    const shareBtn = document.querySelector('[data-share-progress]');
-    if (shareBtn) {
-        shareBtn.addEventListener('click', async () => {
-            const day = shareBtn.dataset.day || '1';
-            const shareText = `🔥 I just completed Day ${day} on CoinRex LearnHub! Earning rewards and building my crypto knowledge. Join me at CoinRex! 🚀`;
-            
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'CoinRex LearnHub Progress',
-                        text: shareText,
-                        url: window.location.href,
-                    });
-                } catch (e) {
-                    // User cancelled
-                }
-            } else {
-                // Fallback: copy to clipboard
-                try {
-                    await navigator.clipboard.writeText(shareText + ' ' + window.location.href);
-                    shareBtn.textContent = '✅ Copied to clipboard!';
-                    setTimeout(() => {
-                        shareBtn.textContent = '📤 Share Your Progress';
-                    }, 3000);
-                } catch (e) {
-                    alert('Share not supported. You can copy the URL manually.');
-                }
+    const shareButtons = document.querySelectorAll('[data-share-progress]');
+    if (shareButtons.length > 0) {
+        const shareConfig = window.coinrexLearnHubShareConfig || {};
+        const referralLink = String(shareConfig.referralLink || window.location.href);
+
+        function formatReward(value) {
+            const reward = Number(value || 0);
+            if (!Number.isFinite(reward)) {
+                return '0';
             }
+            return reward.toLocaleString(undefined, {
+                minimumFractionDigits: reward % 1 === 0 ? 0 : 2,
+                maximumFractionDigits: 2,
+            });
+        }
+
+        function buildShareText(day, rewardText) {
+            return [
+                `🔥 I just completed Day ${day} on CoinRex LearnHub!`,
+                `Earn: ${rewardText} $REX`,
+                'Earning rewards and building my crypto knowledge.',
+                'Join me at @coinrex_app 🚀',
+                '',
+                '#CoinRex #Web3 #BuildInPublic',
+                '',
+                referralLink
+            ].join('\n');
+        }
+
+        shareButtons.forEach((shareBtn) => {
+            shareBtn.addEventListener('click', async () => {
+                const day = shareBtn.dataset.day || '1';
+                const rewardText = formatReward(shareBtn.dataset.reward || 0);
+                const shareText = buildShareText(day, rewardText);
+
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: 'CoinRex LearnHub Progress',
+                            text: shareText,
+                        });
+                    } catch (e) {
+                        // User cancelled
+                    }
+                } else {
+                    try {
+                        await navigator.clipboard.writeText(shareText);
+                        shareBtn.textContent = '✅ Copied to clipboard!';
+                        setTimeout(() => {
+                            shareBtn.textContent = '📤 Share Your Progress';
+                        }, 3000);
+                    } catch (e) {
+                        alert('Share not supported. You can copy the post manually.');
+                    }
+                }
+            });
         });
     }
 
