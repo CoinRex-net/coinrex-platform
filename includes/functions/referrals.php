@@ -5,6 +5,11 @@ function normalizeReferralCode($code) {
     return strtoupper(trim((string)$code));
 }
 
+function buildReferralLink($referral_code) {
+    $code = normalizeReferralCode($referral_code);
+    return BASE_URL . '/auth.php?ref=' . rawurlencode($code);
+}
+
 function generateReferralCode($length = 8) {
     $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     $code = '';

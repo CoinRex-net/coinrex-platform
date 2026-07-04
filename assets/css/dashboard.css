@@ -1421,6 +1421,18 @@
     transform: translateX(3px);
 }
 
+.airdrop-premium-cta--disabled,
+.airdrop-premium-cta--disabled:hover {
+    cursor: default;
+    pointer-events: none;
+    transform: none;
+    filter: none;
+    color: #bbf7d0;
+    background: rgba(22, 101, 52, 0.24);
+    border-color: rgba(34, 197, 94, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
 /* Unlocked state */
 .airdrop-premium--unlocked {
     border-color: rgba(34, 197, 94, 0.25);

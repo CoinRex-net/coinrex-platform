@@ -20,7 +20,7 @@ if ($user && taskHubMissionCompleted((int) $user['id'], $db)) {
 
 $state = getTaskHubState((int) $user['id'], $db);
 $learnhub_share_referral_link = !empty($user['referral_code'])
-    ? BASE_URL . '/auth/auth.php?ref=' . rawurlencode((string) $user['referral_code'])
+    ? buildReferralLink((string) $user['referral_code'])
     : BASE_URL . '/public/taskhub.php';
 $learnhub_share_rewards = [];
 foreach (($state['days'] ?? []) as $share_day) {

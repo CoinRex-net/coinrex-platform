@@ -113,6 +113,7 @@ $pro_security_signals = getUserSecuritySignals((int) $user['id'], $db);
 $pro_security_clear = empty($pro_security_signals['is_suspicious']);
 $pro_referrals_complete = $pro_current_referrals >= $pro_required_referrals;
 $pro_age_complete = $pro_account_age_days >= $pro_required_age_days;
+$user_referral_link = buildReferralLink((string) ($user['referral_code'] ?? ''));
 $pro_requirements = [
     [
         'key' => 'learnhub',
@@ -135,7 +136,7 @@ $pro_requirements = [
         'helper' => $pro_referrals_complete ? 'Done. Your referral requirement is complete.' : 'Invite one friend who qualifies as a valid referral.',
         'action_label' => $pro_referrals_complete ? '' : 'Copy Link',
         'action_url' => '',
-        'copy_text' => BASE_URL . '/auth/auth.php?ref=' . ($user['referral_code'] ?? ''),
+        'copy_text' => $user_referral_link,
         'icon' => 'fas fa-user-plus',
     ],
     [
@@ -219,7 +220,7 @@ if ($current_level === 'pro') {
             'helper' => $expert_referrals_complete ? 'Done. Your referral count is ready.' : 'Invite more qualified users with your referral link.',
             'action_label' => $expert_referrals_complete ? '' : 'Copy Link',
             'action_url' => '',
-            'copy_text' => BASE_URL . '/auth/auth.php?ref=' . ($user['referral_code'] ?? ''),
+            'copy_text' => $user_referral_link,
             'icon' => 'fas fa-user-plus',
         ],
         [
@@ -347,9 +348,12 @@ require_once __DIR__ . '/../includes/header.php';
         $airdrop_total_days = (int) ($airdrop_progress['total_days'] ?? TASKHUB_TOTAL_DAYS);
         $airdrop_days_to_finish = max(0, $airdrop_total_days - $airdrop_completed_days);
         $airdrop_progress_percent = (float) ($airdrop_progress['progress'] ?? 0);
-        $airdrop_next_step = $airdrop_days_to_finish > 0
+        $learnhub_completion_message = 'You have Completed the LearnHub Missions';
+        $airdrop_next_step = $pro_mission_complete
+            ? $learnhub_completion_message
+            : ($airdrop_days_to_finish > 0
             ? ($airdrop_days_to_finish . ' LearnHub day' . ($airdrop_days_to_finish === 1 ? '' : 's') . ' left')
-            : 'Reach PRO Level';
+            : 'Reach PRO Level');
         $is_pro = ($user['level'] ?? '') === 'pro';
         ?>
         <?php if ($show_airdrop_feature && $pending_airdrop > 0 && !$is_pro): ?>
@@ -419,7 +423,13 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="airdrop-premium-info">
                     <div class="airdrop-premium-info-item">
                         <span class="airdrop-premium-info-icon">🎯</span>
-                        <span class="airdrop-premium-info-text">Step 1: complete <strong><?php echo $airdrop_total_days; ?> LearnHub days</strong>. Step 2: reach <strong>PRO Level</strong>. Then your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> unlocks automatically.</span>
+                        <span class="airdrop-premium-info-text">
+                            <?php if ($pro_mission_complete): ?>
+                                <strong><?php echo htmlspecialchars($learnhub_completion_message, ENT_QUOTES, 'UTF-8'); ?></strong>. Reach <strong>PRO Level</strong> to unlock your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> airdrop.
+                            <?php else: ?>
+                                Step 1: complete <strong><?php echo $airdrop_total_days; ?> LearnHub days</strong>. Step 2: reach <strong>PRO Level</strong>. Then your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> unlocks automatically.
+                            <?php endif; ?>
+                        </span>
                     </div>
                     <div class="airdrop-premium-info-item">
                         <span class="airdrop-premium-info-icon">👥</span>
@@ -446,8 +456,8 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="airdrop-premium-referral-col">
                             <span class="airdrop-premium-referral-col-label">Share Link</span>
                             <div class="airdrop-premium-referral-link-row">
-                                <span class="airdrop-premium-referral-link"><?php echo htmlspecialchars(BASE_URL . '/auth/auth.php?ref=' . $user['referral_code'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <button type="button" class="airdrop-premium-referral-copy" data-copy-text="<?php echo htmlspecialchars(BASE_URL . '/auth/auth.php?ref=' . $user['referral_code'], ENT_QUOTES, 'UTF-8'); ?>" title="Copy referral link">
+                                <span class="airdrop-premium-referral-link"><?php echo htmlspecialchars($user_referral_link, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <button type="button" class="airdrop-premium-referral-copy" data-copy-text="<?php echo htmlspecialchars($user_referral_link, ENT_QUOTES, 'UTF-8'); ?>" title="Copy referral link">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 </button>
                             </div>
@@ -468,10 +478,16 @@ require_once __DIR__ . '/../includes/header.php';
                     </span>
                 </div>
 
-                <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="airdrop-premium-cta">
-                    <span>Go to LearnHub</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                </a>
+                <?php if ($pro_mission_complete): ?>
+                    <span class="airdrop-premium-cta airdrop-premium-cta--disabled" aria-disabled="true">
+                        <span><?php echo htmlspecialchars($learnhub_completion_message, ENT_QUOTES, 'UTF-8'); ?></span>
+                    </span>
+                <?php else: ?>
+                    <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="airdrop-premium-cta">
+                        <span>Go to LearnHub</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </a>
+                <?php endif; ?>
             </div>
         </section>
         <?php elseif ($show_airdrop_feature && !empty($airdrop_unlock_state['unlocked']) && (float) ($airdrop_unlock_state['amount'] ?? 0) > 0): ?>
@@ -559,7 +575,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <span class="action-icon-btn-lock">🔒</span>
                         </span>
                     <?php endif; ?>
-                    <?php if ($show_learnhub_feature): ?>
+                    <?php if ($show_learnhub_feature && !$pro_mission_complete): ?>
                     <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="action-icon-btn" title="LearnHub">
                         <span class="action-icon-btn-icon">✅</span>
                         <span class="action-icon-btn-label">LearnHub</span>

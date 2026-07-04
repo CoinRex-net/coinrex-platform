@@ -147,11 +147,11 @@ if ($is_logged_in && !empty($header_user['id']) && function_exists('taskHubMissi
         $taskhub_mission_completed_for_nav = false;
     }
 }
-$can_access_taskhub_nav = $is_logged_in && $user_level_for_nav === 'beginner' && !$taskhub_mission_completed_for_nav;
 $show_dashboard_nav = featureIsVisible('dashboard');
 $show_projects_nav = featureIsVisible('projects');
 $show_reviews_nav = featureIsVisible('reviews');
 $show_learnhub_nav = featureIsVisible('learnhub');
+$can_access_taskhub_nav = $show_learnhub_nav && (!$is_logged_in || !$taskhub_mission_completed_for_nav);
 $show_boosthub_nav = featureIsVisible('boosthub');
 $show_claim_center_nav = featureIsVisible('claim_center');
 $show_devhub_nav = featureIsVisible('devhub_full') || featureIsVisible('devhub_auth');
@@ -309,11 +309,11 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
                     <span>Projects</span>
                 </a>
                 <?php endif; ?>
-                <?php if($show_learnhub_nav): ?>
-                    <a href="<?php echo $learnhub_nav_url; ?>" class="<?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
-                        <i class="fas fa-list-check"></i>
-                        <span class="nex-nav-label">LearnHub <span class="nex-hot-badge">HOT</span></span>
-                    </a>
+                <?php if($can_access_taskhub_nav): ?>
+                <a href="<?php echo $learnhub_nav_url; ?>" class="<?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
+                    <i class="fas fa-list-check"></i>
+                    <span class="nex-nav-label">LearnHub <span class="nex-hot-badge">HOT</span></span>
+                </a>
                 <?php endif; ?>
                 <?php if($show_boosthub_nav): ?>
                     <a href="<?php echo $boosthub_nav_url; ?>" class="<?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
@@ -426,6 +426,7 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
 
 <!-- Mobile Bottom Navigation Bar (appears only on mobile) -->
 <div class="mobile-bottom-nav">
+    <?php if($can_access_taskhub_nav): ?>
     <a href="<?php echo $learnhub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
         <span class="mobile-nav-icon-wrap">
             <i class="fas fa-list-check"></i>
@@ -433,6 +434,7 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
         </span>
         <span class="mobile-nav-label">LearnHub</span>
     </a>
+    <?php endif; ?>
     <a href="<?php echo $boosthub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
         <i class="fas fa-bolt"></i>
         <span>BoostHub</span>
