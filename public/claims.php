@@ -14,8 +14,9 @@ $db = getDBConnection();
 ensureRewardClaimSchema($db);
 
 $user = getCurrentUser();
+$claim_pairing_test_mode = defined('CLAIM_PAIRING_TEST_MODE') && CLAIM_PAIRING_TEST_MODE;
 $level_state = syncUserLevelStatus((int) $user['id'], $db) ?: getUserLevelState($user, $db);
-if (!userCanAccessClaimCenter($level_state)) {
+if (!$claim_pairing_test_mode && !userCanAccessClaimCenter($level_state)) {
     http_response_code(403);
     $page_title = 'Claim Center Locked';
     require_once __DIR__ . '/../includes/header.php';
@@ -53,6 +54,15 @@ unlockPendingEarlyAirdropForUser($user_id, $db);
 syncSubmittedClaimTransactionsForUser($user_id, $db);
 syncStaleClaimApprovalsForUser($user_id, $db);
 $claim_eligibility = getClaimEligibility($user_id, $db);
+$real_claim_eligibility = $claim_eligibility;
+if ($claim_pairing_test_mode) {
+    $claim_eligibility = [
+        'eligible' => true,
+        'message' => 'RexLink Pairing Test Mode is active. You can test wallet pairing only; real claims remain disabled.',
+        'pairing_test_mode' => true,
+        'real_eligibility' => $real_claim_eligibility,
+    ];
+}
 $balances = [
     'available' => getRewardLedgerBalance($user_id, 'available', $db),
     'locked' => getRewardLedgerBalance($user_id, 'locked', $db),
@@ -85,7 +95,10 @@ $has_claimed_rewards = (float) ($balances['claimed'] ?? 0) > 0 && (float) ($bala
 $claim_status_label = !empty($claim_eligibility['eligible']) ? 'Ready' : 'Locked';
 $claim_status_note = (string) ($claim_eligibility['message'] ?? '');
 $claim_security_review_locked = empty($claim_eligibility['eligible']) && !empty($claim_eligibility['signals']);
-if ($open_claim) {
+if ($claim_pairing_test_mode) {
+    $claim_status_label = 'Test Mode';
+    $claim_security_review_locked = false;
+} elseif ($open_claim) {
     $claim_status_label = 'Processing';
     $claim_status_note = 'Claim is prepared and waiting for the on-chain transaction to finish.';
     $claim_security_review_locked = false;
@@ -336,6 +349,28 @@ require_once __DIR__ . '/../includes/header.php';
 }
 .claim-support-cta {
     min-height: 50px;
+}
+.claim-test-mode-banner {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border: 1px solid rgba(212, 175, 55, .36);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(212, 175, 55, .16), rgba(15, 23, 42, .92));
+    color: #f8fafc;
+    box-shadow: var(--shadow-card);
+}
+.claim-test-mode-banner strong {
+    color: #f5d76e;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+.claim-test-mode-banner span {
+    color: #cbd5e1;
+    font-size: 13px;
+    line-height: 1.45;
 }
 .claim-detail-stack {
     display: grid;
@@ -1019,6 +1054,12 @@ require_once __DIR__ . '/../includes/header.php';
 <main class="reward-page">
     <div class="claim-toast" id="claimToast" hidden></div>
     <div class="reward-page-shell">
+        <?php if ($claim_pairing_test_mode): ?>
+            <div class="claim-test-mode-banner">
+                <strong>RexLink Pairing Test Mode</strong>
+                <span>Wallet pairing is unlocked for this session so you can test QR/code connection. Real reward claims and approval submission remain disabled.</span>
+            </div>
+        <?php endif; ?>
         <section class="reward-panel">
             <div>
                 <span class="reward-tag">Claim Center</span>
@@ -1045,8 +1086,8 @@ require_once __DIR__ . '/../includes/header.php';
                         <small id="claimLandingStatus"><?php echo htmlspecialchars($claim_status_note, ENT_QUOTES, 'UTF-8'); ?></small>
                     </div>
                     <div class="claim-main-cta">
-                        <button type="button" id="openClaimModalButton" class="primary-btn" <?php echo empty($claim_eligibility['eligible']) || $open_claim || (float) ($balances['available'] ?? 0) <= 0 ? 'disabled' : ''; ?>>
-                            <?php echo $open_claim ? 'Claim Processing' : (empty($claim_eligibility['eligible']) ? 'Claim Locked' : 'Claim REX'); ?>
+                        <button type="button" id="openClaimModalButton" class="primary-btn" <?php echo (!$claim_pairing_test_mode && (empty($claim_eligibility['eligible']) || $open_claim || (float) ($balances['available'] ?? 0) <= 0)) ? 'disabled' : ''; ?>>
+                            <?php echo $claim_pairing_test_mode ? 'Test RexLink Pairing' : ($open_claim ? 'Claim Processing' : (empty($claim_eligibility['eligible']) ? 'Claim Locked' : 'Claim REX')); ?>
                         </button>
                         <?php if ($open_claim): ?>
                             <button type="button" id="trackOpenClaimButton" class="secondary-btn">Track Claim</button>
@@ -1275,6 +1316,7 @@ require_once __DIR__ . '/../includes/header.php';
     const approvalsUrl = rexlinkApiBaseUrl + '/api/rex-signer/approval_requests.php';
     const realtimeAuthUrl = rexlinkApiBaseUrl + '/api/rex-signer/realtime_auth.php';
     const realtimeDebug = <?php echo in_array(strtolower(trim((string) (getenv('COINREX_REALTIME_DEBUG') ?: ''))), ['1', 'true', 'yes', 'on'], true) ? 'true' : 'false'; ?>;
+    const serverClaimPairingTestMode = <?php echo $claim_pairing_test_mode ? 'true' : 'false'; ?>;
     const serverClaimEligible = <?php echo !empty($claim_eligibility['eligible']) ? 'true' : 'false'; ?>;
     const serverClaimSecurityReviewLocked = <?php echo $claim_security_review_locked ? 'true' : 'false'; ?>;
     const initialAvailableBalance = <?php echo json_encode((float) ($balances['available'] ?? 0)); ?>;
@@ -1282,8 +1324,9 @@ require_once __DIR__ . '/../includes/header.php';
     const initialOpenClaim = <?php echo $open_claim ? 'true' : 'false'; ?>;
 
     let currentClaimEligible = serverClaimEligible;
+    let currentClaimPairingTestMode = serverClaimPairingTestMode;
     let currentClaimSecurityReviewLocked = serverClaimSecurityReviewLocked;
-    let hasOpenClaim = initialOpenClaim;
+    let hasOpenClaim = currentClaimPairingTestMode ? false : initialOpenClaim;
     let availableBalanceValue = Number(initialAvailableBalance || 0);
     let claimedBalanceValue = Number(initialClaimedBalance || 0);
     let activeSessionCount = 0;
@@ -1501,6 +1544,8 @@ require_once __DIR__ . '/../includes/header.php';
             chain_id: Number(payload.chain_id || 80002),
             requested_duration_minutes: Number(payload.requested_duration_minutes || selectedDuration || 10),
             expires_at: payload.expires_at || '',
+            expires_in_seconds: Number(payload.expires_in_seconds || 0),
+            expires_at_unix: Number(payload.expires_at_unix || 0),
         };
     }
 
@@ -1813,8 +1858,8 @@ require_once __DIR__ . '/../includes/header.php';
         }
         if (sessionNote) {
             sessionNote.textContent = message || (isConnected
-                ? 'You can continue claiming from this connected session.'
-                : (isExpired ? 'Create a new session before you claim.' : (!currentClaimEligible ? 'Pairing is available, but claiming is locked until account review completes.' : 'Scan the QR or enter the 6 digit code.')));
+                ? (currentClaimPairingTestMode ? 'Pairing test passed. RexLink is connected for this browser session.' : 'You can continue claiming from this connected session.')
+                : (isExpired ? 'Create a new session before you claim.' : (currentClaimPairingTestMode ? 'Scan the QR or enter the 6 digit code to test pairing.' : (!currentClaimEligible ? 'Pairing is available, but claiming is locked until account review completes.' : 'Scan the QR or enter the 6 digit code.'))));
         }
         if (sessionConnectButton) {
             sessionConnectButton.hidden = isConnected;
@@ -1830,10 +1875,12 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     function renderBalanceLanding(message) {
-        const stateLabel = hasOpenClaim ? 'Processing' : (currentClaimEligible ? 'Ready' : 'Locked');
-        const statusText = message || (hasOpenClaim
+        const stateLabel = currentClaimPairingTestMode ? 'Test Mode' : (hasOpenClaim ? 'Processing' : (currentClaimEligible ? 'Ready' : 'Locked'));
+        const statusText = currentClaimPairingTestMode
+            ? 'RexLink pairing test is active. Real claim approval is disabled.'
+            : (message || (hasOpenClaim
             ? 'Waiting for your claim to be submitted.'
-            : (currentClaimEligible ? 'Ready to be approved in RexLink.' : 'You are not ready to claim yet.'));
+            : (currentClaimEligible ? 'Ready to be approved in RexLink.' : 'You are not ready to claim yet.')));
         if (landingAvailable) landingAvailable.textContent = formatRex(availableBalanceValue, 2);
         if (landingClaimed) landingClaimed.textContent = formatRex(claimedBalanceValue, 2);
         if (landingState) landingState.textContent = stateLabel;
@@ -1841,11 +1888,11 @@ require_once __DIR__ . '/../includes/header.php';
         if (heroClaimState) heroClaimState.textContent = stateLabel;
         if (heroClaimNote) heroClaimNote.textContent = statusText;
         if (openButton) {
-            openButton.disabled = !currentClaimEligible || hasOpenClaim || availableBalanceValue <= 0;
-            openButton.textContent = hasOpenClaim ? 'Claim Processing' : (!currentClaimEligible ? 'Claim Locked' : 'Claim REX');
+            openButton.disabled = currentClaimPairingTestMode ? false : (!currentClaimEligible || hasOpenClaim || availableBalanceValue <= 0);
+            openButton.textContent = currentClaimPairingTestMode ? 'Test RexLink Pairing' : (hasOpenClaim ? 'Claim Processing' : (!currentClaimEligible ? 'Claim Locked' : 'Claim REX'));
         }
         if (claimSupportCta) {
-            claimSupportCta.hidden = !currentClaimSecurityReviewLocked || hasOpenClaim || currentClaimEligible;
+            claimSupportCta.hidden = currentClaimPairingTestMode || !currentClaimSecurityReviewLocked || hasOpenClaim || currentClaimEligible;
         }
         renderLandingSessionCard();
     }
@@ -1853,7 +1900,9 @@ require_once __DIR__ . '/../includes/header.php';
     function validateAmount() {
         const amount = selectedAmount();
         let message = '';
-        if (!currentClaimEligible) {
+        if (currentClaimPairingTestMode) {
+            message = 'Pairing test mode only checks RexLink connection. Real claim approval is disabled.';
+        } else if (!currentClaimEligible) {
             message = 'You are not ready to claim yet. Please complete the required steps first.';
         } else if (hasOpenClaim) {
             message = 'Your claim is already being processed. Please wait a moment.';
@@ -1875,22 +1924,25 @@ require_once __DIR__ . '/../includes/header.php';
             modalWalletText.textContent = activeWalletAddress ? shortAddress(activeWalletAddress) : 'Connected';
         }
         if (availableHint) {
-            availableHint.textContent = 'Available: ' + formatRex(availableBalanceValue, 2) + ' REX';
+            availableHint.textContent = currentClaimPairingTestMode ? 'Pairing test mode: approval submission is disabled.' : 'Available: ' + formatRex(availableBalanceValue, 2) + ' REX';
         }
         if (amountInput) {
             amountInput.max = String(availableBalanceValue);
-            amountInput.disabled = !currentClaimEligible || hasOpenClaim || activeRequestId > 0 || availableBalanceValue <= 0;
+            amountInput.disabled = currentClaimPairingTestMode || !currentClaimEligible || hasOpenClaim || activeRequestId > 0 || availableBalanceValue <= 0;
             if (amountInput.value !== '' && Number(amountInput.value) > availableBalanceValue) {
                 amountInput.value = availableBalanceValue > 0 ? availableBalanceValue.toFixed(8) : '0.00000000';
             }
         }
         if (maxButton) {
-            maxButton.disabled = !currentClaimEligible || hasOpenClaim || activeRequestId > 0 || availableBalanceValue <= 0;
+            maxButton.disabled = currentClaimPairingTestMode || !currentClaimEligible || hasOpenClaim || activeRequestId > 0 || availableBalanceValue <= 0;
         }
         validateAmount();
     }
 
     function resultCopy() {
+        if (modalResultState === 'pairing_test_connected') {
+            return ['RexLink connected', 'Pairing test passed. Your wallet session is connected, and no claim approval was created.', 'fa-link', 'success'];
+        }
         if (modalResultState === 'success') {
             return ['Claim sent', 'Your claim request was sent successfully.', 'fa-check', 'success'];
         }
@@ -1935,7 +1987,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     function renderApprovalTimeline() {
         const terminalError = ['gas', 'network', 'rejected', 'expired', 'cancelled'].includes(modalResultState);
-        const terminalSuccess = ['success', 'claimed'].includes(modalResultState);
+        const terminalSuccess = ['success', 'claimed', 'pairing_test_connected'].includes(modalResultState);
         const approvalAccepted = ['approval_received', 'submitting'].includes(modalResultState);
         setApprovalStepState(approvalStepWaiting, terminalError || terminalSuccess || approvalAccepted || modalResultState === 'rejection_received' ? 'complete' : 'active');
         setApprovalStepState(approvalStepApproved, terminalError ? 'error' : (terminalSuccess || modalResultState === 'submitting' ? 'complete' : (approvalAccepted ? 'active' : '')));
@@ -1961,9 +2013,11 @@ require_once __DIR__ . '/../includes/header.php';
         const isApproval = modalStep === 'approval';
         const loadingTarget = isLoading ? modalLoadingProgressStep : '';
         if (modalTitle) {
-            modalTitle.textContent = isDuration || (isLoading && loadingTarget === 'duration')
+            modalTitle.textContent = currentClaimPairingTestMode && isApproval
+                ? 'Pairing test result'
+                : (isDuration || (isLoading && loadingTarget === 'duration')
                 ? 'Session time'
-                : ((isConnect || (isLoading && loadingTarget === 'connect')) ? 'Connect RexLink' : ((isAmount || (isLoading && loadingTarget === 'amount')) ? 'Choose amount' : 'Approve claim'));
+                : ((isConnect || (isLoading && loadingTarget === 'connect')) ? 'Connect RexLink' : ((isAmount || (isLoading && loadingTarget === 'amount')) ? 'Choose amount' : 'Approve claim')));
         }
         setProgressState(progressDuration, isDuration || (isLoading && loadingTarget === 'duration') ? 'active' : 'complete');
         setProgressState(progressConnect, isConnect || (isLoading && loadingTarget === 'connect') ? 'active' : (isAmount || isApproval || (isLoading && ['amount', 'approval'].includes(loadingTarget)) ? 'complete' : ''));
@@ -1988,7 +2042,7 @@ require_once __DIR__ . '/../includes/header.php';
                 primaryButton.disabled = !validateAmount();
             } else if (['gas', 'network', 'rejected', 'expired', 'cancelled'].includes(modalResultState)) {
                 primaryButton.textContent = 'Try Again';
-            } else if (['success', 'claimed'].includes(modalResultState)) {
+            } else if (['success', 'claimed', 'pairing_test_connected'].includes(modalResultState)) {
                 primaryButton.textContent = 'Close';
             } else {
                 primaryButton.textContent = 'Waiting...';
@@ -2059,6 +2113,11 @@ require_once __DIR__ . '/../includes/header.php';
         showModalLoading('Checking RexLink session...', 'Looking for an active wallet connection.');
         refreshSessions().then(function() {
             if (activeSessionCount > 0 && activeWalletAddress) {
+                if (currentClaimPairingTestMode) {
+                    modalResultState = 'pairing_test_connected';
+                    delayedModalStep('RexLink connected.', 'Pairing test passed.', 'approval', 120, 'approval');
+                    return;
+                }
                 delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 120);
                 return;
             }
@@ -2090,9 +2149,10 @@ require_once __DIR__ . '/../includes/header.php';
         }
         availableBalanceValue = Number(data.balances.available || 0);
         claimedBalanceValue = Number(data.balances.claimed || 0);
+        currentClaimPairingTestMode = !!data.pairing_test_mode;
         currentClaimEligible = !!data.claim_eligibility.eligible;
         currentClaimSecurityReviewLocked = !currentClaimEligible && !!data.claim_eligibility.signals;
-        hasOpenClaim = !!data.open_claim;
+        hasOpenClaim = currentClaimPairingTestMode ? false : !!data.open_claim;
         if (landingLocked) landingLocked.textContent = formatRex(Number(data.balances.locked || 0), 2);
         if (landingPending) landingPending.textContent = formatRex(Number(data.balances.pending || 0), 2);
         renderBalanceLanding(data.claim_eligibility.message || '');
@@ -2128,7 +2188,7 @@ require_once __DIR__ . '/../includes/header.php';
             activeSessionRemainingSeconds = remainingFromSession(activeSession);
             activeSessionCountdownStartedAt = Date.now();
             startCountdown();
-            setQrState('empty', 'Wallet connected. Continue to claim amount.');
+            setQrState('empty', currentClaimPairingTestMode ? 'Wallet connected. Pairing test passed.' : 'Wallet connected. Continue to claim amount.');
             if (pairingCode) {
                 pairingCode.textContent = 'Connected';
                 pairingCode.classList.add('is-connected');
@@ -2136,6 +2196,11 @@ require_once __DIR__ . '/../includes/header.php';
             }
             setPairingCopyState('', false);
             if (!modal.hidden && ['duration', 'connect', 'loading'].includes(modalStep)) {
+                if (currentClaimPairingTestMode) {
+                    modalResultState = 'pairing_test_connected';
+                    delayedModalStep('RexLink connected.', 'Pairing test passed.', 'approval', 120, 'approval');
+                    return data;
+                }
                 delayedModalStep('Wallet connected.', 'Preparing claim amount...', 'amount', 120);
             }
         } else if (['expired', 'revoked', 'none'].includes(sessionState)) {
@@ -2311,6 +2376,11 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     async function requestClaimApproval() {
+        if (currentClaimPairingTestMode) {
+            modalResultState = 'pairing_test_connected';
+            setClaimModalStep('approval');
+            return;
+        }
         if (!validateAmount() || activeRequestId > 0) {
             return;
         }
@@ -2630,6 +2700,11 @@ require_once __DIR__ . '/../includes/header.php';
             return;
         }
         if (modalStep === 'amount') {
+            if (currentClaimPairingTestMode) {
+                modalResultState = 'pairing_test_connected';
+                setClaimModalStep('approval');
+                return;
+            }
             requestClaimApproval().catch(function(error) {
                 modalResultState = classifyFailure(error.message || 'Claim approval could not be created.');
                 setClaimModalStep('approval');

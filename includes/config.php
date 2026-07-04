@@ -118,6 +118,10 @@ $testing_mode = strtolower(trim((string) ($testing_mode_raw !== false ? $testing
 // Temporarily enabled for mobile testing — set back to false in production
 define('TESTING_MODE', !$is_production && in_array($testing_mode, ['1', 'true', 'yes', 'on'], true));
 
+$claim_pairing_test_mode_raw = getenv('COINREX_CLAIM_PAIRING_TEST_MODE');
+$claim_pairing_test_mode = strtolower(trim((string) ($claim_pairing_test_mode_raw !== false ? $claim_pairing_test_mode_raw : 'false')));
+define('CLAIM_PAIRING_TEST_MODE', in_array($claim_pairing_test_mode, ['1', 'true', 'yes', 'on'], true));
+
 // ============================================================
 // LOCAL TEST MODE — Auto-enable for localhost development
 // ============================================================

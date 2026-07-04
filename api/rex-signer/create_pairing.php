@@ -48,7 +48,7 @@ try {
         apiErrorResponse(422, 'requested_wallet_address must be a valid wallet address.');
     }
     $public_base_url = defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL;
-    $build_qr_payload = static function ($display_code, $expires_at = '') use ($db, $is_auth_pairing, $duration, $dapp_name, $dapp_url, $network_row, $requested_wallet_address, $public_base_url) {
+    $build_qr_payload = static function ($display_code, $expires_at = '', $expires_in_seconds = null, $expires_at_unix = null) use ($db, $is_auth_pairing, $duration, $dapp_name, $dapp_url, $network_row, $requested_wallet_address, $public_base_url) {
         $context_source = [
             'dapp_name' => $dapp_name,
             'dapp_url' => $dapp_url,
@@ -78,6 +78,12 @@ try {
             'display_context' => $contexts['display_context'],
             'trust_context' => $contexts['trust_context'],
         ];
+        if ($expires_in_seconds !== null) {
+            $payload['expires_in_seconds'] = max(0, (int) $expires_in_seconds);
+        }
+        if ($expires_at_unix !== null) {
+            $payload['expires_at_unix'] = max(0, (int) $expires_at_unix);
+        }
         if ($requested_wallet_address !== '') {
             $payload['requested_wallet_address'] = strtolower($requested_wallet_address);
         }
@@ -119,7 +125,9 @@ try {
     $pending_pairing = null;
     if ($is_auth_pairing && !empty($_SESSION['rex_signer_auth_pairing_id'])) {
         $pending_stmt = $db->prepare("
-            SELECT id, display_code, requested_duration_minutes, referral_code, expires_at, GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 0) AS expires_in_seconds
+            SELECT id, display_code, requested_duration_minutes, referral_code, expires_at,
+                   GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 0) AS expires_in_seconds,
+                   UNIX_TIMESTAMP(expires_at) AS expires_at_unix
             FROM rex_signer_pairing_codes
             WHERE id = ?
               AND pairing_purpose = 'auth'
@@ -131,7 +139,9 @@ try {
         $pending_pairing = $pending_stmt->fetch();
     } elseif ($user_id !== null) {
         $pending_stmt = $db->prepare("
-            SELECT id, display_code, requested_duration_minutes, referral_code, expires_at, GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 0) AS expires_in_seconds
+            SELECT id, display_code, requested_duration_minutes, referral_code, expires_at,
+                   GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 0) AS expires_in_seconds,
+                   UNIX_TIMESTAMP(expires_at) AS expires_at_unix
             FROM rex_signer_pairing_codes
             WHERE user_id = ?
               AND pairing_purpose = ?
@@ -162,9 +172,9 @@ try {
                 'display_code' => $display_code,
                 'expires_in_seconds' => max(1, (int) ($pending_pairing['expires_in_seconds'] ?? 300)),
                 'requested_duration_minutes' => (int) $pending_pairing['requested_duration_minutes'],
-                'display_context' => $build_qr_payload($display_code, (string) ($pending_pairing['expires_at'] ?? ''))['display_context'],
-                'trust_context' => $build_qr_payload($display_code, (string) ($pending_pairing['expires_at'] ?? ''))['trust_context'],
-                'qr_payload' => $build_qr_payload($display_code, (string) ($pending_pairing['expires_at'] ?? '')),
+                'display_context' => $build_qr_payload($display_code, (string) ($pending_pairing['expires_at'] ?? ''), (int) ($pending_pairing['expires_in_seconds'] ?? 300), isset($pending_pairing['expires_at_unix']) ? (int) $pending_pairing['expires_at_unix'] : null)['display_context'],
+                'trust_context' => $build_qr_payload($display_code, (string) ($pending_pairing['expires_at'] ?? ''), (int) ($pending_pairing['expires_in_seconds'] ?? 300), isset($pending_pairing['expires_at_unix']) ? (int) $pending_pairing['expires_at_unix'] : null)['trust_context'],
+                'qr_payload' => $build_qr_payload($display_code, (string) ($pending_pairing['expires_at'] ?? ''), (int) ($pending_pairing['expires_in_seconds'] ?? 300), isset($pending_pairing['expires_at_unix']) ? (int) $pending_pairing['expires_at_unix'] : null),
             ]);
         }
 
@@ -225,14 +235,28 @@ try {
         session_write_close();
     }
 
-    $expires_at = date('Y-m-d H:i:s', time() + 300);
-    $qr_payload = $build_qr_payload($display_code, $expires_at);
+    $created_stmt = $db->prepare("
+        SELECT expires_at,
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS expires_in_seconds,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix
+        FROM rex_signer_pairing_codes
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $created_stmt->execute([$pairing_id]);
+    $created_pairing = $created_stmt->fetch() ?: [];
+    $expires_at = (string) ($created_pairing['expires_at'] ?? '');
+    $expires_in_seconds = max(1, (int) ($created_pairing['expires_in_seconds'] ?? 300));
+    $expires_at_unix = isset($created_pairing['expires_at_unix']) ? (int) $created_pairing['expires_at_unix'] : null;
+    $qr_payload = $build_qr_payload($display_code, $expires_at, $expires_in_seconds, $expires_at_unix);
 
     apiSuccessResponse([
         'message' => 'Pairing code created.',
         'pairing_id' => $pairing_id,
         'display_code' => $display_code,
-        'expires_in_seconds' => 300,
+        'expires_in_seconds' => $expires_in_seconds,
+        'expires_at' => $expires_at,
+        'expires_at_unix' => $expires_at_unix,
         'requested_duration_minutes' => $duration,
         'api_base_url' => $public_base_url,
         'display_context' => $qr_payload['display_context'],

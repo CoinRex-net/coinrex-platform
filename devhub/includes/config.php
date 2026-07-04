@@ -281,7 +281,7 @@ if (!function_exists('formatDevhubDateTime')) {
             return '-';
         }
 
-        $diff = time() - $ts;
+        $diff = max(0, time() - $ts);
         if ($diff < 60) {
             return 'just now';
         }

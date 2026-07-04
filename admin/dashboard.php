@@ -52,14 +52,14 @@ if ($has_fraud_events_table) {
     $security_alert_totals['warning']         = (int) $db->query("SELECT COUNT(*) FROM fraud_events WHERE severity = 'warning' AND created_at >= (NOW() - INTERVAL 7 DAY)")->fetchColumn();
     $security_alert_totals['duplicate_signal'] = (int) $db->query("SELECT COUNT(*) FROM fraud_events WHERE event_type = 'registration_blocked_duplicate_signal' AND created_at >= (NOW() - INTERVAL 7 DAY)")->fetchColumn();
 
-    $alerts_stmt = $db->query("SELECT event_type, severity, email, created_at, details_json FROM fraud_events ORDER BY id DESC LIMIT 10");
+    $alerts_stmt = $db->query("SELECT event_type, severity, email, created_at, details_json, GREATEST(0, TIMESTAMPDIFF(SECOND, created_at, NOW())) AS age_seconds FROM fraud_events ORDER BY id DESC LIMIT 10");
     $security_alerts = $alerts_stmt ? $alerts_stmt->fetchAll() : [];
 }
 
 // ── Recent Activity (combined, limited to 10 total) ──
-$recent_users    = $db->query("SELECT id, username, full_name, created_at FROM users ORDER BY id DESC LIMIT 10")->fetchAll();
-$recent_reviews  = $db->query("SELECT r.id, r.created_at, r.status, u.username FROM reviews r LEFT JOIN users u ON u.id = r.user_id ORDER BY r.id DESC LIMIT 10")->fetchAll();
-$recent_projects = $db->query("SELECT p.id, p.name, p.created_at, p.approval_status, u.username FROM projects p LEFT JOIN users u ON u.id = p.created_by ORDER BY p.id DESC LIMIT 10")->fetchAll();
+$recent_users    = $db->query("SELECT id, username, full_name, created_at, GREATEST(0, TIMESTAMPDIFF(SECOND, created_at, NOW())) AS age_seconds FROM users ORDER BY id DESC LIMIT 10")->fetchAll();
+$recent_reviews  = $db->query("SELECT r.id, r.created_at, r.status, u.username, GREATEST(0, TIMESTAMPDIFF(SECOND, r.created_at, NOW())) AS age_seconds FROM reviews r LEFT JOIN users u ON u.id = r.user_id ORDER BY r.id DESC LIMIT 10")->fetchAll();
+$recent_projects = $db->query("SELECT p.id, p.name, p.created_at, p.approval_status, u.username, GREATEST(0, TIMESTAMPDIFF(SECOND, p.created_at, NOW())) AS age_seconds FROM projects p LEFT JOIN users u ON u.id = p.created_by ORDER BY p.id DESC LIMIT 10")->fetchAll();
 
 // ── System Health ──
 $db_healthy = true;
@@ -96,11 +96,15 @@ function pendingItem($label, $value, $url, $iconClass = 'is-gold', $icon = 'fa-c
     echo '</a>';
 }
 
-function timeAgo($datetime) {
-    if (!$datetime) return '';
-    $now = new DateTime();
-    $then = new DateTime($datetime);
-    $diff = $now->getTimestamp() - $then->getTimestamp();
+function timeAgo($datetime, $age_seconds = null) {
+    if ($age_seconds !== null && is_numeric($age_seconds)) {
+        $diff = max(0, (int) $age_seconds);
+    } else {
+        if (!$datetime) return '';
+        $now = new DateTime();
+        $then = new DateTime($datetime);
+        $diff = max(0, $now->getTimestamp() - $then->getTimestamp());
+    }
     if ($diff < 60) return 'just now';
     if ($diff < 3600) return floor($diff / 60) . 'm ago';
     if ($diff < 86400) return floor($diff / 3600) . 'h ago';
@@ -219,7 +223,7 @@ function timeAgo($datetime) {
             $sev   = strtolower((string) ($alert['severity'] ?? 'info'));
             $type  = strtolower((string) ($alert['event_type'] ?? 'unknown'));
             $email = htmlspecialchars((string) ($alert['email'] ?? '—'), ENT_QUOTES, 'UTF-8');
-            $time  = timeAgo((string) ($alert['created_at'] ?? ''));
+            $time  = timeAgo((string) ($alert['created_at'] ?? ''), $alert['age_seconds'] ?? null);
             $dot_class = $sev === 'critical' ? 'is-critical' : ($sev === 'warning' ? 'is-warning' : 'is-info');
             $label = ucwords(str_replace('_', ' ', $type));
         ?>
@@ -325,7 +329,7 @@ function timeAgo($datetime) {
                 if ($activity_count >= $max_activity) break;
                 $activity_count++;
                 $name = htmlspecialchars((string) ($u['full_name'] ?: $u['username'] ?: 'User'), ENT_QUOTES, 'UTF-8');
-                $time = timeAgo((string) ($u['created_at'] ?? ''));
+                $time = timeAgo((string) ($u['created_at'] ?? ''), $u['age_seconds'] ?? null);
                 echo '<div class="dashboard-activity-item">';
                 echo '<div class="activity-icon is-user"><i class="fas fa-user-plus"></i></div>';
                 echo '<div class="activity-meta"><strong>New user: ' . $name . '</strong><span>Registered</span></div>';
@@ -337,7 +341,7 @@ function timeAgo($datetime) {
                 $activity_count++;
                 $username = htmlspecialchars((string) ($r['username'] ?? 'User'), ENT_QUOTES, 'UTF-8');
                 $status   = htmlspecialchars((string) ($r['status'] ?? 'pending'), ENT_QUOTES, 'UTF-8');
-                $time     = timeAgo((string) ($r['created_at'] ?? ''));
+                $time     = timeAgo((string) ($r['created_at'] ?? ''), $r['age_seconds'] ?? null);
                 echo '<div class="dashboard-activity-item">';
                 echo '<div class="activity-icon is-review"><i class="fas fa-star"></i></div>';
                 echo '<div class="activity-meta"><strong>Review by ' . $username . '</strong><span>Status: ' . $status . '</span></div>';
@@ -349,7 +353,7 @@ function timeAgo($datetime) {
                 $activity_count++;
                 $pname   = htmlspecialchars((string) ($p['name'] ?: 'Project'), ENT_QUOTES, 'UTF-8');
                 $pstatus = htmlspecialchars((string) ($p['approval_status'] ?? 'pending'), ENT_QUOTES, 'UTF-8');
-                $time    = timeAgo((string) ($p['created_at'] ?? ''));
+                $time    = timeAgo((string) ($p['created_at'] ?? ''), $p['age_seconds'] ?? null);
                 echo '<div class="dashboard-activity-item">';
                 echo '<div class="activity-icon is-project"><i class="fas fa-diagram-project"></i></div>';
                 echo '<div class="activity-meta"><strong>Project: ' . $pname . '</strong><span>Status: ' . $pstatus . '</span></div>';

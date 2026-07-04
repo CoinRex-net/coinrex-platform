@@ -1532,6 +1532,8 @@ document.addEventListener('DOMContentLoaded', function() {
             chain_id: Number(qrPayload.chain_id || 80002),
             requested_duration_minutes: Number(qrPayload.requested_duration_minutes || 10),
             expires_at: qrPayload.expires_at || '',
+            expires_in_seconds: Number(qrPayload.expires_in_seconds || 0),
+            expires_at_unix: Number(qrPayload.expires_at_unix || 0),
         };
     }
 

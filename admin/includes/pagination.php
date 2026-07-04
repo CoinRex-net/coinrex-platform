@@ -154,9 +154,42 @@ function paginationRenderStyles(): void {
     .pagination-next {
         gap: 6px;
     }
-    .pagination-bar.is-loading .pagination-link {
+    .pagination-bar.is-loading .pagination-link,
+    .is-loading .pagination-link {
         pointer-events: none;
         opacity: 0.5;
+    }
+    .pagination-loading-indicator {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin: 12px auto 0;
+        color: #d4af37;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+    .pagination-loading-indicator.is-visible {
+        display: flex;
+    }
+    .pagination-loading-indicator::before {
+        content: "";
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid rgba(212, 175, 55, .25);
+        border-top-color: #d4af37;
+        animation: paginationSpin .75s linear infinite;
+    }
+    .pagination-ajax-busy {
+        opacity: .55;
+        pointer-events: none;
+        transition: opacity .15s ease;
+    }
+    @keyframes paginationSpin {
+        to { transform: rotate(360deg); }
     }
     </style>
     <?php
@@ -172,6 +205,7 @@ function paginationRenderStyles(): void {
  *   - filterFormId: string|null (default 'filterForm')
  *   - extraParams: array of extra param names to include from form
  *   - pageParam: string (default 'page')
+ *   - loadingText: string (default 'Loading')
  */
 function paginationRenderJS(array $config = []): void {
     $tableBodyId = $config['tableBodyId'] ?? 'tableBody';
@@ -180,6 +214,7 @@ function paginationRenderJS(array $config = []): void {
     $filterFormId = $config['filterFormId'] ?? 'filterForm';
     $extraParams = $config['extraParams'] ?? [];
     $pageParam = $config['pageParam'] ?? 'page';
+    $loadingText = $config['loadingText'] ?? 'Loading';
 
     $extraParamsJson = json_encode($extraParams, JSON_UNESCAPED_UNICODE);
     ?>
@@ -190,6 +225,13 @@ function paginationRenderJS(array $config = []): void {
         const tableBody = document.getElementById('<?php echo $tableBodyId; ?>');
         const pagination = document.getElementById('<?php echo $paginationId; ?>');
         if (!tableBody || !pagination) return;
+        const tableWrap = tableBody.closest('.dashboard-table-wrap') || tableBody.closest('table');
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'pagination-loading-indicator';
+        loadingIndicator.setAttribute('role', 'status');
+        loadingIndicator.setAttribute('aria-live', 'polite');
+        loadingIndicator.textContent = '<?php echo htmlspecialchars((string) $loadingText, ENT_QUOTES, 'UTF-8'); ?>';
+        pagination.parentNode.insertBefore(loadingIndicator, pagination);
 
         const fetchUrl = '<?php echo htmlspecialchars($fetchUrl, ENT_QUOTES, 'UTF-8'); ?>';
         const extraParamNames = <?php echo $extraParamsJson; ?>;
@@ -251,6 +293,10 @@ function paginationRenderJS(array $config = []): void {
             });
 
             pagination.classList.add('is-loading');
+            loadingIndicator.classList.add('is-visible');
+            if (tableWrap) {
+                tableWrap.classList.add('pagination-ajax-busy');
+            }
 
             const urlToFetch = fetchUrl + '?' + params.toString();
 
@@ -271,10 +317,18 @@ function paginationRenderJS(array $config = []): void {
                     applyFilterParamsToUrl(url, data.page || page, filterValues);
                     window.history.pushState({}, '', url.toString());
                     pagination.classList.remove('is-loading');
+                    loadingIndicator.classList.remove('is-visible');
+                    if (tableWrap) {
+                        tableWrap.classList.remove('pagination-ajax-busy');
+                    }
                 })
                 .catch(function (err) {
                     console.error('AJAX pagination error:', err);
                     pagination.classList.remove('is-loading');
+                    loadingIndicator.classList.remove('is-visible');
+                    if (tableWrap) {
+                        tableWrap.classList.remove('pagination-ajax-busy');
+                    }
                     if (filterForm && options.allowFormFallback !== false) {
                         filterForm.submit();
                     }

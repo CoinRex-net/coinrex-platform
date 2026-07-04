@@ -81,6 +81,7 @@ try {
 
     apiSuccessResponse([
         'user_id' => $user_id,
+        'pairing_test_mode' => defined('CLAIM_PAIRING_TEST_MODE') && CLAIM_PAIRING_TEST_MODE,
         'user_level' => normalizeUserLevel($user['level'] ?? 'beginner'),
         'reward_frozen' => !empty($user['reward_frozen']),
         'balances' => $balances,

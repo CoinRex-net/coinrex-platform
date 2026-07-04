@@ -2,12 +2,13 @@
 $page_title = 'Users';
 $activePage = 'users';
 $is_ajax_request = !empty($_GET['ajax']);
-$users_ajax_buffer_started = false;
 if ($is_ajax_request) {
-    ob_start();
-    $users_ajax_buffer_started = true;
+    require_once __DIR__ . '/includes/config.php';
+    requireAdminAuth();
+    requireAdminPageAccess($activePage);
+} else {
+    require_once __DIR__ . '/includes/header.php';
 }
-require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/pagination.php';
 
 $db = getDBConnection();
@@ -19,6 +20,21 @@ $current_admin = getCurrentAdmin();
 
 if (!in_array($status_filter, ['active', 'suspended', 'all'], true)) {
     $status_filter = 'active';
+}
+
+function adminUserListLevelState(array $user): array {
+    $level = normalizeUserLevel($user['level'] ?? 'beginner');
+    $policy = getLevelPolicy($level);
+    $total_reviews = (int) ($user['total_reviews'] ?? 0);
+    $approved_reviews = (int) ($user['approved_reviews_count'] ?? 0);
+    $accuracy = $total_reviews > 0 ? round(($approved_reviews / $total_reviews) * 100, 1) : 0.0;
+
+    return [
+        'level' => $level,
+        'display_level' => levelDisplayName($level),
+        'trust_weight' => (float) ($policy['trust_weight'] ?? 1),
+        'accuracy' => $accuracy,
+    ];
 }
 
 $perPage = 20;
@@ -115,9 +131,6 @@ foreach ($users as $summary_user) {
 
 // AJAX mode
 if ($is_ajax_request) {
-    if ($users_ajax_buffer_started && ob_get_level() > 0) {
-        ob_clean();
-    }
     header('Content-Type: application/json');
 
     $tableBody = '';
@@ -133,13 +146,7 @@ if ($is_ajax_request) {
                 $status_class = 'is-suspended';
             }
             $target_status = $status === 'active' ? 'suspended' : 'active';
-            $user_level_state = getUserLevelState(
-                [
-                    'id' => (int) ($user['id'] ?? 0),
-                    'level' => (string) ($user['level'] ?? 'beginner'),
-                ],
-                $db
-            );
+            $user_level_state = adminUserListLevelState($user);
             $display_level = $user_level_state['display_level'] ?? 'Beginner';
             $level_class = 'is-beginner';
             if (strtolower($display_level) === 'expert') {
@@ -307,13 +314,7 @@ paginationRenderStyles();
                     $status_class = 'is-suspended';
                 }
                 $target_status = $status === 'active' ? 'suspended' : 'active';
-                $user_level_state = getUserLevelState(
-                    [
-                        'id' => (int) ($user['id'] ?? 0),
-                        'level' => (string) ($user['level'] ?? 'beginner'),
-                    ],
-                    $db
-                );
+                $user_level_state = adminUserListLevelState($user);
                 $display_level = $user_level_state['display_level'] ?? 'Beginner';
                 $level_class = 'is-beginner';
                 if (strtolower($display_level) === 'expert') {
@@ -617,6 +618,7 @@ paginationRenderJS([
     'filterFormId' => 'filterForm',
     'extraParams' => ['q', 'status'],
     'pageParam' => 'page',
+    'loadingText' => 'Loading users',
 ]);
 ?>
 

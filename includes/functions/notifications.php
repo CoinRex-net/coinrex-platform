@@ -49,18 +49,18 @@ function notificationResolveActionUrl($url) {
     return rtrim(BASE_URL, '/') . '/' . ltrim($url, '/');
 }
 
-function notificationTimeAgo($datetime) {
+function notificationTimeAgo($datetime, $age_seconds = null) {
     $ts = strtotime((string) $datetime);
-    if ($ts <= 0) {
-        return 'just now';
-    }
-    $diff = time() - $ts;
-
-    // Some environments store created_at in a different timezone,
-    // which can make $diff negative and force every item to "just now".
-    // Normalize to absolute distance so users still see real relative timing.
-    if ($diff < 0) {
-        $diff = abs($diff);
+    if ($age_seconds !== null && is_numeric($age_seconds)) {
+        $diff = max(0, (int) $age_seconds);
+    } else {
+        if ($ts <= 0) {
+            return 'just now';
+        }
+        $diff = time() - $ts;
+        if ($diff < 0) {
+            $diff = 0;
+        }
     }
 
     if ($diff < 60) {
@@ -202,12 +202,12 @@ function getNotifications($recipient_type, $recipient_id, $limit = 10, PDO $db =
         return [];
     }
     $limit = max(1, min(50, (int) $limit));
-    $stmt = $db->prepare("SELECT id, title, message, action_url, priority, is_read, created_at FROM notifications WHERE recipient_type = ? AND recipient_id = ? ORDER BY created_at DESC, id DESC LIMIT {$limit}");
+    $stmt = $db->prepare("SELECT id, title, message, action_url, priority, is_read, created_at, GREATEST(0, TIMESTAMPDIFF(SECOND, created_at, NOW())) AS age_seconds FROM notifications WHERE recipient_type = ? AND recipient_id = ? ORDER BY created_at DESC, id DESC LIMIT {$limit}");
     $stmt->execute([notificationNormalizeRecipientType($recipient_type), (int) $recipient_id]);
     $rows = $stmt->fetchAll() ?: [];
     foreach ($rows as &$row) {
         $row['action_url'] = notificationResolveActionUrl($row['action_url'] ?? null);
-        $row['time_ago'] = notificationTimeAgo($row['created_at'] ?? null);
+        $row['time_ago'] = notificationTimeAgo($row['created_at'] ?? null, $row['age_seconds'] ?? null);
     }
     unset($row);
     return $rows;
@@ -238,13 +238,13 @@ function getNotificationsPaged($recipient_type, $recipient_id, $page = 1, $per_p
     $count_stmt->execute($params);
     $total = (int) ($count_stmt->fetch()['total'] ?? 0);
 
-    $stmt = $db->prepare("SELECT id, title, message, action_url, priority, is_read, created_at FROM notifications WHERE {$where} ORDER BY created_at DESC, id DESC LIMIT {$per_page} OFFSET {$offset}");
+    $stmt = $db->prepare("SELECT id, title, message, action_url, priority, is_read, created_at, GREATEST(0, TIMESTAMPDIFF(SECOND, created_at, NOW())) AS age_seconds FROM notifications WHERE {$where} ORDER BY created_at DESC, id DESC LIMIT {$per_page} OFFSET {$offset}");
     $stmt->execute($params);
 
     $rows = $stmt->fetchAll() ?: [];
     foreach ($rows as &$row) {
         $row['action_url'] = notificationResolveActionUrl($row['action_url'] ?? null);
-        $row['time_ago'] = notificationTimeAgo($row['created_at'] ?? null);
+        $row['time_ago'] = notificationTimeAgo($row['created_at'] ?? null, $row['age_seconds'] ?? null);
     }
     unset($row);
 

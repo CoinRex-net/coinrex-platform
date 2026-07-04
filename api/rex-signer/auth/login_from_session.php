@@ -20,6 +20,7 @@ try {
 
     $stmt = $db->prepare("
         SELECT pc.*,
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), pc.expires_at)) AS pairing_remaining_seconds,
                s.id AS session_id,
                s.user_id AS session_user_id,
                s.wallet_address AS session_wallet_address,
@@ -43,9 +44,11 @@ try {
     }
 
     if ((string) ($pairing['status'] ?? '') === 'pending') {
+        $remaining_seconds = (int) ($pairing['pairing_remaining_seconds'] ?? 0);
         apiSuccessResponse([
-            'status' => strtotime((string) $pairing['expires_at']) <= time() ? 'expired' : 'pending',
+            'status' => $remaining_seconds <= 0 ? 'expired' : 'pending',
             'message' => 'Waiting for RexLink.',
+            'expires_in_seconds' => $remaining_seconds,
         ]);
     }
 
@@ -65,7 +68,7 @@ try {
         ]);
     }
 
-    if ((string) ($pairing['session_status'] ?? '') !== 'active' || strtotime((string) $pairing['session_expires_at']) <= time()) {
+    if ((string) ($pairing['session_status'] ?? '') !== 'active' || (int) ($pairing['session_remaining_seconds'] ?? 0) <= 0) {
         unset($_SESSION['rex_signer_auth_pairing_id']);
         apiSuccessResponse([
             'status' => 'expired',
