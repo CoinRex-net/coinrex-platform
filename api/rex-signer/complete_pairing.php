@@ -134,7 +134,8 @@ try {
 
     $session_stmt = $db->prepare("
         SELECT *,
-               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix
         FROM rex_signer_sessions
         WHERE id = ?
         LIMIT 1

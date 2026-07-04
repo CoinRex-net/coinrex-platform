@@ -1985,7 +1985,28 @@ require_once __DIR__ . '/../includes/header.php';
         element.classList.toggle('is-error', state === 'error');
     }
 
+    function setApprovalStepLabel(element, label) {
+        if (!element) {
+            return;
+        }
+        const marker = element.querySelector('span');
+        element.textContent = '';
+        if (marker) {
+            element.appendChild(marker);
+        }
+        element.appendChild(document.createTextNode(label));
+    }
+
     function renderApprovalTimeline() {
+        if (modalResultState === 'pairing_test_connected') {
+            setApprovalStepLabel(approvalStepWaiting, 'Pairing code scanned');
+            setApprovalStepLabel(approvalStepApproved, 'Wallet session connected');
+            setApprovalStepLabel(approvalStepSubmitted, 'Test complete');
+        } else {
+            setApprovalStepLabel(approvalStepWaiting, 'Sent to RexLink');
+            setApprovalStepLabel(approvalStepApproved, 'Mobile approval');
+            setApprovalStepLabel(approvalStepSubmitted, 'Transaction status');
+        }
         const terminalError = ['gas', 'network', 'rejected', 'expired', 'cancelled'].includes(modalResultState);
         const terminalSuccess = ['success', 'claimed', 'pairing_test_connected'].includes(modalResultState);
         const approvalAccepted = ['approval_received', 'submitting'].includes(modalResultState);

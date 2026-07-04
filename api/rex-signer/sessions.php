@@ -4,7 +4,8 @@ require_once __DIR__ . '/_bootstrap.php';
 try {
     $db = getDBConnection();
     rexSignerExpireOldRows($db);
-    $server_time_unix = time();
+    $server_time_stmt = $db->query("SELECT UNIX_TIMESTAMP(NOW()) AS server_time_unix");
+    $server_time_unix = (int) ($server_time_stmt->fetch()['server_time_unix'] ?? time());
 
     $token = rexSignerGetBearerToken();
     $token_session = rexSignerGetAnySessionByToken($db, $token);
@@ -19,7 +20,7 @@ try {
             'session' => $token_session,
         ];
         $session_state = (string) ($token_session['status'] ?? 'none');
-        if ($session_state === 'active' && strtotime((string) ($token_session['expires_at'] ?? '')) <= time()) {
+        if ($session_state === 'active' && isset($token_session['remaining_seconds']) && (int) $token_session['remaining_seconds'] <= 0) {
             $session_state = 'expired';
         }
     } else {
@@ -41,7 +42,8 @@ try {
 
     $stmt = $db->prepare("
         SELECT *,
-               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix
         FROM rex_signer_sessions
         WHERE user_id = ?
         ORDER BY FIELD(status, 'active', 'expired', 'revoked'), created_at DESC

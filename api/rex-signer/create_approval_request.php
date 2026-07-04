@@ -51,6 +51,9 @@ try {
         apiErrorResponse(422, 'Network slug and chain ID do not match.');
     }
 
+    $expiry_stmt = $db->query("SELECT DATE_ADD(NOW(), INTERVAL {$expires_minutes} MINUTE) AS expires_at");
+    $approval_expires_at = (string) (($expiry_stmt ? $expiry_stmt->fetch()['expires_at'] ?? '' : '') ?: '');
+
     $payload_json = null;
     $payload = is_array($payload) ? $payload : ($payload === null || $payload === '' ? [] : $payload);
     if (is_array($payload)) {
@@ -80,7 +83,7 @@ try {
         $contexts = rexSignerBuildDisplayContext($db, array_merge($payload, [
             'network_slug' => $network_slug,
             'chain_id' => $payload['chain_id'] ?? null,
-            'expires_at' => date('Y-m-d H:i:s', time() + ($expires_minutes * 60)),
+            'expires_at' => $approval_expires_at,
         ]));
         $payload['display_context'] = $contexts['display_context'];
         $payload['trust_context'] = $contexts['trust_context'];
@@ -114,7 +117,7 @@ try {
         : rexSignerBuildDisplayContext($db, [
             'network_slug' => $network_slug,
             'chain_id' => isset($network_row['chain_id']) ? (int) $network_row['chain_id'] : null,
-            'expires_at' => date('Y-m-d H:i:s', time() + ($expires_minutes * 60)),
+            'expires_at' => $approval_expires_at,
         ]);
 
     apiSuccessResponse([

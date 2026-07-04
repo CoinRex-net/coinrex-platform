@@ -30,8 +30,13 @@ try {
         apiErrorResponse(422, 'Valid session_id is required.');
     }
 
+    $server_time_stmt = $db->query("SELECT UNIX_TIMESTAMP(NOW()) AS server_time_unix");
+    $server_time_unix = (int) ($server_time_stmt->fetch()['server_time_unix'] ?? time());
+
     $session_stmt = $db->prepare("
-        SELECT *
+        SELECT *,
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix
         FROM rex_signer_sessions
         WHERE id = ?
           AND user_id = ?
@@ -45,12 +50,12 @@ try {
             'session_id' => $session_id,
             'session_state' => 'none',
             'revoked' => false,
-            'server_time_unix' => time(),
+            'server_time_unix' => $server_time_unix,
         ]);
     }
 
     $session_state = (string) ($session['status'] ?? 'none');
-    if ($session_state === 'active' && strtotime((string) ($session['expires_at'] ?? '')) <= time()) {
+    if ($session_state === 'active' && (int) ($session['remaining_seconds'] ?? 0) <= 0) {
         $session_state = 'expired';
     }
 
@@ -107,7 +112,7 @@ try {
         'session_state' => $session_state,
         'revoked' => $revoked,
         'cancelled_pending_requests' => $cancelled_requests,
-        'server_time_unix' => time(),
+        'server_time_unix' => $server_time_unix,
     ]);
 } catch (Throwable $e) {
     apiErrorResponse(422, $e->getMessage());

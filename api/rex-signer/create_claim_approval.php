@@ -119,8 +119,10 @@ try {
         'contract_address' => (string) $deployment['contractAddress'],
         'chain_id' => (int) ($deployment['chainId'] ?? 80002),
     ];
+    $expiry_stmt = $db->query("SELECT DATE_ADD(NOW(), INTERVAL 10 MINUTE) AS expires_at");
+    $approval_expires_at = (string) (($expiry_stmt ? $expiry_stmt->fetch()['expires_at'] ?? '' : '') ?: '');
     $contexts = rexSignerBuildDisplayContext($db, array_merge($payload, [
-        'expires_at' => date('Y-m-d H:i:s', time() + 600),
+        'expires_at' => $approval_expires_at,
     ]));
     $payload['display_context'] = $contexts['display_context'];
     $payload['trust_context'] = $contexts['trust_context'];

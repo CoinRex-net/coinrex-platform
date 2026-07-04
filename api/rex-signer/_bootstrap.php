@@ -647,7 +647,9 @@ function rexSignerGetSessionByToken(PDO $db, $token) {
     }
 
     $stmt = $db->prepare("
-        SELECT *
+        SELECT *,
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix
         FROM rex_signer_sessions
         WHERE session_token_hash = ?
           AND status = 'active'
@@ -674,7 +676,9 @@ function rexSignerGetAnySessionByToken(PDO $db, $token) {
     }
 
     $stmt = $db->prepare("
-        SELECT *
+        SELECT *,
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix
         FROM rex_signer_sessions
         WHERE session_token_hash = ?
         LIMIT 1
@@ -729,6 +733,10 @@ function rexSignerRequireUserActor(PDO $db = null) {
 }
 
 function rexSignerSessionPayload(array $row) {
+    $expires_at_unix = isset($row['expires_at_unix']) && $row['expires_at_unix'] !== null
+        ? (int) $row['expires_at_unix']
+        : (!empty($row['expires_at']) ? strtotime((string) $row['expires_at']) : null);
+
     return [
         'id' => (int) $row['id'],
         'user_id' => (int) $row['user_id'],
@@ -736,7 +744,7 @@ function rexSignerSessionPayload(array $row) {
         'wallet_address' => $row['wallet_address'] ?? null,
         'status' => $row['status'],
         'expires_at' => $row['expires_at'],
-        'expires_at_unix' => !empty($row['expires_at']) ? strtotime((string) $row['expires_at']) : null,
+        'expires_at_unix' => $expires_at_unix,
         'remaining_seconds' => isset($row['remaining_seconds'])
             ? max(0, (int) $row['remaining_seconds'])
             : null,
