@@ -595,7 +595,9 @@ paginationRenderJS([
     'filterFormId' => 'filterForm',
     'extraParams' => ['search', 'status'],
     'pageParam' => 'page',
+    'loadingText' => 'Loading referrals',
 ]);
+
 ?>
 
 <!-- Custom JS: show toast from server-side message on page load -->

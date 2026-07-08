@@ -954,7 +954,9 @@ paginationRenderJS([
     'filterFormId' => 'filterForm',
     'extraParams' => ['q', 'status'],
     'pageParam' => 'page',
+    'loadingText' => 'Loading projects',
 ]);
+
 ?>
 
 <!-- ====== PROJECT DETAIL MODAL ====== -->

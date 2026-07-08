@@ -188,7 +188,9 @@ paginationRenderJS([
     'filterFormId' => 'filterForm',
     'extraParams' => ['q'],
     'pageParam' => 'page',
+    'loadingText' => 'Loading reward users',
 ]);
+
 ?>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

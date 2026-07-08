@@ -424,6 +424,79 @@ function adminRewardGetBoosthubReviewRows(PDO $db) {
     ")->fetchAll();
 }
 
+/**
+ * Fetch all BoostHub evidence submissions with pagination and filtering.
+ *
+ * @param PDO    $db
+ * @param string $task_category Filter by task category (or 'all')
+ * @param string $status_filter Filter by evidence status: 'submitted', 'completed', 'failed', or 'all'
+ * @param int    $page          Current page (1-based)
+ * @param int    $perPage       Items per page
+ * @return array ['rows' => array, 'total' => int, 'pages' => int]
+ */
+function adminRewardGetBoosthubAllEvidence(PDO $db, string $task_category = 'all', string $status_filter = 'all', int $page = 1, int $perPage = 20): array {
+    $page = max(1, $page);
+    $perPage = max(1, min(100, $perPage));
+    $offset = ($page - 1) * $perPage;
+
+    $where = "WHERE mt.task_group = 'boosthub'";
+    $params = [];
+
+    if ($task_category !== 'all') {
+        $where .= " AND mt.task_category = ?";
+        $params[] = $task_category;
+    }
+
+    if ($status_filter !== 'all') {
+        $where .= " AND utl.status = ?";
+        $params[] = $status_filter;
+    }
+
+    // Count total
+    $countStmt = $db->prepare("
+        SELECT COUNT(*)
+        FROM user_task_logs utl
+        INNER JOIN mini_tasks mt ON mt.id = utl.task_id
+        INNER JOIN users u ON u.id = utl.user_id
+        $where
+    ");
+    $countStmt->execute($params);
+    $total = (int) ($countStmt->fetchColumn() ?: 0);
+    $pages = (int) ceil($total / $perPage);
+
+    // Fetch rows
+    $stmt = $db->prepare("
+        SELECT
+            utl.id,
+            utl.user_id,
+            utl.proof_data,
+            utl.status,
+            utl.metadata,
+            utl.rejection_count,
+            utl.task_available_at,
+            utl.completed_at,
+            mt.title,
+            mt.task_key,
+            mt.task_group,
+            mt.task_category,
+            mt.task_link,
+            mt.proof_notes,
+            mt.reward,
+            u.username,
+            u.email
+        FROM user_task_logs utl
+        INNER JOIN mini_tasks mt ON mt.id = utl.task_id
+        INNER JOIN users u ON u.id = utl.user_id
+        $where
+        ORDER BY utl.id DESC
+        LIMIT $perPage OFFSET $offset
+    ");
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+
+    return ['rows' => $rows, 'total' => $total, 'pages' => $pages];
+}
+
 function adminRewardGetUsers(PDO $db, $user_search = '', $page = 1, $perPage = 20) {
     $offset = max(0, ((int) $page - 1) * (int) $perPage);
     $limit = max(1, (int) $perPage);

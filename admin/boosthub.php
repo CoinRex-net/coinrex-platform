@@ -14,6 +14,316 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
     $selected_category = 'all';
 }
 ?>
+<style>
+/* ── Tab Navigation ── */
+.boosthub-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 14px;
+    padding: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    overflow-x: auto;
+}
+.boosthub-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px;
+    border-radius: 11px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.boosthub-tab:hover {
+    color: #e2e8f0;
+    background: rgba(255,255,255,0.04);
+}
+.boosthub-tab.is-active {
+    background: linear-gradient(135deg, rgba(29, 78, 216, 0.92), rgba(30, 64, 175, 0.88));
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
+}
+.boosthub-tab i {
+    font-size: 0.95rem;
+}
+.boosthub-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+.boosthub-tab.is-active .boosthub-tab-badge {
+    background: rgba(255,255,255,0.18);
+}
+
+/* ── Tab Panels ── */
+.boosthub-tab-panel {
+    display: none;
+}
+.boosthub-tab-panel.is-active {
+    display: block;
+    animation: bhFadeUp 0.3s ease;
+}
+
+/* ── Evidence Filter ── */
+.boosthub-evidence-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.boosthub-evidence-filter label {
+    color: #94a3b8;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.boosthub-evidence-filter select {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(15, 23, 42, 0.8);
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    min-width: 180px;
+}
+.boosthub-evidence-filter select:focus {
+    border-color: rgba(29, 78, 216, 0.4);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+}
+
+@keyframes bhFadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive: Mobile ── */
+@media (max-width: 768px) {
+    .boosthub-tabs {
+        gap: 2px;
+        padding: 3px;
+        border-radius: 12px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .boosthub-tabs::-webkit-scrollbar { display: none; }
+    .boosthub-tab {
+        padding: 10px 14px;
+        font-size: 0.8rem;
+        gap: 6px;
+    }
+    .boosthub-tab i { font-size: 0.85rem; }
+    .boosthub-tab-badge { min-width: 18px; height: 18px; font-size: 0.65rem; padding: 0 5px; }
+
+    /* Evidence filter */
+    .boosthub-evidence-filter {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .boosthub-evidence-filter select { min-width: 0; width: 100%; }
+
+    /* Evidence review table → card layout */
+    .dashboard-table-wrap {
+        overflow-x: visible;
+    }
+    .dashboard-table thead { display: none; }
+    .dashboard-table tbody tr {
+        display: block;
+        padding: 16px;
+        margin-bottom: 12px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.10);
+        border-radius: 14px;
+    }
+    .dashboard-table tbody tr td {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 6px 0;
+        border: none;
+        text-align: left;
+    }
+    .dashboard-table tbody tr td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        width: 80px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding-top: 2px;
+    }
+    .dashboard-table tbody tr td:last-child {
+        padding-top: 10px;
+        margin-top: 6px;
+        border-top: 1px solid rgba(148, 163, 184, 0.08);
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .dashboard-table tbody tr td:last-child::before {
+        width: 100%;
+        margin-bottom: 4px;
+    }
+    .dashboard-table tbody tr td:last-child .btn {
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+        font-size: 0.78rem;
+        padding: 8px 10px;
+    }
+    .dashboard-table tbody tr td:last-child .btn + .btn {
+        margin-top: 0 !important;
+    }
+    .boosthub-evidence-box {
+        flex-direction: column;
+        max-width: none;
+        width: 100%;
+    }
+    .boosthub-evidence-box code {
+        max-width: 100%;
+        font-size: 0.8rem;
+    }
+    .boosthub-evidence-screenshot img {
+        max-width: 100% !important;
+        max-height: 120px !important;
+    }
+    .boosthub-open-task-link {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Task toolbar */
+    .quiz-toolbar {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .quiz-toolbar-left,
+    .quiz-toolbar-right {
+        width: 100%;
+    }
+    .quiz-toolbar-right select {
+        width: 100%;
+        min-width: 0;
+    }
+    .quiz-toolbar-left .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Task cards */
+    .boosthub-task-card-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .boosthub-task-meta {
+        flex-direction: column;
+        gap: 6px;
+    }
+    .boosthub-task-stats {
+        flex-direction: column;
+        gap: 4px;
+    }
+    .boosthub-task-card-foot {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .boosthub-task-card-foot .btn {
+        flex: 1;
+        justify-content: center;
+        font-size: 0.78rem;
+        padding: 8px 10px;
+    }
+
+    /* Modals */
+    .quiz-modal {
+        width: calc(100vw - 24px) !important;
+        margin: 0 12px !important;
+        max-height: 90vh !important;
+        border-radius: 18px !important;
+    }
+    .quiz-modal-header {
+        padding: 16px 18px !important;
+    }
+    .quiz-modal-header h2 {
+        font-size: 1rem !important;
+    }
+    .quiz-modal-body {
+        padding: 14px 18px !important;
+        gap: 14px !important;
+    }
+    .quiz-modal-footer {
+        padding: 14px 18px !important;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .quiz-modal-footer .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    .quiz-modal-field label {
+        font-size: 0.8rem !important;
+    }
+    .quiz-modal-field input,
+    .quiz-modal-field select,
+    .quiz-modal-field textarea {
+        font-size: 0.85rem !important;
+        padding: 10px 12px !important;
+    }
+
+    /* Delete/Review modals */
+    .dashboard-modal-card {
+        width: calc(100vw - 32px) !important;
+        max-width: none !important;
+        margin: 0 16px !important;
+        border-radius: 18px !important;
+    }
+    .dashboard-modal-card .dashboard-modal-body > div {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .dashboard-modal-card .dashboard-modal-body .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .boosthub-tab {
+        padding: 8px 10px;
+        font-size: 0.75rem;
+    }
+    .boosthub-tab i { display: none; }
+    .dashboard-table tbody tr td::before {
+        width: 70px;
+        font-size: 0.7rem;
+    }
+    .dashboard-table tbody tr td {
+        font-size: 0.82rem;
+    }
+}
+</style>
 
 <?php if ($message !== ''): ?>
     <div class="dashboard-message <?php echo $message_type === 'error' ? 'is-error' : 'is-success'; ?>">
@@ -33,66 +343,96 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
 </div>
 
 <!-- ============================================================ -->
-<!-- Task Management Panel -->
+<!-- Tab Navigation -->
 <!-- ============================================================ -->
-<div class="dashboard-panel">
-    <div class="dashboard-panel-header">
-        <h3><i class="fas fa-wrench"></i> Task management</h3>
-        <span class="panel-badge" id="boosthubTaskCount">0 task(s)</span>
-    </div>
+<div class="boosthub-tabs" role="tablist">
+    <button type="button" class="boosthub-tab is-active" data-tab="tasks" role="tab" aria-selected="true">
+        <i class="fas fa-wrench"></i> Tasks
+        <span class="boosthub-tab-badge" id="boosthubTaskCount">0</span>
+    </button>
+    <button type="button" class="boosthub-tab" data-tab="reviews" role="tab" aria-selected="false">
+        <i class="fas fa-inbox"></i> Evidence Review
+        <span class="boosthub-tab-badge" id="boosthubReviewCount">0</span>
+    </button>
+</div>
 
-    <!-- Toolbar -->
-    <div class="quiz-toolbar">
-        <div class="quiz-toolbar-left">
-            <button type="button" class="btn btn-primary" id="boosthubAddBtn">
-                <i class="fas fa-plus"></i> Create New Task
-            </button>
+<!-- ============================================================ -->
+<!-- Tasks Tab Panel -->
+<!-- ============================================================ -->
+<div class="boosthub-tab-panel is-active" id="boosthubTabTasks" role="tabpanel">
+    <div class="dashboard-panel">
+        <div class="dashboard-panel-header">
+            <h3><i class="fas fa-wrench"></i> Task management</h3>
         </div>
-        <div class="quiz-toolbar-right">
-            <select id="boosthubCategoryFilter" class="quiz-filter-select">
-                <option value="all" <?php echo $selected_category === 'all' ? 'selected' : ''; ?>>All Types</option>
+
+        <!-- Toolbar -->
+        <div class="quiz-toolbar">
+            <div class="quiz-toolbar-left">
+                <button type="button" class="btn btn-primary" id="boosthubAddBtn">
+                    <i class="fas fa-plus"></i> Create New Task
+                </button>
+            </div>
+            <div class="quiz-toolbar-right">
+                <select id="boosthubCategoryFilter" class="quiz-filter-select">
+                    <option value="all" <?php echo $selected_category === 'all' ? 'selected' : ''; ?>>All Types</option>
+                    <?php foreach ($task_categories as $task_category_key => $task_category_label): ?>
+                        <option value="<?php echo htmlspecialchars($task_category_key, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selected_category === $task_category_key ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($task_category_label, ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+
+        <!-- Task Cards Container (rendered by JS) -->
+        <div id="boosthubTaskList" class="boosthub-task-list">
+            <div class="quiz-loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Evidence Review Tab Panel -->
+<!-- ============================================================ -->
+<div class="boosthub-tab-panel" id="boosthubTabReviews" role="tabpanel">
+    <div class="dashboard-panel">
+        <div class="dashboard-panel-header">
+            <h3><i class="fas fa-inbox"></i> Evidence review queue</h3>
+        </div>
+
+        <!-- Evidence Filter -->
+        <div class="boosthub-evidence-filter">
+            <label for="boosthubEvidenceFilter"><i class="fas fa-filter"></i> Filter by task type:</label>
+            <select id="boosthubEvidenceFilter">
+                <option value="all">All Types</option>
                 <?php foreach ($task_categories as $task_category_key => $task_category_label): ?>
-                    <option value="<?php echo htmlspecialchars($task_category_key, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selected_category === $task_category_key ? 'selected' : ''; ?>>
+                    <option value="<?php echo htmlspecialchars($task_category_key, ENT_QUOTES, 'UTF-8'); ?>">
                         <?php echo htmlspecialchars($task_category_label, ENT_QUOTES, 'UTF-8'); ?>
                     </option>
                 <?php endforeach; ?>
             </select>
         </div>
-    </div>
 
-    <!-- Task Cards Container (rendered by JS) -->
-    <div id="boosthubTaskList" class="boosthub-task-list">
-        <div class="quiz-loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- Evidence Review Panel -->
-<!-- ============================================================ -->
-<div class="dashboard-panel">
-    <div class="dashboard-panel-header">
-        <h3><i class="fas fa-inbox"></i> Evidence review queue</h3>
-        <span class="panel-badge" id="boosthubReviewCount">0 pending</span>
-    </div>
-    <div class="dashboard-table-wrap">
-        <table class="dashboard-table">
-            <thead>
-            <tr>
-                <th>User</th>
-                <th>Task</th>
-                <th>Evidence</th>
-                <th>Action</th>
-            </tr>
-            </thead>
-            <tbody id="boosthubReviewContainer">
+        <div class="dashboard-table-wrap">
+            <table class="dashboard-table">
+                <thead>
                 <tr>
-                    <td colspan="4" class="dashboard-empty">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Loading...</p>
-                    </td>
+                    <th>User</th>
+                    <th>Task</th>
+                    <th>Evidence</th>
+                    <th>Action</th>
                 </tr>
-            </tbody>
-        </table>
+                </thead>
+                <tbody id="boosthubReviewContainer">
+                    <tr>
+                        <td colspan="4" class="dashboard-empty">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 

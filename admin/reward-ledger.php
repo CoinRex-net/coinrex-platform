@@ -1,67 +1,11 @@
 <?php
-/**
- * Render Google-style pagination links.
- * Defined once at the top so both AJAX handler and normal render can use it.
- */
-function renderPagination($currentPage, $totalPages, $baseUrl, $extraParams = [], $pageParam = 'page') {
-    if ($totalPages <= 1) {
-        return '';
-    }
-
-    $buildUrl = function ($page) use ($baseUrl, $extraParams, $pageParam) {
-        $params = $extraParams;
-        $params[$pageParam] = $page;
-        return $baseUrl . '?' . http_build_query($params);
-    };
-
-    $html = '<div class="pagination-bar">';
-
-    // Prev
-    if ($currentPage > 1) {
-        $html .= '<a href="' . htmlspecialchars($buildUrl($currentPage - 1), ENT_QUOTES, 'UTF-8') . '" class="pagination-link pagination-prev" data-page="' . ($currentPage - 1) . '"><i class="fas fa-chevron-left"></i> Prev</a>';
-    } else {
-        $html .= '<span class="pagination-link pagination-prev is-disabled"><i class="fas fa-chevron-left"></i> Prev</span>';
-    }
-
-    $range = 2;
-    $start = max(1, $currentPage - $range);
-    $end = min($totalPages, $currentPage + $range);
-
-    if ($start > 1) {
-        $html .= '<a href="' . htmlspecialchars($buildUrl(1), ENT_QUOTES, 'UTF-8') . '" class="pagination-link" data-page="1">1</a>';
-        if ($start > 2) {
-            $html .= '<span class="pagination-ellipsis">…</span>';
-        }
-    }
-
-    for ($i = $start; $i <= $end; $i++) {
-        $active = $i === $currentPage ? ' is-active' : '';
-        $html .= '<a href="' . htmlspecialchars($buildUrl($i), ENT_QUOTES, 'UTF-8') . '" class="pagination-link' . $active . '" data-page="' . $i . '">' . $i . '</a>';
-    }
-
-    if ($end < $totalPages) {
-        if ($end < $totalPages - 1) {
-            $html .= '<span class="pagination-ellipsis">…</span>';
-        }
-        $html .= '<a href="' . htmlspecialchars($buildUrl($totalPages), ENT_QUOTES, 'UTF-8') . '" class="pagination-link" data-page="' . $totalPages . '">' . $totalPages . '</a>';
-    }
-
-    if ($currentPage < $totalPages) {
-        $html .= '<a href="' . htmlspecialchars($buildUrl($currentPage + 1), ENT_QUOTES, 'UTF-8') . '" class="pagination-link pagination-next" data-page="' . ($currentPage + 1) . '">Next <i class="fas fa-chevron-right"></i></a>';
-    } else {
-        $html .= '<span class="pagination-link pagination-next is-disabled">Next <i class="fas fa-chevron-right"></i></span>';
-    }
-
-    $html .= '</div>';
-    return $html;
-}
-
 // ====== AJAX handler must come BEFORE header.php to avoid HTML pollution ======
 if (!empty($_GET['ajax'])) {
     require_once __DIR__ . '/includes/config.php';
     requireAdminAuth();
     requireAdminPageAccess('reward-ledger');
     require_once __DIR__ . '/includes/reward_admin.php';
+    require_once __DIR__ . '/includes/pagination.php';
 
     $db = getDBConnection();
     ensureRewardClaimSchema($db);
@@ -127,7 +71,7 @@ if (!empty($_GET['ajax'])) {
         }
     }
 
-    // Pagination bars
+    // Pagination bars using shared library
     $ledgerPagination = renderPagination($ledger_page, $total_ledger_pages, ADMIN_BASE_URL . '/reward-ledger.php', array_merge($filterParams, ['claims_page' => $claims_page]), 'page');
     $claimsPagination = renderPagination($claims_page, $total_claims_pages, ADMIN_BASE_URL . '/reward-ledger.php', array_merge($filterParams, ['page' => $ledger_page]), 'claims_page');
 
@@ -148,6 +92,7 @@ $page_title = 'Reward Ledger';
 $activePage = 'reward-ledger';
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/reward_admin.php';
+require_once __DIR__ . '/includes/pagination.php';
 
 $db = getDBConnection();
 ensureRewardClaimSchema($db);
@@ -177,65 +122,7 @@ if ($ledger_filters['source'] !== '') $filterParams['source'] = $ledger_filters[
 if ($ledger_filters['phase'] !== '') $filterParams['phase'] = $ledger_filters['phase'];
 if ($ledger_filters['status'] !== '') $filterParams['status'] = $ledger_filters['status'];
 ?>
-<style>
-/* ====== Google-Style Pagination ====== */
-.pagination-bar {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 4px;
-    padding: 16px 0 4px;
-    flex-wrap: wrap;
-}
-.pagination-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 36px;
-    height: 36px;
-    padding: 0 10px;
-    border-radius: 8px;
-    background: transparent;
-    color: #94a3b8;
-    font-size: 13px;
-    font-weight: 500;
-    text-decoration: none;
-    transition: all 0.15s;
-    cursor: pointer;
-    border: none;
-    font-family: inherit;
-}
-.pagination-link:hover {
-    background: rgba(148,163,184,0.1);
-    color: #e2e8f0;
-}
-.pagination-link.is-active {
-    background: #d4af37;
-    color: #0f172a;
-    font-weight: 700;
-}
-.pagination-link.is-disabled {
-    opacity: 0.35;
-    cursor: default;
-    pointer-events: none;
-}
-.pagination-link i {
-    font-size: 11px;
-}
-.pagination-ellipsis {
-    color: #64748b;
-    padding: 0 4px;
-    font-size: 14px;
-}
-.pagination-prev,
-.pagination-next {
-    gap: 6px;
-}
-.pagination-bar.is-loading .pagination-link {
-    pointer-events: none;
-    opacity: 0.5;
-}
-</style>
+<?php paginationRenderStyles(); ?>
 
 <div class="dashboard-container">
 
@@ -411,8 +298,26 @@ if ($ledger_filters['status'] !== '') $filterParams['status'] = $ledger_filters[
     const claimsBody = document.getElementById('claimsTableBody');
     const ledgerPag = document.getElementById('ledgerPagination');
     const claimsPag = document.getElementById('claimsPagination');
+    const ledgerWrap = document.getElementById('ledgerTableBody')?.closest('.dashboard-table-wrap') || document.getElementById('ledgerTableBody')?.closest('table');
+    const claimsWrap = document.getElementById('claimsTableBody')?.closest('.dashboard-table-wrap') || document.getElementById('claimsTableBody')?.closest('table');
+
 
     if (!ledgerBody || !claimsBody || !ledgerPag || !claimsPag) return;
+
+    // Create loading indicators
+    const ledgerLoading = document.createElement('div');
+    ledgerLoading.className = 'pagination-loading-indicator';
+    ledgerLoading.setAttribute('role', 'status');
+    ledgerLoading.setAttribute('aria-live', 'polite');
+    ledgerLoading.textContent = 'Loading ledger';
+    ledgerPag.parentNode.insertBefore(ledgerLoading, ledgerPag);
+
+    const claimsLoading = document.createElement('div');
+    claimsLoading.className = 'pagination-loading-indicator';
+    claimsLoading.setAttribute('role', 'status');
+    claimsLoading.setAttribute('aria-live', 'polite');
+    claimsLoading.textContent = 'Loading claims';
+    claimsPag.parentNode.insertBefore(claimsLoading, claimsPag);
 
     /**
      * Fetch new page data via AJAX and update the DOM.
@@ -430,6 +335,10 @@ if ($ledger_filters['status'] !== '') $filterParams['status'] = $ledger_filters[
         // Add loading state
         ledgerPag.classList.add('is-loading');
         claimsPag.classList.add('is-loading');
+        ledgerLoading.classList.add('is-visible');
+        claimsLoading.classList.add('is-visible');
+        if (ledgerWrap) ledgerWrap.classList.add('pagination-ajax-busy');
+        if (claimsWrap) claimsWrap.classList.add('pagination-ajax-busy');
 
         fetch('<?php echo ADMIN_BASE_URL; ?>/reward-ledger.php?' + params.toString())
             .then(function (r) {
@@ -456,12 +365,21 @@ if ($ledger_filters['status'] !== '') $filterParams['status'] = $ledger_filters[
                 // Remove loading state
                 ledgerPag.classList.remove('is-loading');
                 claimsPag.classList.remove('is-loading');
+                ledgerLoading.classList.remove('is-visible');
+                claimsLoading.classList.remove('is-visible');
+                if (ledgerWrap) ledgerWrap.classList.remove('pagination-ajax-busy');
+                if (claimsWrap) claimsWrap.classList.remove('pagination-ajax-busy');
             })
             .catch(function () {
                 ledgerPag.classList.remove('is-loading');
                 claimsPag.classList.remove('is-loading');
+                ledgerLoading.classList.remove('is-visible');
+                claimsLoading.classList.remove('is-visible');
+                if (ledgerWrap) ledgerWrap.classList.remove('pagination-ajax-busy');
+                if (claimsWrap) claimsWrap.classList.remove('pagination-ajax-busy');
             });
     }
+
 
     /**
      * Get current filter values from the filter form.

@@ -20,6 +20,16 @@
     var categorySelect = document.getElementById('boosthubCategoryFilter');
     var addBtn = document.getElementById('boosthubAddBtn');
 
+    // ─── Tab refs ────────────────────────────────────────────────
+    var tabBtns = document.querySelectorAll('.boosthub-tab');
+    var tabPanels = {
+        tasks: document.getElementById('boosthubTabTasks'),
+        reviews: document.getElementById('boosthubTabReviews'),
+    };
+
+    // ─── Evidence filter refs ────────────────────────────────────
+    var evidenceFilter = document.getElementById('boosthubEvidenceFilter');
+
     // ─── Task Modal refs ─────────────────────────────────────────
     var taskModal = document.getElementById('boosthubTaskModal');
     var taskModalOverlay = document.getElementById('boosthubTaskModalOverlay');
@@ -65,6 +75,21 @@
             }
             categorySelect.addEventListener('change', function () {
                 loadTasks(this.value);
+            });
+        }
+
+        // ─── Tab switching ────────────────────────────────────
+        for (var ti = 0; ti < tabBtns.length; ti++) {
+            tabBtns[ti].addEventListener('click', function () {
+                var tab = this.getAttribute('data-tab');
+                switchTab(tab);
+            });
+        }
+
+        // ─── Evidence filter ──────────────────────────────────
+        if (evidenceFilter) {
+            evidenceFilter.addEventListener('change', function () {
+                renderReviews();
             });
         }
 
@@ -142,6 +167,24 @@
         // Load initial data
         loadTasks(categorySelect ? categorySelect.value : 'all');
         loadReviews();
+    }
+
+    // ─── Tab Switching ───────────────────────────────────────────
+    function switchTab(tab) {
+        // Update tab buttons
+        for (var ti = 0; ti < tabBtns.length; ti++) {
+            var btn = tabBtns[ti];
+            var isActive = btn.getAttribute('data-tab') === tab;
+            btn.classList.toggle('is-active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+
+        // Update tab panels
+        for (var key in tabPanels) {
+            if (tabPanels.hasOwnProperty(key)) {
+                tabPanels[key].classList.toggle('is-active', key === tab);
+            }
+        }
     }
 
     // ─── Load Tasks ──────────────────────────────────────────────
@@ -441,24 +484,61 @@
     // ─── Render Reviews ──────────────────────────────────────────
     function renderReviews() {
         if (!reviewContainer) return;
-        if (reviewCountEl) reviewCountEl.textContent = reviews.length;
 
-        if (reviews.length === 0) {
+        // Get the active filter value
+        var filterCategory = evidenceFilter ? evidenceFilter.value : 'all';
+
+        // Filter reviews by task category
+        var filteredReviews = reviews;
+        if (filterCategory !== 'all') {
+            filteredReviews = [];
+            for (var fi = 0; fi < reviews.length; fi++) {
+                if ((reviews[fi].task_category || 'custom') === filterCategory) {
+                    filteredReviews.push(reviews[fi]);
+                }
+            }
+        }
+
+        if (reviewCountEl) reviewCountEl.textContent = filteredReviews.length;
+
+        if (filteredReviews.length === 0) {
             reviewContainer.innerHTML = '' +
                 '<tr>' +
                     '<td colspan="4" class="dashboard-empty">' +
                         '<i class="fas fa-check-circle"></i>' +
-                        '<p>No pending BoostHub evidence submissions.</p>' +
+                        '<p>' + (filterCategory !== 'all' ? 'No pending submissions for this task type.' : 'No pending BoostHub evidence submissions.') + '</p>' +
                     '</td>' +
                 '</tr>';
             return;
         }
 
         var html = '';
-        for (var i = 0; i < reviews.length; i++) {
-            var r = reviews[i];
+        for (var i = 0; i < filteredReviews.length; i++) {
+            var r = filteredReviews[i];
             var catLabel = taskCategories[r.task_category] || r.task_category || 'Custom Task';
             var proofData = r.proof_data || '';
+
+            // Parse JSON evidence (text + screenshot)
+            var evidenceText = proofData;
+            var evidenceScreenshot = '';
+            try {
+                var parsed = JSON.parse(proofData);
+                if (typeof parsed === 'object' && parsed !== null) {
+                    evidenceText = parsed.text || proofData;
+                    evidenceScreenshot = parsed.screenshot || '';
+                }
+            } catch (e) {
+                // Not JSON, use raw text
+            }
+
+            var screenshotHtml = '';
+            if (evidenceScreenshot) {
+                screenshotHtml = '<br><div class="boosthub-evidence-screenshot" style="margin-top:8px;">' +
+                    '<a href="' + escapeHtml(evidenceScreenshot) + '" target="_blank" rel="noopener noreferrer">' +
+                        '<img src="' + escapeHtml(evidenceScreenshot) + '" alt="Evidence screenshot" style="max-height:80px;max-width:180px;border-radius:8px;border:1px solid rgba(148,163,184,0.15);object-fit:cover;cursor:pointer;">' +
+                    '</a>' +
+                '</div>';
+            }
 
             html += '' +
                 '<tr data-log-id="' + r.id + '">' +
@@ -473,11 +553,12 @@
                     '</td>' +
                     '<td data-label="Evidence">' +
                         '<div class="boosthub-evidence-box">' +
-                            '<code>' + escapeHtml(proofData) + '</code>' +
-                            '<button type="button" class="btn btn-secondary btn-sm boosthub-copy-evidence-btn" data-proof="' + escapeHtml(proofData) + '" title="Copy evidence">' +
+                            '<code>' + escapeHtml(evidenceText) + '</code>' +
+                            '<button type="button" class="btn btn-secondary btn-sm boosthub-copy-evidence-btn" data-proof="' + escapeHtml(evidenceText) + '" title="Copy evidence">' +
                                 '<i class="fas fa-copy"></i> Copy' +
                             '</button>' +
                         '</div>' +
+                        screenshotHtml +
                         (r.proof_notes ? '<br><span class="muted">Expected: ' + escapeHtml(r.proof_notes) + '</span>' : '') +
                         (r.task_link ? '<br><a href="' + escapeHtml(r.task_link) + '" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm boosthub-open-task-link"><i class="fas fa-arrow-up-right-from-square"></i> Open task link</a>' : '') +
                     '</td>' +
@@ -485,10 +566,10 @@
                         '<button type="button" class="btn btn-primary btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="approve">' +
                             '<i class="fas fa-check"></i> Approve' +
                         '</button>' +
-                        '<button type="button" class="btn btn-secondary btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="return" style="margin-top:6px;">' +
+                        '<button type="button" class="btn btn-secondary btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="return">' +
                             '<i class="fas fa-rotate-left"></i> Return' +
                         '</button>' +
-                        '<button type="button" class="btn btn-danger btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="reject" style="margin-top:6px;">' +
+                        '<button type="button" class="btn btn-danger btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="reject">' +
                             '<i class="fas fa-times"></i> Reject' +
                         '</button>' +
                     '</td>' +

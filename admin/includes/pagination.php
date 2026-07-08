@@ -163,34 +163,65 @@ function paginationRenderStyles(): void {
         display: none;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        margin: 12px auto 0;
+        gap: 10px;
+        margin: 16px auto 0;
         color: #d4af37;
-        font-size: 12px;
-        font-weight: 800;
+        font-size: 13px;
+        font-weight: 700;
         letter-spacing: .04em;
         text-transform: uppercase;
+        padding: 8px 16px;
+        border-radius: 8px;
+        background: rgba(212, 175, 55, 0.06);
+        border: 1px solid rgba(212, 175, 55, 0.12);
+        transition: all 0.2s ease;
     }
     .pagination-loading-indicator.is-visible {
         display: flex;
+        animation: paginationFadeIn 0.25s ease;
     }
     .pagination-loading-indicator::before {
         content: "";
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
-        border: 2px solid rgba(212, 175, 55, .25);
+        border: 2.5px solid rgba(212, 175, 55, .2);
         border-top-color: #d4af37;
-        animation: paginationSpin .75s linear infinite;
+        border-right-color: #d4af37;
+        animation: paginationSpin .6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    .pagination-loading-indicator::after {
+        content: "…";
+        animation: paginationDots 1.2s steps(3, end) infinite;
+        letter-spacing: 2px;
     }
     .pagination-ajax-busy {
         opacity: .55;
         pointer-events: none;
-        transition: opacity .15s ease;
+        transition: opacity .2s ease;
+        filter: blur(0.3px);
     }
     @keyframes paginationSpin {
         to { transform: rotate(360deg); }
     }
+    @keyframes paginationFadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes paginationDots {
+        0%, 20% { opacity: 0; }
+        40% { opacity: 1; }
+        60%, 100% { opacity: 0; }
+    }
+    /* Skeleton shimmer for table rows during loading */
+    .pagination-ajax-busy .dashboard-table tbody tr {
+        animation: paginationPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes paginationPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+
     </style>
     <?php
 }

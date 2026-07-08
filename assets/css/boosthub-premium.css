@@ -936,6 +936,264 @@
     backdrop-filter: blur(8px);
 }
 
+/* ── Pending Panel ── */
+.bh-pending-panel {
+    border-color: rgba(212, 175, 55, 0.15);
+    background: rgba(15, 23, 42, 0.7);
+}
+
+.bh-pending-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.bh-pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--bh-gold-light);
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
+.bh-pending-count {
+    font-size: 0.78rem;
+    color: var(--bh-text-muted);
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.bh-pending-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(2, 6, 23, 0.3);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    margin-bottom: 10px;
+    transition: all 0.25s ease;
+}
+
+.bh-pending-item:last-child {
+    margin-bottom: 0;
+}
+
+.bh-pending-item:hover {
+    background: rgba(2, 6, 23, 0.45);
+    transform: translateY(-1px);
+}
+
+.bh-pending-item.is-correction {
+    border-color: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.04);
+}
+
+.bh-pending-item-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+
+.bh-pending-item-icon.is-pending {
+    background: rgba(212, 175, 55, 0.15);
+    color: var(--bh-gold-light);
+}
+
+.bh-pending-item-icon.is-correction {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--bh-red);
+}
+
+.bh-pending-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bh-pending-item-info strong {
+    display: block;
+    color: var(--bh-text-primary);
+    font-size: 0.9rem;
+    margin-bottom: 3px;
+}
+
+.bh-pending-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--bh-text-muted);
+}
+
+.bh-pending-category {
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(29, 78, 216, 0.12);
+    border: 1px solid rgba(29, 78, 216, 0.2);
+    color: var(--bh-primary-light);
+    font-weight: 600;
+}
+
+.bh-pending-date {
+    color: var(--bh-text-muted);
+}
+
+.bh-pending-reward {
+    color: var(--bh-gold-light);
+    font-weight: 700;
+}
+
+.bh-pending-correction-note {
+    margin: 6px 0 0;
+    font-size: 0.82rem;
+    color: var(--bh-red);
+    line-height: 1.5;
+    font-style: italic;
+}
+
+.bh-pending-resubmit-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--bh-red);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.bh-pending-resubmit-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    transform: translateY(-1px);
+}
+
+/* ── Upload Area ── */
+.bh-upload-area {
+    border: 2px dashed rgba(148, 163, 184, 0.15);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bh-upload-area:hover {
+    border-color: rgba(29, 78, 216, 0.35);
+    background: rgba(29, 78, 216, 0.04);
+}
+
+.bh-upload-placeholder {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--bh-text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.bh-upload-placeholder:not([hidden]) {
+    display: flex;
+}
+
+.bh-upload-placeholder i {
+    font-size: 2rem;
+    color: var(--bh-primary-light);
+    opacity: 0.6;
+}
+
+.bh-upload-hint {
+    font-size: 0.72rem;
+    color: rgba(185, 199, 232, 0.4);
+    font-weight: 400;
+}
+
+.bh-upload-preview {
+    position: relative;
+    display: none;
+    max-width: 100%;
+}
+.bh-upload-preview:not([hidden]) {
+    display: inline-flex;
+}
+
+.bh-upload-preview img {
+    max-height: 120px;
+    max-width: 100%;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.bh-upload-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(239, 68, 68, 0.9);
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    transition: all 0.2s ease;
+}
+
+.bh-upload-remove:hover {
+    background: var(--bh-red);
+    transform: scale(1.1);
+}
+
+.bh-upload-status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    color: var(--bh-text-muted);
+    font-size: 0.85rem;
+}
+.bh-upload-status:not([hidden]) {
+    display: flex;
+}
+
+.bh-upload-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(29, 78, 216, 0.2);
+    border-top-color: var(--bh-primary);
+    border-radius: 50%;
+    animation: bhSpin 0.6s linear infinite;
+}
+
 /* ── Animations ── */
 @keyframes bhFadeUp {
     from { opacity: 0; transform: translateY(14px); }
@@ -970,21 +1228,60 @@
     .boosthub-premium { padding: 16px 0 48px; }
     .boosthub-shell { padding: 0 14px; gap: 14px; }
     .bh-header { padding: 14px 16px; flex-direction: column; align-items: stretch; gap: 10px; }
+    .bh-header-left h1 { font-size: 1rem; }
     .bh-header-actions { justify-content: flex-end; }
+    .bh-header-btn { font-size: 12px; padding: 0 10px; min-height: 36px; }
     .bh-hero { padding: 22px; border-radius: 20px; }
     .bh-claim-btn { padding: 16px 32px; font-size: 1.1rem; width: 100%; justify-content: center; }
     .bh-stats { grid-template-columns: 1fr; }
+    .bh-stat { padding: 12px; }
+    .bh-stat-value { font-size: 1.1rem; }
     .bh-history-item { flex-wrap: wrap; gap: 8px; }
     .bh-history-date { width: auto; }
-    .bh-modal-dialog { border-radius: 22px; }
+    .bh-history-status { font-size: 0.72rem; padding: 4px 8px; }
+    .bh-history-reward { font-size: 0.78rem; }
+    .bh-modal-dialog { border-radius: 22px; max-height: 92vh; width: calc(100vw - 16px); margin: 0 8px; }
+    .bh-modal { padding: 8px; }
     .bh-modal-head { padding: 18px 20px 0; }
+    .bh-modal-head h3 { font-size: 1rem; }
+    .bh-modal-head-icon { width: 34px; height: 34px; font-size: 0.95rem; }
     .bh-modal-body { padding: 14px 20px 18px; gap: 14px; }
     .bh-modal-footer { padding: 0 20px 18px; flex-direction: column; }
     .bh-modal-footer .primary-btn,
     .bh-modal-footer .secondary-btn { width: 100%; justify-content: center; }
     .bh-modal-task-card { padding: 16px; }
+    .bh-modal-task-title { font-size: 1rem; }
+    .bh-modal-task-desc { font-size: 0.84rem; }
     .bh-modal-steps-card,
     .bh-modal-notes-card,
     .bh-modal-evidence-card { padding: 16px; }
+    .bh-modal-steps-card p,
+    .bh-modal-notes-card p { font-size: 0.84rem; }
+    .bh-modal-evidence-card textarea { font-size: 0.84rem; padding: 12px 14px; }
+    .bh-modal-task-badge-row { flex-direction: column; align-items: flex-start; gap: 8px; }
     .bh-celebration { padding: 28px 20px; }
+    .bh-celebration-icon { font-size: 3.5rem; }
+    .bh-celebration h3 { font-size: 1.2rem; }
+    .bh-celebration p { font-size: 0.85rem; }
+    .bh-countdown { padding: 12px 16px; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .bh-countdown-text { font-size: 1rem; }
+    .bh-claimed h2 { font-size: 1.2rem; }
+    .bh-claimed p { font-size: 0.85rem; }
+    .bh-claimed-reward { font-size: 0.82rem; padding: 8px 14px; }
+    .bh-panel { padding: 18px; }
+    .bh-pending-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .bh-pending-item { flex-direction: column; gap: 10px; }
+    .bh-pending-item-info strong { font-size: 0.85rem; }
+    .bh-pending-item-meta { font-size: 0.74rem; }
+    .bh-pending-correction-note { font-size: 0.78rem; }
+    .bh-pending-resubmit-btn { width: 100%; justify-content: center; }
+    .bh-upload-area { min-height: 80px; padding: 16px; }
+    .bh-upload-placeholder { font-size: 0.8rem; }
+    .bh-upload-placeholder i { font-size: 1.6rem; }
+    .bh-upload-preview img { max-height: 90px; }
+    .bh-history-title { font-size: 1rem; }
+    .bh-history-sub { font-size: 0.8rem; }
+    .bh-claim-sub { font-size: 0.84rem; }
+    .bh-modal-counter { font-size: 0.72rem; }
+    .bh-modal-close { width: 32px; height: 32px; font-size: 1rem; }
 }

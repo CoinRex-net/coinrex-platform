@@ -27,18 +27,32 @@ $boost_task = $boost_state['task'] ?? null;
 $status = $boost_state['status'] ?? 'closed';
 $learnhub_completed = taskHubMissionCompleted($user_id, $db);
 
+// ── Pending / Submitted tasks (non-blocking) ──
+$pending_task = $boost_state['pending_task'] ?? null;   // returned for correction
+$submitted_task = $boost_state['submitted_task'] ?? null; // awaiting review
+$has_pending_review = !empty($boost_state['has_pending_review']);
+$has_returned_task = !empty($boost_state['has_returned_task']);
+
 // ── Determine if user can claim ──
-// "open" with a task = can claim
-// "locked" = already claimed within 24h
-// "awaiting_review" = submitted, pending admin
-// "finished" = no more tasks
-// "closed" = not available
 $can_claim = ($status === 'open' && !empty($boost_task));
 $boost_task_metadata = !empty($boost_task['metadata']) ? (json_decode((string) $boost_task['metadata'], true) ?: []) : [];
 $boost_correction_note = !empty($boost_task_metadata['correction_requested'])
     ? (string) ($boost_task_metadata['correction_note'] ?? 'Please update your evidence so the admin team can verify it.')
     : '';
 $boost_previous_evidence = (string) ($boost_task['proof_data'] ?? '');
+
+// ── Parse previous evidence for pre-fill ──
+$prev_evidence_text = '';
+$prev_screenshot_url = '';
+if ($boost_previous_evidence !== '') {
+    $parsed = json_decode($boost_previous_evidence, true);
+    if (is_array($parsed)) {
+        $prev_evidence_text = (string) ($parsed['text'] ?? '');
+        $prev_screenshot_url = (string) ($parsed['screenshot'] ?? '');
+    } else {
+        $prev_evidence_text = $boost_previous_evidence;
+    }
+}
 
 // ── Get last 3 days history ──
 $history = [];
@@ -114,6 +128,84 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+        <!-- ── PENDING REVIEW PANEL ── -->
+        <?php if ($has_pending_review || $has_returned_task): ?>
+        <section class="bh-panel bh-pending-panel bh-reveal">
+            <div class="bh-pending-header">
+                <span class="bh-pending-badge"><i class="fas fa-clock"></i> Pending Tasks</span>
+                <span class="bh-pending-count"><?php echo ($has_pending_review ? 1 : 0) + ($has_returned_task ? 1 : 0); ?> active</span>
+            </div>
+
+            <?php if ($submitted_task):
+                $submitted_meta = !empty($submitted_task['metadata']) ? (is_string($submitted_task['metadata']) ? json_decode($submitted_task['metadata'], true) : $submitted_task['metadata']) : [];
+                $submitted_at = !empty($submitted_meta['submitted_at']) ? $submitted_meta['submitted_at'] : '';
+                $submitted_title = htmlspecialchars((string) ($submitted_task['title'] ?? 'Task'), ENT_QUOTES, 'UTF-8');
+                $submitted_category = htmlspecialchars(ucwords(str_replace('_', ' ', (string) ($submitted_task['task_category'] ?? 'Social Task'))), ENT_QUOTES, 'UTF-8');
+            ?>
+            <div class="bh-pending-item">
+                <div class="bh-pending-item-icon is-pending"><i class="fas fa-hourglass-half"></i></div>
+                <div class="bh-pending-item-info">
+                    <strong><?php echo $submitted_title; ?></strong>
+                    <span class="bh-pending-item-meta">
+                        <span class="bh-pending-category"><?php echo $submitted_category; ?></span>
+                        <?php if ($submitted_at): ?>
+                            <span class="bh-pending-date">Submitted <?php echo date('M j, g:i A', strtotime($submitted_at)); ?></span>
+                        <?php endif; ?>
+                    </span>
+                </div>
+                <span class="bh-history-status is-pending">⏳ Under Review</span>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($pending_task):
+                $pending_meta = !empty($pending_task['metadata']) ? (is_string($pending_task['metadata']) ? json_decode($pending_task['metadata'], true) : $pending_task['metadata']) : [];
+                $correction_note = !empty($pending_meta['correction_note']) ? htmlspecialchars((string) $pending_meta['correction_note'], ENT_QUOTES, 'UTF-8') : 'Please update your evidence.';
+                $pending_title = htmlspecialchars((string) ($pending_task['title'] ?? 'Task'), ENT_QUOTES, 'UTF-8');
+                $pending_category = htmlspecialchars(ucwords(str_replace('_', ' ', (string) ($pending_task['task_category'] ?? 'Social Task'))), ENT_QUOTES, 'UTF-8');
+                $pending_reward = (float) ($pending_task['reward'] ?? 0);
+                $pending_task_id = (int) ($pending_task['task_id'] ?? 0);
+                $pending_log_id = (int) ($pending_task['id'] ?? 0);
+
+                // Parse previous evidence for pre-fill
+                $pending_prev_text = '';
+                $pending_prev_screenshot = '';
+                $pending_proof = (string) ($pending_task['proof_data'] ?? '');
+                if ($pending_proof !== '') {
+                    $parsed = json_decode($pending_proof, true);
+                    if (is_array($parsed)) {
+                        $pending_prev_text = (string) ($parsed['text'] ?? '');
+                        $pending_prev_screenshot = (string) ($parsed['screenshot'] ?? '');
+                    } else {
+                        $pending_prev_text = $pending_proof;
+                    }
+                }
+            ?>
+            <div class="bh-pending-item is-correction">
+                <div class="bh-pending-item-icon is-correction"><i class="fas fa-rotate-left"></i></div>
+                <div class="bh-pending-item-info">
+                    <strong><?php echo $pending_title; ?></strong>
+                    <span class="bh-pending-item-meta">
+                        <span class="bh-pending-category"><?php echo $pending_category; ?></span>
+                        <span class="bh-pending-reward">+<?php echo number_format($pending_reward, 2); ?> $REX</span>
+                    </span>
+                    <p class="bh-pending-correction-note"><?php echo $correction_note; ?></p>
+                </div>
+                <button type="button" class="bh-pending-resubmit-btn"
+                    data-task-id="<?php echo $pending_task_id; ?>"
+                    data-log-id="<?php echo $pending_log_id; ?>"
+                    data-title="<?php echo $pending_title; ?>"
+                    data-category="<?php echo $pending_category; ?>"
+                    data-reward="<?php echo $pending_reward; ?>"
+                    data-prev-text="<?php echo htmlspecialchars($pending_prev_text, ENT_QUOTES, 'UTF-8'); ?>"
+                    data-prev-screenshot="<?php echo htmlspecialchars($pending_prev_screenshot, ENT_QUOTES, 'UTF-8'); ?>"
+                    data-correction-note="<?php echo htmlspecialchars($correction_note, ENT_QUOTES, 'UTF-8'); ?>">
+                    <i class="fas fa-pen"></i> Update Evidence
+                </button>
+            </div>
+            <?php endif; ?>
+        </section>
+        <?php endif; ?>
+
         <!-- Hero Card -->
         <section class="bh-hero">
 
@@ -126,7 +218,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <p class="bh-claim-sub"><?php echo $boost_correction_note !== '' ? 'Evidence update requested' : '1 social task available'; ?></p>
                 </div>
 
-            <?php elseif ($status === 'locked' || $status === 'awaiting_review'): ?>
+            <?php elseif ($status === 'locked'): ?>
                 <!-- === COUNTDOWN / COOLDOWN === -->
                 <div class="bh-claimed">
                     <div class="bh-claimed-icon">⏳</div>
@@ -213,7 +305,6 @@ require_once __DIR__ . '/../includes/header.php';
                             $status_label = $is_correction ? 'Needs Update' : 'Rejected';
                             $status_class = 'is-rejected';
                             $status_icon = '❌';
-                            // Try to get rejection/correction reason from metadata
                             $rejection_reason = !empty($metadata['correction_note'])
                                 ? htmlspecialchars((string) $metadata['correction_note'], ENT_QUOTES, 'UTF-8')
                                 : (!empty($metadata['rejection_reason']) ? htmlspecialchars((string) $metadata['rejection_reason'], ENT_QUOTES, 'UTF-8') : '');
@@ -306,12 +397,42 @@ require_once __DIR__ . '/../includes/header.php';
                         <p><?php echo nl2br(htmlspecialchars($boost_correction_note, ENT_QUOTES, 'UTF-8')); ?></p>
                     </div>
                 <?php endif; ?>
+
                 <div class="bh-modal-evidence-card">
                     <div class="card-head">
                         <i class="fas fa-file-pen"></i> Evidence <span style="color:var(--bh-primary-light);font-weight:400;text-transform:none;">*</span>
                     </div>
-                    <textarea id="proofInput" rows="4" placeholder="Paste evidence link, screenshot URL, username, handle, or any proof details."><?php echo htmlspecialchars($boost_previous_evidence, ENT_QUOTES, 'UTF-8'); ?></textarea>
+
+                    <!-- Text Evidence -->
+                    <label style="color:var(--bh-text-secondary);font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px;">
+                        <i class="fas fa-link"></i> Link / Username / Handle
+                    </label>
+                    <textarea id="proofInput" rows="3" placeholder="Paste your link, username, or handle here..."><?php echo htmlspecialchars($prev_evidence_text, ENT_QUOTES, 'UTF-8'); ?></textarea>
                     <div class="bh-modal-counter" id="proofCounter">0 characters</div>
+
+                    <!-- Screenshot Upload -->
+                    <label style="color:var(--bh-text-secondary);font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px;margin-top:8px;">
+                        <i class="fas fa-camera"></i> Screenshot <span style="color:var(--bh-text-muted);font-weight:400;">(optional)</span>
+                    </label>
+                    <div class="bh-upload-area" id="screenshotUploadArea">
+                        <input type="file" id="screenshotInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+                        <div class="bh-upload-placeholder" id="uploadPlaceholder"<?php echo $prev_screenshot_url !== '' ? ' hidden' : ''; ?>>
+                            <i class="fas fa-cloud-arrow-up"></i>
+                            <span>Click to upload screenshot</span>
+                            <span class="bh-upload-hint">JPG, PNG, GIF, WebP • Max 5MB</span>
+                        </div>
+                        <div class="bh-upload-preview" id="uploadPreview"<?php echo $prev_screenshot_url !== '' ? '' : ' hidden'; ?>>
+                            <img id="previewImage" src="<?php echo htmlspecialchars($prev_screenshot_url, ENT_QUOTES, 'UTF-8'); ?>" alt="Screenshot preview">
+                            <button type="button" class="bh-upload-remove" id="uploadRemoveBtn" aria-label="Remove screenshot">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="bh-upload-status" id="uploadStatus" hidden>
+                            <span class="bh-upload-spinner"></span>
+                            <span id="uploadStatusText">Uploading...</span>
+                        </div>
+                    </div>
+                    <input type="hidden" id="screenshotUrl" value="<?php echo htmlspecialchars($prev_screenshot_url, ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
 
             </div>
@@ -339,6 +460,80 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Correction Modal (for resubmitting returned tasks) -->
+<div class="bh-modal" id="correctionModal" hidden>
+    <div class="bh-modal-backdrop" data-modal-close></div>
+    <div class="bh-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="correctionModalTitle">
+        <div class="bh-modal-head">
+            <div class="bh-modal-head-left">
+                <span class="bh-modal-head-icon"><i class="fas fa-rotate-left"></i></span>
+                <h3 id="correctionModalTitle">Update Evidence</h3>
+            </div>
+            <button type="button" class="bh-modal-close" data-modal-close aria-label="Close">✕</button>
+        </div>
+        <div class="bh-modal-body">
+            <div class="bh-modal-task-card">
+                <div class="bh-modal-task-badge-row">
+                    <span class="bh-modal-task-type" id="correctionCategory">
+                        <i class="fas fa-tag"></i> Category
+                    </span>
+                    <span class="bh-modal-reward-pill" id="correctionReward">
+                        <i class="fas fa-coins"></i> +0.00 $REX
+                    </span>
+                </div>
+                <h4 class="bh-modal-task-title" id="correctionTitle">Task Title</h4>
+            </div>
+            <div class="bh-modal-notes-card">
+                <div class="card-head">
+                    <i class="fas fa-rotate-left"></i> Admin note
+                </div>
+                <p id="correctionNote">Please update your evidence.</p>
+            </div>
+            <div class="bh-modal-evidence-card">
+                <div class="card-head">
+                    <i class="fas fa-file-pen"></i> Updated Evidence <span style="color:var(--bh-primary-light);font-weight:400;text-transform:none;">*</span>
+                </div>
+                <label style="color:var(--bh-text-secondary);font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px;">
+                    <i class="fas fa-link"></i> Link / Username / Handle
+                </label>
+                <textarea id="correctionProofInput" rows="3" placeholder="Paste your updated link, username, or handle..."></textarea>
+                <div class="bh-modal-counter" id="correctionProofCounter">0 characters</div>
+
+                <label style="color:var(--bh-text-secondary);font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px;margin-top:8px;">
+                    <i class="fas fa-camera"></i> Screenshot <span style="color:var(--bh-text-muted);font-weight:400;">(optional)</span>
+                </label>
+                <div class="bh-upload-area" id="correctionUploadArea">
+                    <input type="file" id="correctionScreenshotInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+                    <div class="bh-upload-placeholder" id="correctionUploadPlaceholder">
+                        <i class="fas fa-cloud-arrow-up"></i>
+                        <span>Click to upload screenshot</span>
+                        <span class="bh-upload-hint">JPG, PNG, GIF, WebP • Max 5MB</span>
+                    </div>
+                    <div class="bh-upload-preview" id="correctionUploadPreview" hidden>
+                        <img id="correctionPreviewImage" src="" alt="Screenshot preview">
+                        <button type="button" class="bh-upload-remove" id="correctionUploadRemoveBtn" aria-label="Remove screenshot">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="bh-upload-status" id="correctionUploadStatus" hidden>
+                        <span class="bh-upload-spinner"></span>
+                        <span id="correctionUploadStatusText">Uploading...</span>
+                    </div>
+                </div>
+                <input type="hidden" id="correctionScreenshotUrl" value="">
+            </div>
+        </div>
+        <div class="bh-modal-footer">
+            <button type="button" class="secondary-btn" data-modal-close>Cancel</button>
+            <button type="button" class="primary-btn" id="submitCorrectionBtn">
+                <span class="spinner"></span>
+                <span class="btn-text"><i class="fas fa-paper-plane"></i> Resubmit Evidence</span>
+                <span class="btn-load">Submitting...</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Celebration Modal -->
 <div class="bh-modal" id="celebrationModal" hidden>
     <div class="bh-modal-backdrop" data-modal-close></div>
@@ -361,6 +556,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     const BASE_URL = <?php echo json_encode(BASE_URL); ?>;
     const submitUrl = BASE_URL + '/api/complete_mini_task.php';
+    const uploadUrl = BASE_URL + '/api/upload_boosthub_evidence.php';
     const taskId = <?php echo $boost_task ? (int) $boost_task['id'] : 0; ?>;
     const countdownSeconds = <?php echo (int) ($boost_state['countdown_seconds'] ?? 0); ?>;
     const totalCooldown = 86400; // Fixed 24h in seconds
@@ -403,7 +599,7 @@ require_once __DIR__ . '/../includes/header.php';
         });
     }
 
-    // ── Character Counter ──
+    // ── Character Counter (main) ──
     var proofInput = document.getElementById('proofInput');
     var proofCounter = document.getElementById('proofCounter');
     if (proofInput && proofCounter) {
@@ -417,22 +613,199 @@ require_once __DIR__ . '/../includes/header.php';
         });
     }
 
+    // ── Character Counter (correction) ──
+    var correctionProofInput = document.getElementById('correctionProofInput');
+    var correctionProofCounter = document.getElementById('correctionProofCounter');
+    if (correctionProofInput && correctionProofCounter) {
+        correctionProofCounter.textContent = correctionProofInput.value.length + ' characters';
+        correctionProofInput.addEventListener('input', function() {
+            var len = correctionProofInput.value.length;
+            correctionProofCounter.textContent = len + ' characters';
+            correctionProofCounter.classList.remove('warn', 'danger');
+            if (len > 1000) correctionProofCounter.classList.add('danger');
+            else if (len > 500) correctionProofCounter.classList.add('warn');
+        });
+    }
+
     // ── Auto-resize textarea ──
-    if (proofInput) {
-        proofInput.addEventListener('input', function() {
+    function autoResize(el) {
+        if (!el) return;
+        el.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 300) + 'px';
         });
     }
+    autoResize(proofInput);
+    autoResize(correctionProofInput);
+
+    // ── Client-side image compression ──
+    function compressImage(file, maxWidth, maxHeight, quality) {
+        return new Promise(function(resolve, reject) {
+            var img = new Image();
+            var url = URL.createObjectURL(file);
+            img.onload = function() {
+                URL.revokeObjectURL(url);
+                var canvas = document.createElement('canvas');
+                var width = img.width;
+                var height = img.height;
+
+                // Scale down if needed
+                if (width > maxWidth) {
+                    height = Math.round(height * maxWidth / width);
+                    width = maxWidth;
+                }
+                if (height > maxHeight) {
+                    width = Math.round(width * maxHeight / height);
+                    height = maxHeight;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Convert to blob with compression
+                canvas.toBlob(function(blob) {
+                    if (!blob) {
+                        reject(new Error('Compression failed'));
+                        return;
+                    }
+                    // Create a new File from the compressed blob
+                    var compressedFile = new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    resolve(compressedFile);
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = function() {
+                URL.revokeObjectURL(url);
+                reject(new Error('Failed to load image'));
+            };
+            img.src = url;
+        });
+    }
+
+    // ── Screenshot Upload Handler ──
+    function setupScreenshotUpload(uploadAreaId, fileInputId, placeholderId, previewId, previewImgId, removeBtnId, statusId, statusTextId, hiddenInputId) {
+        var uploadArea = document.getElementById(uploadAreaId);
+        var fileInput = document.getElementById(fileInputId);
+        var placeholder = document.getElementById(placeholderId);
+        var preview = document.getElementById(previewId);
+        var previewImg = document.getElementById(previewImgId);
+        var removeBtn = document.getElementById(removeBtnId);
+        var status = document.getElementById(statusId);
+        var statusText = document.getElementById(statusTextId);
+        var hiddenInput = document.getElementById(hiddenInputId);
+
+        if (!uploadArea || !fileInput) return;
+
+        // Click to upload
+        uploadArea.addEventListener('click', function(e) {
+            if (e.target.closest('.bh-upload-remove')) return;
+            fileInput.click();
+        });
+
+        // File selected
+        fileInput.addEventListener('change', async function() {
+            var file = fileInput.files[0];
+            if (!file) return;
+
+            // Validate file type
+            var allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Invalid file type. Allowed: JPG, PNG, GIF, WebP.');
+                fileInput.value = '';
+                return;
+            }
+
+            // Validate file size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File too large. Maximum size is 5MB.');
+                fileInput.value = '';
+                return;
+            }
+
+            // Show uploading state (only when file is selected)
+            placeholder.hidden = true;
+            preview.hidden = true;
+            status.hidden = false;
+            statusText.textContent = 'Compressing & uploading...';
+
+            try {
+                // Compress image client-side before upload
+                var compressed = await compressImage(file, 1920, 1080, 0.7);
+
+                // Upload via FormData
+                var formData = new FormData();
+                formData.append('screenshot', compressed);
+
+                var response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: formData
+                });
+                var data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Upload failed');
+                }
+
+                // Show preview (only after successful upload)
+                status.hidden = true;
+                previewImg.src = data.url;
+                preview.hidden = false;
+                hiddenInput.value = data.url;
+
+            } catch (err) {
+                // Reset to placeholder on error
+                status.hidden = true;
+                placeholder.hidden = false;
+                preview.hidden = true;
+                alert('Upload failed: ' + err.message);
+                fileInput.value = '';
+            }
+        });
+
+        // Remove uploaded screenshot
+        removeBtn.addEventListener('click', function() {
+            preview.hidden = true;
+            placeholder.hidden = false;
+            status.hidden = true;
+            hiddenInput.value = '';
+            fileInput.value = '';
+        });
+    }
+
+    // Setup main screenshot upload
+    setupScreenshotUpload(
+        'screenshotUploadArea', 'screenshotInput',
+        'uploadPlaceholder', 'uploadPreview', 'previewImage',
+        'uploadRemoveBtn', 'uploadStatus', 'uploadStatusText',
+        'screenshotUrl'
+    );
+
+    // Setup correction screenshot upload
+    setupScreenshotUpload(
+        'correctionUploadArea', 'correctionScreenshotInput',
+        'correctionUploadPlaceholder', 'correctionUploadPreview', 'correctionPreviewImage',
+        'correctionUploadRemoveBtn', 'correctionUploadStatus', 'correctionUploadStatusText',
+        'correctionScreenshotUrl'
+    );
 
     // ── Submit Claim ──
     var submitBtn = document.getElementById('submitClaimBtn');
     if (submitBtn && taskId > 0) {
         submitBtn.addEventListener('click', async function() {
             var proof = proofInput ? proofInput.value.trim() : '';
-            if (!proof) {
-                proofInput.style.borderColor = 'var(--bh-red)';
-                setTimeout(function() { proofInput.style.borderColor = ''; }, 2000);
+            var screenshotUrl = document.getElementById('screenshotUrl') ? document.getElementById('screenshotUrl').value : '';
+
+            if (!proof && !screenshotUrl) {
+                if (proofInput) {
+                    proofInput.style.borderColor = 'var(--bh-red)';
+                    setTimeout(function() { proofInput.style.borderColor = ''; }, 2000);
+                }
+                alert('Please provide at least a link/username or a screenshot.');
                 return;
             }
 
@@ -440,14 +813,17 @@ require_once __DIR__ . '/../includes/header.php';
             submitBtn.classList.add('loading');
 
             try {
+                var body = new URLSearchParams({
+                    task_id: taskId,
+                    proof: proof,
+                    screenshot_url: screenshotUrl
+                });
+
                 var response = await fetch(submitUrl, {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                    body: new URLSearchParams({
-                        task_id: taskId,
-                        proof: proof
-                    })
+                    body: body
                 });
                 var data = await response.json();
 
@@ -467,6 +843,110 @@ require_once __DIR__ . '/../includes/header.php';
                 alert('Submission failed. Please try again.');
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('loading');
+            }
+        });
+    }
+
+    // ── Correction Modal: Resubmit from Pending Panel ──
+    var correctionResubmitBtns = document.querySelectorAll('.bh-pending-resubmit-btn');
+    var correctionTaskId = null;
+
+    correctionResubmitBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var taskIdAttr = parseInt(btn.getAttribute('data-task-id'));
+            var title = btn.getAttribute('data-title');
+            var category = btn.getAttribute('data-category');
+            var reward = parseFloat(btn.getAttribute('data-reward'));
+            var prevText = btn.getAttribute('data-prev-text') || '';
+            var prevScreenshot = btn.getAttribute('data-prev-screenshot') || '';
+            var correctionNote = btn.getAttribute('data-correction-note') || 'Please update your evidence.';
+
+            correctionTaskId = taskIdAttr;
+
+            // Populate modal
+            document.getElementById('correctionTitle').textContent = title;
+            document.getElementById('correctionCategory').innerHTML = '<i class="fas fa-tag"></i> ' + category;
+            document.getElementById('correctionReward').innerHTML = '<i class="fas fa-coins"></i> +' + reward.toFixed(2) + ' $REX';
+            document.getElementById('correctionNote').textContent = correctionNote;
+            document.getElementById('correctionProofInput').value = prevText;
+            document.getElementById('correctionScreenshotUrl').value = prevScreenshot;
+
+            // Reset upload area
+            document.getElementById('correctionUploadPlaceholder').hidden = false;
+            document.getElementById('correctionUploadPreview').hidden = true;
+            document.getElementById('correctionUploadStatus').hidden = true;
+            document.getElementById('correctionScreenshotInput').value = '';
+
+            // If there's a previous screenshot, show it
+            if (prevScreenshot) {
+                document.getElementById('correctionUploadPlaceholder').hidden = true;
+                document.getElementById('correctionPreviewImage').src = prevScreenshot;
+                document.getElementById('correctionUploadPreview').hidden = false;
+            }
+
+            // Update counter
+            var len = prevText.length;
+            correctionProofCounter.textContent = len + ' characters';
+            correctionProofCounter.classList.remove('warn', 'danger');
+
+            openModal('correctionModal');
+        });
+    });
+
+    // Submit correction
+    var submitCorrectionBtn = document.getElementById('submitCorrectionBtn');
+    if (submitCorrectionBtn) {
+        submitCorrectionBtn.addEventListener('click', async function() {
+            var proof = correctionProofInput ? correctionProofInput.value.trim() : '';
+            var screenshotUrl = document.getElementById('correctionScreenshotUrl') ? document.getElementById('correctionScreenshotUrl').value : '';
+
+            if (!proof && !screenshotUrl) {
+                if (correctionProofInput) {
+                    correctionProofInput.style.borderColor = 'var(--bh-red)';
+                    setTimeout(function() { correctionProofInput.style.borderColor = ''; }, 2000);
+                }
+                alert('Please provide at least a link/username or a screenshot.');
+                return;
+            }
+
+            if (!correctionTaskId) {
+                alert('Task reference missing. Please try again.');
+                return;
+            }
+
+            submitCorrectionBtn.disabled = true;
+            submitCorrectionBtn.classList.add('loading');
+
+            try {
+                var body = new URLSearchParams({
+                    task_id: correctionTaskId,
+                    proof: proof,
+                    screenshot_url: screenshotUrl
+                });
+
+                var response = await fetch(submitUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: body
+                });
+                var data = await response.json();
+
+                if (!data.success) {
+                    alert(data.message || 'Submission failed. Please try again.');
+                    submitCorrectionBtn.disabled = false;
+                    submitCorrectionBtn.classList.remove('loading');
+                    return;
+                }
+
+                closeModal('correctionModal');
+                openModal('celebrationModal');
+                launchConfetti();
+
+            } catch (err) {
+                alert('Submission failed. Please try again.');
+                submitCorrectionBtn.disabled = false;
+                submitCorrectionBtn.classList.remove('loading');
             }
         });
     }

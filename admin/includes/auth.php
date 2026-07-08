@@ -196,6 +196,7 @@ function requireAdminPageAccess($active_page) {
         'quiz-manager' => 'manage_tasks',
         'taskhub-review' => 'moderate_tasks',
         'boosthub-management' => 'moderate_tasks',
+        'boosthub-evidence' => 'moderate_tasks',
         'boosthub' => 'moderate_tasks',
         'blog' => 'manage_blog',
         'blog-create' => 'manage_blog',

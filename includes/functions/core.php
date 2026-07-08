@@ -511,6 +511,22 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
             throw new RuntimeException('Evidence is required before submitting this BoostHub task.');
         }
 
+        // ── Anti-abuse: Check for duplicate evidence in same task category ──
+        $evidence_data = json_decode($proof, true);
+        $evidence_text = '';
+        if (is_array($evidence_data) && !empty($evidence_data['text'])) {
+            $evidence_text = trim((string) $evidence_data['text']);
+        } elseif (!is_array($evidence_data)) {
+            $evidence_text = trim((string) $proof);
+        }
+
+        if ($evidence_text !== '' && function_exists('boostHubCheckDuplicateEvidence')) {
+            $task_category = (string) ($task['task_category'] ?? '');
+            if ($task_category !== '' && boostHubCheckDuplicateEvidence((int) $user_id, $task_category, $evidence_text, $db)) {
+                throw new RuntimeException('This evidence (link/username) has already been used for a similar task. Please provide different evidence.');
+            }
+        }
+
         $boosthub_proof_data = $proof;
     } elseif (normalizeUserLevel($user['level'] ?? 'beginner') !== 'beginner') {
         throw new RuntimeException('MicroTaskHub is available for Beginner accounts only.');

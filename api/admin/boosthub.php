@@ -41,6 +41,24 @@ try {
             exit;
         }
 
+        if ($action === 'all_evidence') {
+            // Return all evidence with pagination and filtering
+            $task_category = trim((string) ($_GET['task_category'] ?? 'all'));
+            $status_filter = trim((string) ($_GET['status'] ?? 'all'));
+            $page = max(1, (int) ($_GET['page'] ?? 1));
+            $perPage = max(1, min(100, (int) ($_GET['per_page'] ?? 20)));
+
+            $result = adminRewardGetBoosthubAllEvidence($db, $task_category, $status_filter, $page, $perPage);
+            echo json_encode([
+                'success' => true,
+                'data' => $result['rows'],
+                'total' => $result['total'],
+                'pages' => $result['pages'],
+                'page' => $page,
+            ]);
+            exit;
+        }
+
         // Default: list tasks
         $selected_category = trim((string) ($_GET['task_category'] ?? 'all'));
         $task_categories = adminRewardTaskCategories();
