@@ -518,10 +518,12 @@ paginationRenderStyles();
         modal.setAttribute('aria-hidden', 'true');
     }
 
-    document.querySelectorAll('.user-view-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    // Use event delegation so dynamically-added buttons (e.g. after AJAX pagination) also work
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.user-view-btn');
+        if (btn) {
             openModal(btn);
-        });
+        }
     });
 
     closeBtn.addEventListener('click', closeModal);
