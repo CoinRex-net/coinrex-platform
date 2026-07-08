@@ -318,7 +318,7 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
                 <?php if($show_boosthub_nav): ?>
                     <a href="<?php echo $boosthub_nav_url; ?>" class="<?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
                         <i class="fas fa-bolt"></i>
-                        <span>BoostHub</span>
+                        <span class="nex-nav-label">BoostHub <span class="nex-hot-badge">NEW</span></span>
                     </a>
                 <?php endif; ?>
                 <?php $resources_active = in_array($current_page, ['roadmap', 'litepaper', 'blog', 'blog-post', 'blog-category', 'blog-tag', 'about'], true); ?>
@@ -436,8 +436,11 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
     </a>
     <?php endif; ?>
     <a href="<?php echo $boosthub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
-        <i class="fas fa-bolt"></i>
-        <span>BoostHub</span>
+        <span class="mobile-nav-icon-wrap">
+            <i class="fas fa-bolt"></i>
+            <span class="mobile-hot-badge">NEW</span>
+        </span>
+        <span class="mobile-nav-label">BoostHub</span>
     </a>
     <a href="<?php echo $home_url; ?>" class="mobile-nav-item mobile-nav-home <?php echo $home_active ? 'active' : ''; ?>">
         <i class="fas fa-home"></i>

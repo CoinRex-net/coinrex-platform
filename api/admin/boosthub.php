@@ -180,6 +180,18 @@ try {
             exit;
         }
 
+        // ── Delete evidence ──
+        if ($action === 'delete_evidence') {
+            $log_id = (int) ($_POST['id'] ?? ($_GET['id'] ?? 0));
+            if ($log_id <= 0) throw new RuntimeException('Invalid evidence ID.');
+
+            $stmt = $db->prepare("DELETE FROM user_task_logs WHERE id = ?");
+            $stmt->execute([$log_id]);
+            logAdminActivity((int) $current_admin['id'], 'evidence_delete', 'user_task_log', (string) $log_id, '');
+            echo json_encode(['success' => true, 'message' => 'Evidence deleted.']);
+            exit;
+        }
+
         // ── Review submission ──
         if ($action === 'review') {
             $log_id = (int) ($_POST['log_id'] ?? 0);
