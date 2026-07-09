@@ -332,4 +332,6 @@ function rexSignerAuthFindOrCreateUser(PDO $db, $wallet_address, $device_fingerp
     return [rexSignerAuthCreateWalletUser($db, $wallet_address, $device_fingerprint, $referral_code), true];
 }
 
-rexSignerAuthEnsureSchema();
+if (!defined('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT') || !COINREX_SKIP_REX_SIGNER_SCHEMA_INIT) {
+    rexSignerAuthEnsureSchema();
+}

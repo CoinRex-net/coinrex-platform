@@ -34,15 +34,28 @@ try {
     $duration = rexSignerClampDuration(rexSignerInput('duration_minutes', 10));
     $dapp_name = trim((string) rexSignerInput('dapp_name', (defined('SITE_NAME') ? SITE_NAME : 'CoinRex')));
     $dapp_url = trim((string) rexSignerInput('dapp_url', (defined('BASE_URL') ? BASE_URL : '')));
-    $network_slug = trim((string) rexSignerInput('network_slug', 'polygon-amoy'));
+    $network_slug = trim((string) rexSignerInput('network_slug', ''));
     $requested_wallet_address = trim((string) rexSignerInput('requested_wallet_address', ''));
     $network_stmt = $db->prepare("SELECT slug, name, chain_id, native_symbol FROM rex_signer_networks WHERE slug = ? AND is_enabled = 1 LIMIT 1");
-    $network_stmt->execute([$network_slug]);
-    $network_row = $network_stmt->fetch();
+    if ($network_slug !== '') {
+        $network_stmt->execute([$network_slug]);
+        $network_row = $network_stmt->fetch();
+    }
+    if (empty($network_row)) {
+        // Try Polygon Mainnet first, then Amoy fallback
+        $network_slugs = ['polygon', 'polygon-amoy'];
+        foreach ($network_slugs as $candidate_slug) {
+            $network_stmt->execute([$candidate_slug]);
+            $network_row = $network_stmt->fetch();
+            if ($network_row) {
+                $network_slug = $candidate_slug;
+                break;
+            }
+        }
+    }
     if (!$network_row) {
         $network_slug = 'polygon-amoy';
-        $network_stmt->execute([$network_slug]);
-        $network_row = $network_stmt->fetch() ?: ['slug' => 'polygon-amoy', 'name' => 'Polygon Amoy', 'chain_id' => 80002, 'native_symbol' => 'POL'];
+        $network_row = ['slug' => 'polygon-amoy', 'name' => 'Polygon Amoy', 'chain_id' => 80002, 'native_symbol' => 'POL'];
     }
     if ($requested_wallet_address !== '' && !preg_match('/^0x[a-fA-F0-9]{40}$/', $requested_wallet_address)) {
         apiErrorResponse(422, 'requested_wallet_address must be a valid wallet address.');
