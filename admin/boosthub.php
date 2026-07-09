@@ -116,7 +116,7 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Responsive: Mobile ── */
+    /* ── Responsive: Mobile ── */
 @media (max-width: 768px) {
     .boosthub-tabs {
         gap: 2px;
@@ -145,24 +145,38 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
 
     /* Evidence review table → card layout */
     .dashboard-table-wrap {
-        overflow-x: visible;
+        overflow-x: visible !important;
+        -webkit-overflow-scrolling: auto;
+    }
+    .dashboard-table {
+        display: block;
+        width: 100%;
     }
     .dashboard-table thead { display: none; }
-    .dashboard-table tbody tr {
+    .dashboard-table tbody {
         display: block;
+        width: 100%;
+    }
+    .dashboard-table tbody tr {
+        display: flex !important;
+        flex-direction: column !important;
         padding: 16px;
         margin-bottom: 12px;
         background: rgba(15, 23, 42, 0.7);
         border: 1px solid rgba(148, 163, 184, 0.10);
         border-radius: 14px;
+        width: 100%;
+        gap: 2px;
     }
     .dashboard-table tbody tr td {
-        display: flex;
+        display: flex !important;
         align-items: flex-start;
         gap: 8px;
         padding: 6px 0;
         border: none;
         text-align: left;
+        width: 100%;
+        flex-wrap: wrap;
     }
     .dashboard-table tbody tr td::before {
         content: attr(data-label);
@@ -175,25 +189,37 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
         letter-spacing: 0.04em;
         padding-top: 2px;
     }
-    .dashboard-table tbody tr td:last-child {
+    /* Evidence cell: full-width stacking */
+    .dashboard-table tbody tr td[data-label="Evidence"] {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .dashboard-table tbody tr td[data-label="Evidence"]::before {
+        width: 100%;
+        margin-bottom: 0;
+    }
+    /* Action cell: row of stacked buttons */
+    .dashboard-table tbody tr td[data-label="Action"] {
         padding-top: 10px;
         margin-top: 6px;
         border-top: 1px solid rgba(148, 163, 184, 0.08);
         flex-wrap: wrap;
         gap: 6px;
     }
-    .dashboard-table tbody tr td:last-child::before {
+    .dashboard-table tbody tr td[data-label="Action"]::before {
         width: 100%;
         margin-bottom: 4px;
     }
-    .dashboard-table tbody tr td:last-child .btn {
-        flex: 1;
+    .dashboard-table tbody tr td[data-label="Action"] .btn {
+        flex: 1 1 auto;
         min-width: 0;
         justify-content: center;
         font-size: 0.78rem;
         padding: 8px 10px;
+        margin-top: 0 !important;
     }
-    .dashboard-table tbody tr td:last-child .btn + .btn {
+    .dashboard-table tbody tr td[data-label="Action"] .btn + .btn {
         margin-top: 0 !important;
     }
     .boosthub-evidence-box {
@@ -204,14 +230,33 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
     .boosthub-evidence-box code {
         max-width: 100%;
         font-size: 0.8rem;
+        word-break: break-all;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    /* Screenshot display on mobile */
+    .boosthub-evidence-screenshot {
+        width: 100%;
+        margin-top: 6px;
+    }
+    .boosthub-evidence-screenshot a {
+        display: block;
+        width: 100%;
     }
     .boosthub-evidence-screenshot img {
+        display: block !important;
         max-width: 100% !important;
-        max-height: 120px !important;
+        width: auto !important;
+        max-height: 160px !important;
+        height: auto !important;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        object-fit: cover;
     }
     .boosthub-open-task-link {
         width: 100%;
         justify-content: center;
+        margin-top: 6px;
     }
 
     /* Task toolbar */

@@ -519,16 +519,25 @@
             var proofData = r.proof_data || '';
 
             // Parse JSON evidence (text + screenshot)
-            var evidenceText = proofData;
+            var evidenceText = '';
             var evidenceScreenshot = '';
-            try {
-                var parsed = JSON.parse(proofData);
-                if (typeof parsed === 'object' && parsed !== null) {
-                    evidenceText = parsed.text || proofData;
-                    evidenceScreenshot = parsed.screenshot || '';
+            if (proofData) {
+                try {
+                    var parsed = JSON.parse(proofData);
+                    if (typeof parsed === 'object' && parsed !== null) {
+                        evidenceText = (parsed.text !== undefined && parsed.text !== null) ? String(parsed.text) : '';
+                        evidenceScreenshot = (parsed.screenshot !== undefined && parsed.screenshot !== null) ? String(parsed.screenshot) : '';
+                        // If JSON parsing succeeded but both fields are empty, show raw text as fallback
+                        if (!evidenceText && !evidenceScreenshot) {
+                            evidenceText = proofData;
+                        }
+                    } else {
+                        evidenceText = proofData;
+                    }
+                } catch (e) {
+                    // Not JSON, use raw text
+                    evidenceText = proofData;
                 }
-            } catch (e) {
-                // Not JSON, use raw text
             }
 
             var screenshotHtml = '';
@@ -551,17 +560,18 @@
                         '<strong>' + escapeHtml(r.title || '') + '</strong><br>' +
                         '<span class="muted">Reward: ' + parseFloat(r.reward || 0).toFixed(2) + ' $REX</span>' +
                     '</td>' +
-                    '<td data-label="Evidence">' +
-                        '<div class="boosthub-evidence-box">' +
-                            '<code>' + escapeHtml(evidenceText) + '</code>' +
-                            '<button type="button" class="btn btn-secondary btn-sm boosthub-copy-evidence-btn" data-proof="' + escapeHtml(evidenceText) + '" title="Copy evidence">' +
-                                '<i class="fas fa-copy"></i> Copy' +
-                            '</button>' +
-                        '</div>' +
-                        screenshotHtml +
-                        (r.proof_notes ? '<br><span class="muted">Expected: ' + escapeHtml(r.proof_notes) + '</span>' : '') +
-                        (r.task_link ? '<br><a href="' + escapeHtml(r.task_link) + '" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm boosthub-open-task-link"><i class="fas fa-arrow-up-right-from-square"></i> Open task link</a>' : '') +
-                    '</td>' +
+                '<td data-label="Evidence">' +
+                    (evidenceText ? '<div class="boosthub-evidence-box">' +
+                        '<code>' + escapeHtml(evidenceText) + '</code>' +
+                        '<button type="button" class="btn btn-secondary btn-sm boosthub-copy-evidence-btn" data-proof="' + escapeHtml(evidenceText) + '" title="Copy evidence">' +
+                            '<i class="fas fa-copy"></i> Copy' +
+                        '</button>' +
+                    '</div>' : '') +
+                    screenshotHtml +
+                    (evidenceText && evidenceScreenshot ? '<div class="boosthub-evidence-separator" style="height:1px;background:rgba(148,163,184,0.10);margin:6px 0;width:100%;"></div>' : '') +
+                    (r.proof_notes ? '<br><span class="muted">Expected: ' + escapeHtml(r.proof_notes) + '</span>' : '') +
+                    (r.task_link ? '<br><a href="' + escapeHtml(r.task_link) + '" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm boosthub-open-task-link"><i class="fas fa-arrow-up-right-from-square"></i> Open task link</a>' : '') +
+                '</td>' +
                     '<td data-label="Action">' +
                         '<button type="button" class="btn btn-primary btn-sm boosthub-review-btn" data-log-id="' + r.id + '" data-decision="approve">' +
                             '<i class="fas fa-check"></i> Approve' +
