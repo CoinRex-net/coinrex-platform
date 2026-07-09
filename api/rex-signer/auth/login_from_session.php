@@ -12,6 +12,10 @@ try {
 
     $pairing_id = (int) ($_SESSION['rex_signer_auth_pairing_id'] ?? 0);
     if ($pairing_id <= 0) {
+        $body_input = rexSignerInput('pairing_id', 0);
+        $pairing_id = (int) $body_input;
+    }
+    if ($pairing_id <= 0) {
         apiSuccessResponse([
             'status' => 'none',
             'message' => 'No RexLink sign-in pairing is active.',

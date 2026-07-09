@@ -41,7 +41,13 @@ module.exports = {
   },
   realtimeSecret: process.env.COINREX_REALTIME_SECRET || process.env.COINREX_ENCRYPTION_KEY || process.env.COINREX_CSRF_KEY || 'coinrex-dev-realtime-secret',
   claimSignerPrivateKey: process.env.REX_CLAIM_SIGNER_PRIVATE_KEY || process.env.POLYGON_AMOY_PRIVATE_KEY || '',
-  polygonRpcUrl: process.env.POLYGON_AMOY_RPC_URL || 'https://rpc-amoy.polygon.technology',
+  polygonRpcUrl: process.env.POLYGON_MAINNET_RPC_URL || process.env.POLYGON_AMOY_RPC_URL || 'https://rpc-amoy.polygon.technology',
+  network: {
+    slug: String(process.env.REXLINK_NETWORK_SLUG || 'polygon'),
+    name: String(process.env.REXLINK_NETWORK_NAME || 'Polygon'),
+    chainId: Number(process.env.REXLINK_NETWORK_CHAIN_ID || 137),
+    nativeSymbol: String(process.env.REXLINK_NETWORK_NATIVE_SYMBOL || 'POL'),
+  },
   testingMode: /^(1|true|yes|on)$/i.test(String(process.env.COINREX_TESTING_MODE || 'false')),
   claimMinimumRex: Number(process.env.REWARD_CLAIM_MINIMUM_REX || 100),
 };

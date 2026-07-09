@@ -20,7 +20,7 @@ const {
 } = require('./util');
 
 const app = express();
-const provider = new JsonRpcProvider(config.polygonRpcUrl, 80002);
+const provider = new JsonRpcProvider(config.polygonRpcUrl, config.network.chainId);
 
 app.use(express.json({ limit: '512kb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -73,20 +73,20 @@ function buildQrPayload(displayCode, purpose, duration, expiresAt, extra = {}) {
     api_base_url: config.publicApiUrl,
     dapp_name: 'CoinRex',
     dapp_url: config.phpBaseUrl,
-    network_slug: 'polygon-amoy',
-    network_name: 'Polygon Amoy',
-    chain_id: 80002,
-    native_symbol: 'POL',
+    network_slug: config.network.slug,
+    network_name: config.network.name,
+    chain_id: config.network.chainId,
+    native_symbol: config.network.nativeSymbol,
     requested_duration_minutes: duration,
     expires_at: expiresAt,
     display_context: {
       dapp_name: 'CoinRex',
       website: new URL(config.phpBaseUrl).host,
       dapp_url: config.phpBaseUrl,
-      network: 'Polygon Amoy',
-      network_slug: 'polygon-amoy',
-      chain_id: 80002,
-      native_symbol: 'POL',
+      network: config.network.name,
+      network_slug: config.network.slug,
+      chain_id: config.network.chainId,
+      native_symbol: config.network.nativeSymbol,
       wallet: extra.requested_wallet_address || 'Not provided by dApp',
       contract: 'Not provided by dApp',
       amount: 'Not provided by dApp',
@@ -279,7 +279,7 @@ app.get('/api/rex-signer/assets.php', asyncRoute(async (_req, res) => {
       nativeSymbol: network.native_symbol,
       rpcUrl: network.rpc_url,
       explorerUrl: network.explorer_url,
-      tokens: String(network.slug) === 'polygon-amoy' ? [
+      tokens: String(network.slug) === config.network.slug ? [
         {
           symbol: 'REX',
           name: 'CoinRex Token',
@@ -327,7 +327,7 @@ app.post('/api/rex-signer/create_approval_request.php', asyncRoute(async (req, r
     [
       actor.user_id,
       active.id,
-      String(req.body.network_slug || 'polygon-amoy'),
+      String(req.body.network_slug || config.network.slug),
       requestType,
       String(req.body.title || 'CoinRex approval request').slice(0, 160),
       String(req.body.summary || 'Approve this request in RexLink.').slice(0, 255),
@@ -359,20 +359,20 @@ app.post('/api/rex-signer/create_claim_approval.php', asyncRoute(async (req, res
     dapp_url: config.phpBaseUrl,
     base_url: config.publicApiUrl,
     api_base_url: config.publicApiUrl,
-    network_slug: 'polygon-amoy',
-    network_name: 'Polygon Amoy',
+    network_slug: config.network.slug,
+    network_name: config.network.name,
     claim_amount: amount.toFixed(8),
     amount: `${amount.toFixed(8)} REX`,
     fee_estimate: `${claims.distributor.claimFeeFormatted || '0.01'} POL`,
     wallet_address: active.wallet_address,
     contract_address: claims.distributor.contractAddress,
-    chain_id: Number(claims.distributor.chainId || 80002),
+    chain_id: Number(claims.distributor.chainId || config.network.chainId),
   };
   const [insert] = await db.pool.execute(
     `INSERT INTO rex_signer_approval_requests
      (user_id, session_id, network_slug, request_type, title, summary, amount, fee_estimate, payload_json, wallet_address, expires_at, tx_status)
-     VALUES (?, ?, 'polygon-amoy', 'claim', 'Approve REX Claim', 'Approve this request in RexLink to prepare and submit your claim on Polygon Amoy.', ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), 'approval_pending')`,
-    [actor.user_id, active.id, `${amount.toFixed(8)} REX`, payload.fee_estimate, JSON.stringify(payload), active.wallet_address]
+     VALUES (?, ?, ?, 'claim', 'Approve REX Claim', ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), 'approval_pending')`,
+    [actor.user_id, active.id, config.network.slug, `${amount.toFixed(8)} REX`, payload.fee_estimate, JSON.stringify(payload), active.wallet_address]
   );
   realtime.publish('approval.created', { user_id: actor.user_id, session_id: active.id, request_id: insert.insertId, status: 'pending', request_type: 'claim', title: 'Approve REX Claim', amount: `${amount.toFixed(8)} REX`, fee_estimate: payload.fee_estimate, payload });
   jsonOk(res, { message: 'Claim approval request created.', request_id: insert.insertId, status: 'pending', amount: amount.toFixed(8), fee_estimate: payload.fee_estimate, expires_in_seconds: 600 }, 201);

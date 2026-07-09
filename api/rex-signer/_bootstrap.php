@@ -5,7 +5,7 @@
  */
 
 $rex_signer_endpoint = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-if (in_array($rex_signer_endpoint, ['create_pairing.php', 'pairing_qr.php'], true)) {
+if (in_array($rex_signer_endpoint, ['create_pairing.php', 'pairing_qr.php', 'login_from_session.php'], true)) {
     define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
     define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
 }
