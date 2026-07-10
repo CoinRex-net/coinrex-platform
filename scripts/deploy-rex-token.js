@@ -6,7 +6,7 @@ async function main() {
   const [deployer] = await hre.ethers.getSigners();
 
   if (!deployer) {
-    throw new Error("No deployer account configured. Set POLYGON_AMOY_PRIVATE_KEY in .env.");
+    throw new Error("No deployer account configured. Set POLYGON_AMOY_PRIVATE_KEY or POLYGON_MAINNET_PRIVATE_KEY in .env.");
   }
 
   const network = await hre.ethers.provider.getNetwork();
@@ -39,7 +39,7 @@ async function main() {
 
   const fileName = hre.network.name === "amoy"
     ? "polygon-amoy-rex-token.json"
-    : `${hre.network.name}-rex-token.json`;
+    : (hre.network.name === "polygon" ? "polygon-rex-token.json" : `${hre.network.name}-rex-token.json`);
 
   fs.writeFileSync(
     path.join(deploymentsDir, fileName),

@@ -9,8 +9,44 @@ function readJson(relative) {
   return JSON.parse(fs.readFileSync(path.join(config.rootDir, relative), 'utf8'));
 }
 
-const distributor = readJson('deployments/polygon-amoy-rex-claim-distributor.json');
-const token = readJson('deployments/polygon-amoy-rex-token.json');
+function loadClaimDeploymentSet() {
+  const candidates = [
+    {
+      networkSlug: 'polygon',
+      chainId: 137,
+      distributorFile: 'deployments/polygon-rex-claim-distributor.json',
+      tokenFile: 'deployments/polygon-rex-token.json',
+    },
+    {
+      networkSlug: 'polygon-amoy',
+      chainId: 80002,
+      distributorFile: 'deployments/polygon-amoy-rex-claim-distributor.json',
+      tokenFile: 'deployments/polygon-amoy-rex-token.json',
+    },
+  ];
+
+  for (const candidate of candidates) {
+    const distributorPath = path.join(config.rootDir, candidate.distributorFile);
+    if (!fs.existsSync(distributorPath)) continue;
+    const distributorJson = readJson(candidate.distributorFile);
+    if (!distributorJson.contractAddress) continue;
+    const tokenJson = fs.existsSync(path.join(config.rootDir, candidate.tokenFile))
+      ? readJson(candidate.tokenFile)
+      : {};
+    return {
+      networkSlug: candidate.networkSlug,
+      chainId: Number(distributorJson.chainId || candidate.chainId),
+      distributor: distributorJson,
+      token: tokenJson,
+    };
+  }
+
+  throw new Error('Claim deployment metadata is missing.');
+}
+
+const claimDeployment = loadClaimDeploymentSet();
+const distributor = claimDeployment.distributor;
+const token = claimDeployment.token;
 
 async function balance(userId, status, conn = db) {
   const [rows] = await conn.execute(
@@ -125,7 +161,7 @@ async function signClaim(snapshot, walletAddress) {
     {
       name: 'CoinRex Claim Distributor',
       version: '1',
-      chainId: Number(distributor.chainId || 80002),
+      chainId: Number(claimDeployment.chainId || distributor.chainId || 137),
       verifyingContract: distributor.contractAddress,
     },
     {
@@ -149,8 +185,8 @@ async function signClaim(snapshot, walletAddress) {
     amount_wei: amountWei,
     nonce: snapshot.nonce,
     wallet_address: walletAddress,
-    network_slug: 'polygon-amoy',
-    chain_id: Number(distributor.chainId || 80002),
+    network_slug: claimDeployment.networkSlug,
+    chain_id: Number(claimDeployment.chainId || distributor.chainId || 137),
     contract_address: distributor.contractAddress,
     rex_token_address: distributor.rexTokenAddress || '',
     claim_fee_wei: String(distributor.claimFee || '0'),

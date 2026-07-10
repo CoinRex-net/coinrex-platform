@@ -10,6 +10,7 @@ try {
     $is_auth_pairing_payload = is_array($decoded_payload)
         && ($decoded_payload['type'] ?? '') === 'coinrex.rex_signer.pairing'
         && ($decoded_payload['purpose'] ?? '') === 'auth';
+    $expires_in_seconds = is_array($decoded_payload) ? (int) ($decoded_payload['expires_in_seconds'] ?? 0) : 0;
 
     if (!$is_auth_pairing_payload) {
         $actor = apiGetAuthenticatedUser();
@@ -28,9 +29,11 @@ try {
         apiErrorResponse(500, 'QR cache directory could not be created.');
     }
 
-    $cache_key = hash('sha256', $payload . '|v1');
+    $cache_key = hash('sha256', $payload . '|v2');
     $cache_file = $cache_dir . '/' . $cache_key . '.svg';
-    $cache_ttl_seconds = 60;
+    $cache_ttl_seconds = $expires_in_seconds > 0
+        ? max(15, min(300, $expires_in_seconds))
+        : 120;
 
     if (is_readable($cache_file)
         && filemtime($cache_file) > 0
@@ -38,7 +41,8 @@ try {
         $cached_svg = file_get_contents($cache_file);
         if (is_string($cached_svg) && trim($cached_svg) !== '') {
             header('Content-Type: image/svg+xml; charset=utf-8');
-            header('Cache-Control: private, max-age=30, stale-while-revalidate=30');
+            header('Cache-Control: private, max-age=60, stale-while-revalidate=60');
+            header('X-Rexlink-Qr-Cache: hit');
             echo $cached_svg;
             exit;
         }
@@ -82,7 +86,8 @@ try {
     }
 
     header('Content-Type: image/svg+xml; charset=utf-8');
-    header('Cache-Control: private, max-age=30, stale-while-revalidate=30');
+    header('Cache-Control: private, max-age=60, stale-while-revalidate=60');
+    header('X-Rexlink-Qr-Cache: miss');
     echo $svg;
     exit;
 } catch (Throwable $e) {

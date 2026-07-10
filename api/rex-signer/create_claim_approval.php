@@ -62,7 +62,7 @@ try {
     if ($pending) {
         $pending_payload = !empty($pending['payload_json']) ? json_decode((string) $pending['payload_json'], true) : [];
         $pending_contexts = rexSignerBuildDisplayContext($db, array_merge(is_array($pending_payload) ? $pending_payload : [], [
-            'network_slug' => (string) ($pending['network_slug'] ?? 'polygon-amoy'),
+            'network_slug' => (string) ($pending['network_slug'] ?? 'polygon'),
             'amount' => (string) ($pending['amount'] ?? ''),
             'fee_estimate' => (string) ($pending['fee_estimate'] ?? ''),
             'expires_at' => (string) ($pending['expires_at'] ?? ''),
@@ -77,7 +77,7 @@ try {
             'summary' => (string) ($pending['summary'] ?? 'Approve this request in RexLink.'),
             'amount' => (string) ($pending['amount'] ?? ''),
             'fee_estimate' => (string) ($pending['fee_estimate'] ?? ''),
-            'network_slug' => (string) ($pending['network_slug'] ?? 'polygon-amoy'),
+            'network_slug' => (string) ($pending['network_slug'] ?? 'polygon'),
             'expires_at' => (string) ($pending['expires_at'] ?? ''),
             'created_at' => (string) ($pending['created_at'] ?? ''),
             'display_context' => $pending_contexts['display_context'],
@@ -102,7 +102,12 @@ try {
         apiErrorResponse(422, 'Claim amount cannot exceed your available REX balance.');
     }
 
-    $deployment = rexSignerClaimDistributorDeployment();
+    $claim_network = rexSignerClaimNetworkConfig($db);
+    $deployment = (array) ($claim_network['claim_deployment_data'] ?? []);
+    $network_slug = (string) ($claim_network['network_slug'] ?? 'polygon');
+    $network_name = (string) ($claim_network['network_name'] ?? 'Polygon');
+    $chain_id = (int) ($claim_network['chain_id'] ?? $deployment['chainId'] ?? 0);
+    $native_symbol = (string) ($claim_network['native_symbol'] ?? 'POL');
     $payload = [
         'action' => 'generate_claim',
         'dapp_name' => defined('SITE_NAME') ? SITE_NAME : 'CoinRex',
@@ -110,14 +115,14 @@ try {
         'origin' => rexSignerRequestOriginUrl() ?: null,
         'base_url' => defined('BASE_URL') ? BASE_URL : '',
         'api_base_url' => defined('BASE_URL') ? BASE_URL : '',
-        'network_slug' => 'polygon-amoy',
-        'network_name' => 'Polygon Amoy',
+        'network_slug' => $network_slug,
+        'network_name' => $network_name,
         'claim_amount' => number_format($claim_amount, 8, '.', ''),
         'amount' => number_format($claim_amount, 8, '.', '') . ' REX',
-        'fee_estimate' => ((string) ($deployment['claimFeeFormatted'] ?? '0.01')) . ' POL',
+        'fee_estimate' => ((string) ($deployment['claimFeeFormatted'] ?? '0.01')) . ' ' . $native_symbol,
         'wallet_address' => (string) ($active_session['wallet_address'] ?? ''),
         'contract_address' => (string) $deployment['contractAddress'],
-        'chain_id' => (int) ($deployment['chainId'] ?? 80002),
+        'chain_id' => $chain_id,
     ];
     $expiry_stmt = $db->query("SELECT DATE_ADD(NOW(), INTERVAL 10 MINUTE) AS expires_at");
     $approval_expires_at = (string) (($expiry_stmt ? $expiry_stmt->fetch()['expires_at'] ?? '' : '') ?: '');
@@ -127,19 +132,20 @@ try {
     $payload['display_context'] = $contexts['display_context'];
     $payload['trust_context'] = $contexts['trust_context'];
     $request_title = 'Approve REX Claim';
-    $request_summary = 'Approve this request in RexLink to prepare and submit your claim on Polygon Amoy.';
+    $request_summary = 'Approve this request in RexLink to prepare and submit your claim on ' . $network_name . '.';
     $request_amount = number_format($claim_amount, 8, '.', '') . ' REX';
-    $request_fee = ((string) ($deployment['claimFeeFormatted'] ?? '0.01')) . ' POL';
+    $request_fee = ((string) ($deployment['claimFeeFormatted'] ?? '0.01')) . ' ' . $native_symbol;
 
     $stmt = $db->prepare("
         INSERT INTO rex_signer_approval_requests
             (user_id, session_id, network_slug, request_type, title, summary, amount, fee_estimate, payload_json, expires_at)
         VALUES
-            (?, ?, 'polygon-amoy', 'claim', ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+            (?, ?, ?, 'claim', ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
     ");
     $stmt->execute([
         $user_id,
         (int) $active_session['id'],
+        $network_slug,
         $request_title,
         $request_summary,
         $request_amount,
@@ -158,9 +164,9 @@ try {
         'summary' => $request_summary,
         'amount' => $request_amount,
         'fee_estimate' => $request_fee,
-        'network_slug' => 'polygon-amoy',
-        'network_name' => 'Polygon Amoy',
-        'chain_id' => (int) ($deployment['chainId'] ?? 80002),
+        'network_slug' => $network_slug,
+        'network_name' => $network_name,
+        'chain_id' => $chain_id,
         'dapp_name' => defined('SITE_NAME') ? SITE_NAME : 'CoinRex',
         'dapp_url' => defined('BASE_URL') ? BASE_URL : '',
         'wallet_address' => (string) ($active_session['wallet_address'] ?? ''),

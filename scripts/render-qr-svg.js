@@ -1,4 +1,16 @@
-const QRCode = require("../rex-wallet/node_modules/qrcode");
+let QRCode;
+
+try {
+  QRCode = require("../node_modules/qrcode");
+} catch (rootError) {
+  try {
+    QRCode = require("../rex-wallet/node_modules/qrcode");
+  } catch (walletError) {
+    const error = new Error("qrcode dependency could not be loaded.");
+    error.cause = walletError || rootError;
+    throw error;
+  }
+}
 
 function readStdin() {
   return new Promise((resolve, reject) => {

@@ -111,7 +111,10 @@ try {
     ");
     $network_rows = $stmt->fetchAll();
 
-    $rex_deployment = rexSignerReadDeploymentJson('deployments/polygon-amoy-rex-token.json');
+    $rex_deployment = rexSignerReadDeploymentJson('deployments/polygon-rex-token.json');
+    if (empty($rex_deployment['contractAddress'])) {
+        $rex_deployment = rexSignerReadDeploymentJson('deployments/polygon-amoy-rex-token.json');
+    }
     $rex_contract = (string) ($rex_deployment['contractAddress'] ?? '0x995C586c19De4003522b3A23dD7C9c9b112e4c71');
     $price_cache = rexSignerCachedCoinGeckoPrices();
 
@@ -120,6 +123,18 @@ try {
             'logo_key' => 'polygon',
             'logo_url' => 'https://assets.coingecko.com/coins/images/32440/standard/polygon.png',
             'tokens' => [
+                [
+                    'symbol' => 'REX',
+                    'name' => 'CoinRex Token',
+                    'decimals' => (int) ($rex_deployment['decimals'] ?? 18),
+                    'asset_type' => 'erc20',
+                    'contract_address' => $rex_contract,
+                    'logo_key' => 'rex',
+                    'logo_url' => null,
+                    'send_enabled' => true,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.00',
+                ],
                 [
                     'symbol' => 'POL',
                     'name' => 'Polygon Gas',
@@ -131,18 +146,6 @@ try {
                     'send_enabled' => true,
                     'receive_enabled' => true,
                     'balance_placeholder' => '0.000',
-                ],
-                [
-                    'symbol' => 'REX',
-                    'name' => 'CoinRex Token',
-                    'decimals' => 18,
-                    'asset_type' => 'planned',
-                    'contract_address' => null,
-                    'logo_key' => 'rex',
-                    'logo_url' => null,
-                    'send_enabled' => false,
-                    'receive_enabled' => true,
-                    'balance_placeholder' => '0.00',
                 ],
             ],
         ],

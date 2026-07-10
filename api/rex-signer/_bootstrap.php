@@ -763,13 +763,61 @@ function rexSignerReadJsonFile($relative_path) {
     return is_array($decoded) ? $decoded : [];
 }
 
-function rexSignerClaimDistributorDeployment() {
-    $deployment = rexSignerReadJsonFile('deployments/polygon-amoy-rex-claim-distributor.json');
-    if (empty($deployment['contractAddress'])) {
-        throw new RuntimeException('Claim distributor deployment metadata is missing.');
+function rexSignerClaimNetworkConfig(PDO $db = null) {
+    static $resolved = null;
+    if (is_array($resolved)) {
+        return $resolved;
     }
 
-    return $deployment;
+    $candidates = [
+        [
+            'network_slug' => 'polygon',
+            'network_name' => 'Polygon',
+            'chain_id' => 137,
+            'claim_deployment' => 'deployments/polygon-rex-claim-distributor.json',
+            'token_deployment' => 'deployments/polygon-rex-token.json',
+        ],
+        [
+            'network_slug' => 'polygon-amoy',
+            'network_name' => 'Polygon Amoy',
+            'chain_id' => 80002,
+            'claim_deployment' => 'deployments/polygon-amoy-rex-claim-distributor.json',
+            'token_deployment' => 'deployments/polygon-amoy-rex-token.json',
+        ],
+    ];
+
+    foreach ($candidates as $candidate) {
+        $claim_deployment = rexSignerReadJsonFile($candidate['claim_deployment']);
+        if (empty($claim_deployment['contractAddress'])) {
+            continue;
+        }
+
+        $token_deployment = rexSignerReadJsonFile($candidate['token_deployment']);
+        $resolved = array_merge($candidate, [
+            'claim_deployment_data' => $claim_deployment,
+            'token_deployment_data' => $token_deployment,
+            'chain_id' => (int) ($claim_deployment['chainId'] ?? $candidate['chain_id']),
+        ]);
+
+        if ($db instanceof PDO) {
+            $network = rexSignerNetworkContext($db, $resolved['network_slug'], $resolved['chain_id']);
+            $resolved['network_slug'] = (string) ($network['slug'] ?? $resolved['network_slug']);
+            $resolved['network_name'] = (string) ($network['name'] ?? $resolved['network_name']);
+            $resolved['chain_id'] = (int) ($network['chain_id'] ?? $resolved['chain_id']);
+            $resolved['native_symbol'] = (string) ($network['native_symbol'] ?? 'POL');
+        } else {
+            $resolved['native_symbol'] = 'POL';
+        }
+
+        return $resolved;
+    }
+
+    throw new RuntimeException('Claim distributor deployment metadata is missing.');
+}
+
+function rexSignerClaimDistributorDeployment() {
+    $config = rexSignerClaimNetworkConfig();
+    return (array) ($config['claim_deployment_data'] ?? []);
 }
 
 function rexSignerDecimalToWei($amount, $decimals = 18) {
@@ -841,14 +889,15 @@ function rexSignerBuildSignedClaim(PDO $db, $user_id, $wallet_address, $claim_am
 
     try {
         $snapshot = generateClaimSnapshotForUser((int) $user_id, $db, $claim_amount);
-        $deployment = rexSignerClaimDistributorDeployment();
-        $token_deployment = rexSignerReadJsonFile('deployments/polygon-amoy-rex-token.json');
+        $claim_network = rexSignerClaimNetworkConfig($db);
+        $deployment = (array) ($claim_network['claim_deployment_data'] ?? []);
+        $token_deployment = (array) ($claim_network['token_deployment_data'] ?? []);
         $decimals = (int) ($token_deployment['decimals'] ?? 18);
         $amount_wei = rexSignerDecimalToWei($snapshot['amount'], $decimals);
         $deadline = time() + 900;
 
         $sign_payload = [
-            'chainId' => (int) ($deployment['chainId'] ?? 80002),
+            'chainId' => (int) ($claim_network['chain_id'] ?? $deployment['chainId'] ?? 0),
             'contractAddress' => (string) $deployment['contractAddress'],
             'claimant' => $wallet_address,
             'snapshotId' => (string) $snapshot['snapshot_id'],
@@ -866,8 +915,8 @@ function rexSignerBuildSignedClaim(PDO $db, $user_id, $wallet_address, $claim_am
             'amount_wei' => $amount_wei,
             'nonce' => $snapshot['nonce'],
             'wallet_address' => $wallet_address,
-            'network_slug' => 'polygon-amoy',
-            'chain_id' => (int) ($deployment['chainId'] ?? 80002),
+            'network_slug' => (string) ($claim_network['network_slug'] ?? 'polygon'),
+            'chain_id' => (int) ($claim_network['chain_id'] ?? $deployment['chainId'] ?? 0),
             'contract_address' => (string) $deployment['contractAddress'],
             'rex_token_address' => (string) ($deployment['rexTokenAddress'] ?? ''),
             'claim_fee_wei' => (string) ($deployment['claimFee'] ?? '0'),

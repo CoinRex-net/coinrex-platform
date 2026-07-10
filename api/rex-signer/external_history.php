@@ -155,10 +155,11 @@ if ($session_wallet !== '' && $session_wallet !== $wallet_address) {
     apiErrorResponse(403, 'This signer session is paired to a different wallet.');
 }
 
-$network = rexSignerNetworkContext($db, 'polygon-amoy', 80002);
-$network['explorer_url'] = $network['is_known'] ? (string) ($network['explorer_url'] ?? '') : 'https://amoy.polygonscan.com';
+$claim_network = rexSignerClaimNetworkConfig($db);
+$network = rexSignerNetworkContext($db, (string) ($claim_network['network_slug'] ?? 'polygon'), (int) ($claim_network['chain_id'] ?? 137));
+$network['explorer_url'] = $network['is_known'] ? (string) ($network['explorer_url'] ?? '') : '';
 if (empty($network['explorer_url'])) {
-    $network['explorer_url'] = 'https://amoy.polygonscan.com';
+    $network['explorer_url'] = (string) (($claim_network['claim_deployment_data']['explorerUrl'] ?? '') ?: ($claim_network['network_slug'] === 'polygon-amoy' ? 'https://amoy.polygonscan.com' : 'https://polygonscan.com'));
 }
 
 $api_key = rexSignerExplorerEnv('ETHERSCAN_API_KEY', rexSignerExplorerEnv('POLYGONSCAN_API_KEY', rexSignerExplorerEnv('EXPLORER_API_KEY', '')));
@@ -174,7 +175,7 @@ if ($api_key === '') {
 }
 
 $api_base = rexSignerExplorerEnv('ETHERSCAN_API_BASE_URL', 'https://api.etherscan.io/v2/api');
-$chain_id = 80002;
+$chain_id = (int) ($network['chain_id'] ?? $claim_network['chain_id'] ?? 137);
 $common = [
     'chainid' => $chain_id,
     'module' => 'account',

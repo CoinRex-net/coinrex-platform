@@ -122,28 +122,61 @@ function claimUiStatusLabel($status) {
     return $status !== '' ? ucfirst($status) : 'Pending';
 }
 
-$rex_token = [
-    'contractAddress' => '0x995C586c19De4003522b3A23dD7C9c9b112e4c71',
-    'tokenName' => 'CoinRex Token',
-    'symbol' => 'REX',
-    'decimals' => 18,
-    'network' => 'amoy',
-    'chainId' => 80002,
-];
-$deployment_path = dirname(__DIR__) . '/deployments/polygon-amoy-rex-token.json';
-if (is_readable($deployment_path)) {
-    $deployment_json = json_decode((string) file_get_contents($deployment_path), true);
-    if (is_array($deployment_json) && !empty($deployment_json['contractAddress'])) {
-        $rex_token = array_merge($rex_token, [
-            'contractAddress' => (string) ($deployment_json['contractAddress'] ?? $rex_token['contractAddress']),
-            'tokenName' => (string) ($deployment_json['tokenName'] ?? $rex_token['tokenName']),
-            'symbol' => (string) ($deployment_json['symbol'] ?? $rex_token['symbol']),
-            'decimals' => (int) ($deployment_json['decimals'] ?? $rex_token['decimals']),
-            'network' => (string) ($deployment_json['network'] ?? $rex_token['network']),
-            'chainId' => (int) ($deployment_json['chainId'] ?? $rex_token['chainId']),
+function claimTokenDeploymentConfig() {
+    $root = dirname(__DIR__);
+    $candidates = [
+        [
+            'networkSlug' => 'polygon',
+            'networkLabel' => 'Polygon',
+            'network' => 'polygon',
+            'chainId' => 137,
+            'explorerUrl' => 'https://polygonscan.com',
+            'tokenFile' => $root . '/deployments/polygon-rex-token.json',
+        ],
+        [
+            'networkSlug' => 'polygon-amoy',
+            'networkLabel' => 'Polygon Amoy',
+            'network' => 'amoy',
+            'chainId' => 80002,
+            'explorerUrl' => 'https://amoy.polygonscan.com',
+            'tokenFile' => $root . '/deployments/polygon-amoy-rex-token.json',
+        ],
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (!is_readable($candidate['tokenFile'])) {
+            continue;
+        }
+
+        $deployment = json_decode((string) file_get_contents($candidate['tokenFile']), true);
+        if (!is_array($deployment) || empty($deployment['contractAddress'])) {
+            continue;
+        }
+
+        return array_merge($candidate, [
+            'contractAddress' => (string) ($deployment['contractAddress'] ?? ''),
+            'tokenName' => (string) ($deployment['tokenName'] ?? 'CoinRex Token'),
+            'symbol' => (string) ($deployment['symbol'] ?? 'REX'),
+            'decimals' => (int) ($deployment['decimals'] ?? 18),
+            'chainId' => (int) ($deployment['chainId'] ?? $candidate['chainId']),
+            'network' => (string) ($deployment['network'] ?? $candidate['network']),
         ]);
     }
+
+    return [
+        'contractAddress' => '0x995C586c19De4003522b3A23dD7C9c9b112e4c71',
+        'tokenName' => 'CoinRex Token',
+        'symbol' => 'REX',
+        'decimals' => 18,
+        'network' => 'amoy',
+        'networkSlug' => 'polygon-amoy',
+        'networkLabel' => 'Polygon Amoy',
+        'chainId' => 80002,
+        'explorerUrl' => 'https://amoy.polygonscan.com',
+    ];
 }
+
+$rex_token = claimTokenDeploymentConfig();
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -1098,8 +1131,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="claim-detail-card">
                     <span>Token</span>
                     <div class="claim-contract-line">
-                        <span>REX on Polygon Amoy</span>
-                        <a href="https://amoy.polygonscan.com/address/<?php echo htmlspecialchars((string) $rex_token['contractAddress'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">
+                        <span>REX on <?php echo htmlspecialchars((string) ($rex_token['networkLabel'] ?? 'Polygon'), ENT_QUOTES, 'UTF-8'); ?></span>
+                        <a href="<?php echo htmlspecialchars(rtrim((string) ($rex_token['explorerUrl'] ?? 'https://polygonscan.com'), '/') . '/address/' . (string) $rex_token['contractAddress'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">
                             <?php echo htmlspecialchars((string) $rex_token['contractAddress'], ENT_QUOTES, 'UTF-8'); ?>
                         </a>
                     </div>
@@ -1540,8 +1573,8 @@ require_once __DIR__ . '/../includes/header.php';
             base_url: normalizedPublicBaseUrl,
             dapp_name: payload.dapp_name || 'CoinRex',
             dapp_url: payload.dapp_url || browserBaseUrl.replace(/\/+$/, ''),
-            network_slug: payload.network_slug || 'polygon-amoy',
-            chain_id: Number(payload.chain_id || 80002),
+            network_slug: payload.network_slug || <?php echo json_encode((string) ($rex_token['networkSlug'] ?? 'polygon')); ?>,
+            chain_id: Number(payload.chain_id || <?php echo (int) ($rex_token['chainId'] ?? 137); ?>),
             requested_duration_minutes: Number(payload.requested_duration_minutes || selectedDuration || 10),
             expires_at: payload.expires_at || '',
             expires_in_seconds: Number(payload.expires_in_seconds || 0),
@@ -2278,9 +2311,9 @@ require_once __DIR__ . '/../includes/header.php';
                 duration_minutes: selectedDuration,
                 dapp_name: 'CoinRex',
                 dapp_url: (publicApiBaseUrl || browserBaseUrl).replace(/\/+$/, ''),
-                network_slug: 'polygon-amoy',
-                network_name: 'Polygon Amoy',
-                chain_id: 80002
+                network_slug: <?php echo json_encode((string) ($rex_token['networkSlug'] ?? 'polygon')); ?>,
+                network_name: <?php echo json_encode((string) ($rex_token['networkLabel'] ?? 'Polygon')); ?>,
+                chain_id: <?php echo (int) ($rex_token['chainId'] ?? 137); ?>
             });
             if (!data.success) {
                 throw new Error(data.message || 'Pairing code could not be created.');

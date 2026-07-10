@@ -8,6 +8,25 @@ if (!isLoggedIn()) {
     redirect(BASE_URL . '/auth/auth.php');
 }
 
+function rexSignerDemoNetworkConfig() {
+    $root = dirname(__DIR__);
+    if (is_readable($root . '/deployments/polygon-rex-claim-distributor.json')) {
+        return [
+            'networkSlug' => 'polygon',
+            'networkName' => 'Polygon',
+            'chainId' => 137,
+        ];
+    }
+
+    return [
+        'networkSlug' => 'polygon-amoy',
+        'networkName' => 'Polygon Amoy',
+        'chainId' => 80002,
+    ];
+}
+
+$rexlink_demo_network = rexSignerDemoNetworkConfig();
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -152,12 +171,13 @@ require_once __DIR__ . '/../includes/header.php';
         setStatus('Creating test approval...');
         try {
             const data = await postJson(approvalUrl, {
-                network_slug: 'polygon-amoy',
+                network_slug: <?php echo json_encode((string) ($rexlink_demo_network['networkSlug'] ?? 'polygon')); ?>,
                 request_type: 'claim',
                 title: 'Claim 125 REX',
                 summary: 'Test approval request from CoinRex web.',
                 amount: '125 REX',
                 fee_estimate: '0.02 POL',
+                chain_id: <?php echo (int) ($rexlink_demo_network['chainId'] ?? 137); ?>,
                 expires_minutes: 10
             });
             setStatus(data.success ? 'Test approval created. Check the app.' : (data.message || 'Approval could not be created.'));

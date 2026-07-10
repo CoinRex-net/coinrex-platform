@@ -8,7 +8,7 @@ const DEFAULT_CLAIM_FEE_POL = "0.01";
 function readTokenDeployment() {
   const fileName = hre.network.name === "amoy"
     ? "polygon-amoy-rex-token.json"
-    : `${hre.network.name}-rex-token.json`;
+    : (hre.network.name === "polygon" ? "polygon-rex-token.json" : `${hre.network.name}-rex-token.json`);
   const filePath = path.join(__dirname, "..", "deployments", fileName);
 
   if (!fs.existsSync(filePath)) {
@@ -22,7 +22,7 @@ async function main() {
   const [deployer] = await hre.ethers.getSigners();
 
   if (!deployer) {
-    throw new Error("No deployer account configured. Set POLYGON_AMOY_PRIVATE_KEY in .env.");
+    throw new Error("No deployer account configured. Set POLYGON_AMOY_PRIVATE_KEY or POLYGON_MAINNET_PRIVATE_KEY in .env.");
   }
 
   const network = await hre.ethers.provider.getNetwork();
@@ -61,7 +61,7 @@ async function main() {
 
   const fileName = hre.network.name === "amoy"
     ? "polygon-amoy-rex-claim-distributor.json"
-    : `${hre.network.name}-rex-claim-distributor.json`;
+    : (hre.network.name === "polygon" ? "polygon-rex-claim-distributor.json" : `${hre.network.name}-rex-claim-distributor.json`);
 
   fs.writeFileSync(
     path.join(deploymentsDir, fileName),
