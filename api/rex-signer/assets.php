@@ -100,7 +100,7 @@ function rexSignerTokenPrice($symbol, array $price_cache) {
 
 try {
     $db = getDBConnection();
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $stmt = $db->query("
         SELECT slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment,

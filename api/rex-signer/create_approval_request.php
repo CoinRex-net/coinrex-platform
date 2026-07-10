@@ -10,7 +10,7 @@ try {
         apiErrorResponse(403, 'Only logged-in CoinRex users can create approval requests.');
     }
 
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $network_slug = trim((string) rexSignerInput('network_slug', 'polygon-amoy'));
     $request_type = strtolower(trim((string) rexSignerInput('request_type', 'claim')));

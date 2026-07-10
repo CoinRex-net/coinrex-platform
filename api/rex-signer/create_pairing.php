@@ -29,7 +29,7 @@ try {
         apiErrorResponse(403, 'Only logged-in CoinRex users can create RexLink pairing codes.');
     }
 
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $duration = rexSignerClampDuration(rexSignerInput('duration_minutes', 10));
     $dapp_name = trim((string) rexSignerInput('dapp_name', (defined('SITE_NAME') ? SITE_NAME : 'CoinRex')));

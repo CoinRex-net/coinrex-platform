@@ -10,7 +10,7 @@ try {
         apiErrorResponse(403, 'An active RexLink session is required to decide approvals.');
     }
 
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $request_id = (int) rexSignerInput('request_id', 0);
     $decision = strtolower(trim((string) rexSignerInput('decision', '')));

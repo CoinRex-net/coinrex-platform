@@ -23,9 +23,11 @@ loadEnvFile(path.join(rootDir, '.env.local'));
 
 const publicBase = String(process.env.COINREX_PUBLIC_BASE_URL || 'http://localhost/coinrex').replace(/\/+$/, '');
 const apiPort = Number(process.env.REXLINK_API_PORT || 18083);
+const apiHost = String(process.env.REXLINK_API_HOST || '0.0.0.0').trim() || '0.0.0.0';
 
 module.exports = {
   rootDir,
+  host: apiHost,
   port: apiPort,
   publicApiUrl: String(process.env.REXLINK_PUBLIC_API_URL || publicBase.replace(/\/coinrex\/?$/, '') + `:${apiPort}`).replace(/\/+$/, ''),
   phpBaseUrl: publicBase,

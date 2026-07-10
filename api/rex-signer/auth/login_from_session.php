@@ -8,7 +8,7 @@ try {
     if (!featureIsAccessible('rexlink_auth')) {
         apiErrorResponse(403, 'RexLink sign-in is coming soon. Please use email login for now.');
     }
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $pairing_id = (int) ($_SESSION['rex_signer_auth_pairing_id'] ?? 0);
     if ($pairing_id <= 0) {

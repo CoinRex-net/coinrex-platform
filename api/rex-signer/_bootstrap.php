@@ -378,9 +378,10 @@ function rexSignerReleaseApprovedClaimApprovalsForEndedSessions(PDO $db, $sessio
     return $released;
 }
 
-function rexSignerExpireOldRows(PDO $db) {
+function rexSignerExpireOldRows(PDO $db, array $options = []) {
+    $publish_session_expired_events = !empty($options['publish_session_expired_events']);
     $expired_sessions = [];
-    if (tableExists('rex_signer_sessions')) {
+    if ($publish_session_expired_events && tableExists('rex_signer_sessions')) {
         $expired_stmt = $db->query("
             SELECT id, user_id
             FROM rex_signer_sessions
@@ -397,12 +398,14 @@ function rexSignerExpireOldRows(PDO $db) {
     rexSignerReleaseApprovedClaimApprovalsForEndedSessions($db);
     $db->exec("UPDATE rex_signer_approval_requests SET status = 'expired' WHERE status = 'pending' AND expires_at <= NOW()");
 
-    foreach ($expired_sessions as $session) {
-        coinrexRealtimePublish('session.expired', [
-            'user_id' => (int) $session['user_id'],
-            'session_id' => (int) $session['id'],
-            'status' => 'expired',
-        ]);
+    if ($publish_session_expired_events) {
+        foreach ($expired_sessions as $session) {
+            coinrexRealtimePublish('session.expired', [
+                'user_id' => (int) $session['user_id'],
+                'session_id' => (int) $session['id'],
+                'status' => 'expired',
+            ]);
+        }
     }
 }
 

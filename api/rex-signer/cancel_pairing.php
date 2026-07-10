@@ -5,7 +5,7 @@ apiRequireMethod('POST');
 
 try {
     $db = getDBConnection();
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $code = rexSignerNormalizePairCode(rexSignerInput('code', ''));
     if (!preg_match('/^\d{6}$/', $code)) {

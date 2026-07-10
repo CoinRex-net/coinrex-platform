@@ -5,7 +5,7 @@ apiRequireMethod('POST');
 
 try {
     $db = getDBConnection();
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $token = rexSignerGetBearerToken();
     $token_session = rexSignerGetAnySessionByToken($db, $token);

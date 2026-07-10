@@ -5,7 +5,7 @@ try {
     $db = getDBConnection();
     $actor = rexSignerRequireUserActor($db);
 
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $status = strtolower(trim((string) rexSignerInput('status', 'pending')));
     if (!in_array($status, ['pending', 'approved', 'rejected', 'expired', 'cancelled', 'all'], true)) {

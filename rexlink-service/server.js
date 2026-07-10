@@ -545,8 +545,8 @@ realtime.attach(server);
 
 db.ensureSchema().then(() => {
   setInterval(() => watchPending().catch(() => {}), 5000);
-  server.listen(config.port, () => {
-    console.log(`RexLink API listening on ${config.publicApiUrl} (port ${config.port})`);
+  server.listen(config.port, config.host, () => {
+    console.log(`RexLink API listening on ${config.publicApiUrl} via ${config.host}:${config.port}`);
   });
 }).catch((error) => {
   console.error(error);

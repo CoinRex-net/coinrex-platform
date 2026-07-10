@@ -11,7 +11,7 @@ try {
     }
 
     $user_id = (int) $actor['user_id'];
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
     syncSubmittedClaimTransactionsForUser($user_id, $db);
     syncStaleClaimApprovalsForUser($user_id, $db);
 

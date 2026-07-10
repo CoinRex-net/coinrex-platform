@@ -3,7 +3,7 @@ require_once __DIR__ . '/_bootstrap.php';
 
 try {
     $db = getDBConnection();
-    rexSignerExpireOldRows($db);
+    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
     $server_time_stmt = $db->query("SELECT UNIX_TIMESTAMP(NOW()) AS server_time_unix");
     $server_time_unix = (int) ($server_time_stmt->fetch()['server_time_unix'] ?? time());
 
