@@ -32,6 +32,8 @@ $pending_task = $boost_state['pending_task'] ?? null;   // returned for correcti
 $submitted_task = $boost_state['submitted_task'] ?? null; // awaiting review
 $has_pending_review = !empty($boost_state['has_pending_review']);
 $has_returned_task = !empty($boost_state['has_returned_task']);
+$can_skip_task = !empty($boost_state['can_skip']);
+$skip_remaining = (int) ($boost_state['skip_remaining'] ?? 0);
 
 // ── Determine if user can claim ──
 $can_claim = ($status === 'open' && !empty($boost_task));
@@ -73,6 +75,13 @@ try {
         WHERE utl.user_id = ?
           AND mt.task_group = 'boosthub'
           AND utl.status IN ('submitted', 'completed', 'failed')
+          AND (
+              utl.metadata IS NULL
+              OR (
+                  utl.metadata NOT LIKE '%\"skipped\":true%'
+                  AND utl.metadata NOT LIKE '%\"skipped\": true%'
+              )
+          )
         ORDER BY COALESCE(utl.task_completed_at, utl.completed_at) DESC
         LIMIT 3
     ");
@@ -95,6 +104,13 @@ try {
         WHERE utl.user_id = ?
           AND mt.task_group = 'boosthub'
           AND utl.status IN ('completed', 'submitted', 'failed')
+          AND (
+              utl.metadata IS NULL
+              OR (
+                  utl.metadata NOT LIKE '%\"skipped\":true%'
+                  AND utl.metadata NOT LIKE '%\"skipped\": true%'
+              )
+          )
     ");
     $stats_stmt->execute([$user_id]);
     $stats_row = $stats_stmt->fetch();
@@ -215,7 +231,21 @@ require_once __DIR__ . '/../includes/header.php';
                     <button type="button" class="bh-claim-btn" id="claimNowBtn">
                         <i class="fas fa-bolt"></i> <?php echo $boost_correction_note !== '' ? 'Update Evidence' : 'Claim Now'; ?>
                     </button>
+                    <button
+                        type="button"
+                        class="bh-skip-btn"
+                        id="skipTaskBtn"
+                        <?php echo $can_skip_task ? '' : 'disabled'; ?>
+                        title="<?php echo $can_skip_task ? 'Skip this task and get a new one' : 'No fresh BoostHub task is left to skip into'; ?>"
+                    >
+                        <i class="fas fa-forward"></i> Skip Task
+                    </button>
                     <p class="bh-claim-sub"><?php echo $boost_correction_note !== '' ? 'Evidence update requested' : '1 social task available'; ?></p>
+                    <p class="bh-skip-sub">
+                        <?php echo $can_skip_task
+                            ? htmlspecialchars((string) ($skip_remaining . ' fresh task' . ($skip_remaining === 1 ? '' : 's') . ' remaining after this one.'), ENT_QUOTES, 'UTF-8')
+                            : 'Skip unavailable because no new uncompleted BoostHub task is left.'; ?>
+                    </p>
                 </div>
 
             <?php elseif ($status === 'locked'): ?>
@@ -556,8 +586,10 @@ require_once __DIR__ . '/../includes/header.php';
 
     const BASE_URL = <?php echo json_encode(BASE_URL); ?>;
     const submitUrl = BASE_URL + '/api/complete_mini_task.php';
+    const skipUrl = BASE_URL + '/api/skip_boosthub_task.php';
     const uploadUrl = BASE_URL + '/api/upload_boosthub_evidence.php';
     const taskId = <?php echo $boost_task ? (int) $boost_task['id'] : 0; ?>;
+    const canSkipTask = <?php echo $can_skip_task ? 'true' : 'false'; ?>;
     const countdownSeconds = <?php echo (int) ($boost_state['countdown_seconds'] ?? 0); ?>;
     const totalCooldown = 86400; // Fixed 24h in seconds
 
@@ -596,6 +628,39 @@ require_once __DIR__ . '/../includes/header.php';
     if (claimBtn) {
         claimBtn.addEventListener('click', function() {
             openModal('claimModal');
+        });
+    }
+
+    var skipTaskBtn = document.getElementById('skipTaskBtn');
+    if (skipTaskBtn && canSkipTask) {
+        skipTaskBtn.addEventListener('click', async function() {
+            if (skipTaskBtn.disabled || !taskId) return;
+            if (!window.confirm('Skip this BoostHub task and get a fresh one?')) return;
+
+            skipTaskBtn.disabled = true;
+            skipTaskBtn.classList.add('is-loading');
+
+            try {
+                var body = new URLSearchParams();
+                body.set('task_id', String(taskId));
+
+                var response = await fetch(skipUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: body.toString()
+                });
+                var data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error((data && (data.error || data.message)) || 'Skip failed.');
+                }
+
+                window.location.reload();
+            } catch (error) {
+                alert(error && error.message ? error.message : 'Unable to skip this task right now.');
+                skipTaskBtn.disabled = false;
+                skipTaskBtn.classList.remove('is-loading');
+            }
         });
     }
 
