@@ -7817,7 +7817,7 @@
 .taskhub-mystery-box-body,
 .taskhub-mystery-box-front::before,
 .taskhub-mystery-box-front::after {
-    display: none !important;
+    display: block !important;
 }
 .taskhub-mystery-box-front {
     background:
@@ -7825,7 +7825,7 @@
         linear-gradient(145deg, rgba(30, 64, 175, 0.48), rgba(7, 89, 133, 0.26)) !important;
 }
 .taskhub-mystery-box-icon {
-    display: block !important;
+    display: none !important;
     position: relative !important;
     z-index: 3 !important;
     font-size: 56px !important;
@@ -7851,8 +7851,85 @@
     80% { transform: translateY(-8px) scale(1.12) rotate(-3deg); }
 }
 @media (max-width: 640px) {
+    .taskhub-mystery-boxes {
+        grid-template-columns: repeat(3, minmax(74px, 1fr)) !important;
+        width: min(100%, 286px) !important;
+        max-width: 286px !important;
+        gap: 8px !important;
+    }
+
+    .taskhub-mystery-box {
+        min-width: 74px !important;
+        width: 100% !important;
+        height: 94px !important;
+        perspective: none !important;
+    }
+
+    .taskhub-mystery-box:nth-child(3) {
+        grid-column: auto !important;
+        justify-self: auto !important;
+        width: 100% !important;
+    }
+
+    .taskhub-mystery-box-inner {
+        position: static !important;
+        width: 100% !important;
+        height: 100% !important;
+        transform: none !important;
+    }
+
+    .taskhub-mystery-box-front,
+    .taskhub-mystery-box-back {
+        position: relative !important;
+        inset: auto !important;
+        min-height: 94px !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 5px !important;
+        padding: 8px 6px !important;
+        backface-visibility: visible !important;
+        transform: none !important;
+        border-radius: 14px !important;
+    }
+
+    .taskhub-mystery-box:not(.is-flipped) .taskhub-mystery-box-back {
+        display: none !important;
+    }
+
+    .taskhub-mystery-box.is-flipped .taskhub-mystery-box-front {
+        display: none !important;
+    }
+
+    .taskhub-mystery-box.is-flipped .taskhub-mystery-box-back {
+        display: flex !important;
+    }
+
+    .taskhub-mystery-box-lid,
+    .taskhub-mystery-box-body,
+    .taskhub-mystery-box-front::before,
+    .taskhub-mystery-box-front::after,
+    .taskhub-mystery-box-glow {
+        display: none !important;
+    }
+
     .taskhub-mystery-box-icon {
-        font-size: 42px !important;
+        display: block !important;
+        font-size: 28px !important;
+        flex: 0 0 auto !important;
+        filter: none !important;
+        animation: none !important;
+        line-height: 1 !important;
+    }
+
+    .taskhub-mystery-box-label {
+        margin-top: 0 !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.02em !important;
+        text-align: center !important;
+        white-space: normal !important;
+        line-height: 1.2 !important;
     }
 }
 
@@ -7912,6 +7989,55 @@
     color: rgba(203, 213, 225, 0.72) !important;
     font-size: 11px !important;
     line-height: 1.25 !important;
+}
+
+@media (max-width: 760px) {
+    .taskhub-mystery-content {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 12px !important;
+        padding: 24px 16px 16px !important;
+        text-align: center !important;
+    }
+
+    .taskhub-mystery-head {
+        order: 1 !important;
+        width: 100% !important;
+        max-width: 320px !important;
+        margin: 0 auto !important;
+    }
+
+    .taskhub-mystery-boxes {
+        order: 2 !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(74px, 1fr)) !important;
+        width: min(100%, 286px) !important;
+        max-width: 286px !important;
+        margin: 0 auto !important;
+        gap: 8px !important;
+        justify-content: center !important;
+    }
+
+    .taskhub-mystery-result {
+        order: 3 !important;
+        width: 100% !important;
+        max-width: 320px !important;
+        margin: 0 auto !important;
+    }
+
+    .taskhub-mystery-actions {
+        order: 4 !important;
+        width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+        margin-top: 2px !important;
+    }
+
+    .taskhub-mystery-content .primary-btn {
+        width: min(100%, 280px) !important;
+    }
 }
 
 

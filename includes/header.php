@@ -455,6 +455,12 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
             <i class="fas fa-star"></i>
             <span>Reviews</span>
         </a>
+        <?php if (!$can_access_taskhub_nav): ?>
+        <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="mobile-nav-item <?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
+            <i class="fas fa-file-alt"></i>
+            <span>Litepaper</span>
+        </a>
+        <?php endif; ?>
     <?php else: ?>
         <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="mobile-nav-item <?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
             <i class="fas fa-file-alt"></i>

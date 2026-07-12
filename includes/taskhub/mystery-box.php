@@ -17,6 +17,8 @@
                     <div class="taskhub-mystery-box-inner">
                         <div class="taskhub-mystery-box-front">
                             <span class="taskhub-mystery-box-glow"></span>
+                            <span class="taskhub-mystery-box-lid" aria-hidden="true"></span>
+                            <span class="taskhub-mystery-box-body" aria-hidden="true"></span>
                             <span class="taskhub-mystery-box-icon">&#127873;</span>
                             <span class="taskhub-mystery-box-label">Box 1</span>
                         </div>
@@ -29,6 +31,8 @@
                     <div class="taskhub-mystery-box-inner">
                         <div class="taskhub-mystery-box-front">
                             <span class="taskhub-mystery-box-glow"></span>
+                            <span class="taskhub-mystery-box-lid" aria-hidden="true"></span>
+                            <span class="taskhub-mystery-box-body" aria-hidden="true"></span>
                             <span class="taskhub-mystery-box-icon">&#127873;</span>
                             <span class="taskhub-mystery-box-label">Box 2</span>
                         </div>
@@ -41,6 +45,8 @@
                     <div class="taskhub-mystery-box-inner">
                         <div class="taskhub-mystery-box-front">
                             <span class="taskhub-mystery-box-glow"></span>
+                            <span class="taskhub-mystery-box-lid" aria-hidden="true"></span>
+                            <span class="taskhub-mystery-box-body" aria-hidden="true"></span>
                             <span class="taskhub-mystery-box-icon">&#127873;</span>
                             <span class="taskhub-mystery-box-label">Box 3</span>
                         </div>
