@@ -1,6 +1,6 @@
 <?php
 /**
- * Skip the currently assigned BoostHub task and assign a fresh unseen one.
+ * Skip the currently assigned BoostHub task and move to the next unfinished one.
  */
 
 require_once __DIR__ . '/_bootstrap.php';
@@ -18,7 +18,7 @@ try {
     $result = skipBoostHubTask((int) $user_id, $task_id, getDBConnection());
 
     apiSuccessResponse([
-        'message' => 'Task skipped. A new BoostHub task has been assigned.',
+        'message' => 'Task skipped. The next unfinished BoostHub task has been assigned.',
         'result' => $result,
     ]);
 } catch (Throwable $e) {

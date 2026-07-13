@@ -14,7 +14,7 @@ function boostHubBuildTaskFingerprint(array $task_row): string {
     return 'fallback:' . md5($title . '|' . $category . '|' . $task_link);
 }
 
-function boostHubGetSeenTaskState($user_id, PDO $db = null): array {
+function boostHubGetTaskCycleState($user_id, PDO $db = null): array {
     $db = $db ?: getDBConnection();
 
     $stmt = $db->prepare("
@@ -34,23 +34,40 @@ function boostHubGetSeenTaskState($user_id, PDO $db = null): array {
     ");
     $stmt->execute([(int) $user_id]);
 
-    $seen_ids = [];
-    $seen_fingerprints = [];
+    $completed_ids = [];
+    $completed_fingerprints = [];
+    $blocked_ids = [];
+    $blocked_fingerprints = [];
 
     foreach ($stmt->fetchAll() as $row) {
-        $seen_ids[(int) ($row['task_id'] ?? 0)] = true;
-        $seen_fingerprints[boostHubBuildTaskFingerprint((array) $row)] = true;
+        $task_id = (int) ($row['task_id'] ?? 0);
+        $status = strtolower(trim((string) ($row['status'] ?? '')));
+        $fingerprint = boostHubBuildTaskFingerprint((array) $row);
+        $metadata = !empty($row['metadata']) ? (json_decode((string) $row['metadata'], true) ?: []) : [];
+
+        if ($status === 'completed') {
+            $completed_ids[$task_id] = true;
+            $completed_fingerprints[$fingerprint] = true;
+            continue;
+        }
+
+        if ($status === 'pending' || $status === 'submitted' || ($status === 'failed' && !empty($metadata['correction_requested']))) {
+            $blocked_ids[$task_id] = true;
+            $blocked_fingerprints[$fingerprint] = true;
+        }
     }
 
     return [
-        'task_ids' => $seen_ids,
-        'fingerprints' => $seen_fingerprints,
+        'completed_ids' => $completed_ids,
+        'completed_fingerprints' => $completed_fingerprints,
+        'blocked_ids' => $blocked_ids,
+        'blocked_fingerprints' => $blocked_fingerprints,
     ];
 }
 
-function boostHubGetAssignableTasks($user_id, PDO $db = null): array {
+function boostHubGetAssignableTasks($user_id, PDO $db = null, int $current_task_id = 0): array {
     $db = $db ?: getDBConnection();
-    $seen_state = boostHubGetSeenTaskState((int) $user_id, $db);
+    $cycle_state = boostHubGetTaskCycleState((int) $user_id, $db);
 
     $stmt = $db->query("
         SELECT *
@@ -64,23 +81,46 @@ function boostHubGetAssignableTasks($user_id, PDO $db = null): array {
     foreach ($stmt->fetchAll() as $task_row) {
         $task_id = (int) ($task_row['id'] ?? 0);
         $fingerprint = boostHubBuildTaskFingerprint((array) $task_row);
-        if (isset($seen_state['task_ids'][$task_id]) || isset($seen_state['fingerprints'][$fingerprint])) {
+
+        if (isset($cycle_state['completed_ids'][$task_id]) || isset($cycle_state['completed_fingerprints'][$fingerprint])) {
             continue;
         }
+
+        $is_current_task = $current_task_id > 0 && $task_id === $current_task_id;
+        if (
+            !$is_current_task
+            && (isset($cycle_state['blocked_ids'][$task_id]) || isset($cycle_state['blocked_fingerprints'][$fingerprint]))
+        ) {
+            continue;
+        }
+
         $tasks[] = $task_row;
     }
 
     return $tasks;
 }
 
-function boostHubSelectAssignableTask($user_id, PDO $db = null): ?array {
-    $tasks = boostHubGetAssignableTasks((int) $user_id, $db);
+function boostHubSelectAssignableTask($user_id, PDO $db = null, int $current_task_id = 0): ?array {
+    $tasks = boostHubGetAssignableTasks((int) $user_id, $db, $current_task_id);
     if (empty($tasks)) {
         return null;
     }
 
-    $index = count($tasks) === 1 ? 0 : random_int(0, count($tasks) - 1);
-    return $tasks[$index] ?? null;
+    if ($current_task_id <= 0) {
+        return $tasks[0] ?? null;
+    }
+
+    if (count($tasks) <= 1) {
+        return null;
+    }
+
+    foreach ($tasks as $index => $task_row) {
+        if ((int) ($task_row['id'] ?? 0) === $current_task_id) {
+            return $tasks[($index + 1) % count($tasks)] ?? null;
+        }
+    }
+
+    return $tasks[0] ?? null;
 }
 
 function skipBoostHubTask($user_id, $task_id, PDO $db = null): array {
@@ -106,9 +146,10 @@ function skipBoostHubTask($user_id, $task_id, PDO $db = null): array {
         throw new RuntimeException('This BoostHub task is not available to skip.');
     }
 
-    $next_task = boostHubSelectAssignableTask($user_id, $db);
+    $cycle_tasks = boostHubGetAssignableTasks($user_id, $db, $task_id);
+    $next_task = boostHubSelectAssignableTask($user_id, $db, $task_id);
     if (!$next_task) {
-        throw new RuntimeException('No new BoostHub task is available to replace the current one.');
+        throw new RuntimeException('No other unfinished BoostHub task is available in the cycle right now.');
     }
 
     $metadata = !empty($pending_task['metadata']) ? (json_decode((string) $pending_task['metadata'], true) ?: []) : [];
@@ -142,7 +183,7 @@ function skipBoostHubTask($user_id, $task_id, PDO $db = null): array {
         'skipped_task_id' => $task_id,
         'next_task_id' => (int) ($next_task['id'] ?? 0),
         'next_task_title' => (string) ($next_task['title'] ?? 'Task'),
-        'remaining_unseen_tasks' => count(boostHubGetAssignableTasks($user_id, $db)),
+        'remaining_cycle_tasks' => max(0, count($cycle_tasks) - 1),
     ];
 }
 
@@ -223,7 +264,7 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
     $pending_stmt->execute([$user_id]);
     $pending = $pending_stmt->fetch();
     if ($pending) {
-        $remaining_assignable_tasks = boostHubGetAssignableTasks($user_id, $db);
+        $remaining_assignable_tasks = boostHubGetAssignableTasks($user_id, $db, (int) ($pending['task_id'] ?? 0));
         // Return the pending task as the current task
         return [
             'status' => 'open',
@@ -235,8 +276,8 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
             'submitted_task' => $submitted_task,
             'has_pending_review' => !empty($submitted_task),
             'has_returned_task' => !empty($pending_task),
-            'can_skip' => !empty($remaining_assignable_tasks),
-            'skip_remaining' => count($remaining_assignable_tasks),
+            'can_skip' => count($remaining_assignable_tasks) > 1,
+            'skip_remaining' => max(0, count($remaining_assignable_tasks) - 1),
         ];
     }
 
@@ -278,7 +319,7 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
     if (!$task) {
         return [
             'status' => 'finished',
-            'message' => 'No new BoostHub tasks available right now.',
+            'message' => 'All active BoostHub tasks are finished for this account right now.',
             'task' => null,
             'unlock_at' => null,
             'countdown_seconds' => 0,

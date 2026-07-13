@@ -236,15 +236,15 @@ require_once __DIR__ . '/../includes/header.php';
                         class="bh-skip-btn"
                         id="skipTaskBtn"
                         <?php echo $can_skip_task ? '' : 'disabled'; ?>
-                        title="<?php echo $can_skip_task ? 'Skip this task and get a new one' : 'No fresh BoostHub task is left to skip into'; ?>"
+                        title="<?php echo $can_skip_task ? 'Skip to the next unfinished task in your cycle' : 'No other unfinished BoostHub task is available in your cycle'; ?>"
                     >
-                        <i class="fas fa-forward"></i> Skip Task
+                        <i class="fas fa-forward"></i> Skip to Next Task
                     </button>
                     <p class="bh-claim-sub"><?php echo $boost_correction_note !== '' ? 'Evidence update requested' : '1 social task available'; ?></p>
                     <p class="bh-skip-sub">
                         <?php echo $can_skip_task
-                            ? htmlspecialchars((string) ($skip_remaining . ' fresh task' . ($skip_remaining === 1 ? '' : 's') . ' remaining after this one.'), ENT_QUOTES, 'UTF-8')
-                            : 'Skip unavailable because no new uncompleted BoostHub task is left.'; ?>
+                            ? htmlspecialchars((string) ($skip_remaining . ' unfinished task' . ($skip_remaining === 1 ? '' : 's') . ' remaining in your cycle after this one.'), ENT_QUOTES, 'UTF-8')
+                            : 'Skip unavailable because no other unfinished BoostHub task is available right now.'; ?>
                     </p>
                 </div>
 
@@ -635,7 +635,7 @@ require_once __DIR__ . '/../includes/header.php';
     if (skipTaskBtn && canSkipTask) {
         skipTaskBtn.addEventListener('click', async function() {
             if (skipTaskBtn.disabled || !taskId) return;
-            if (!window.confirm('Skip this BoostHub task and get a fresh one?')) return;
+            if (!window.confirm('Skip to the next unfinished BoostHub task?')) return;
 
             skipTaskBtn.disabled = true;
             skipTaskBtn.classList.add('is-loading');
