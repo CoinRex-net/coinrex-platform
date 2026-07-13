@@ -838,16 +838,7 @@ function getUserLevelProgressData($user_or_id, PDO $db = null) {
         $policy = getLevelPolicy($next_level);
         if ($next_level === 'pro') {
             $mission_ratio = !empty($stats['mission_completed']) ? 1 : 0;
-            $referral_ratio = $policy['promotion_valid_referrals'] > 0
-                ? min(1, (int) ($stats['valid_referrals'] ?? 0) / (int) $policy['promotion_valid_referrals'])
-                : 1;
-            $age_ratio = $policy['promotion_account_age_days'] > 0
-                ? min(1, (int) ($stats['account_age_days'] ?? 0) / (int) $policy['promotion_account_age_days'])
-                : 1;
-            $task_ratio = $policy['promotion_completed_tasks'] > 0
-                ? min(1, (int) ($stats['completed_tasks'] ?? 0) / (int) $policy['promotion_completed_tasks'])
-                : 1;
-            $progress = round((($mission_ratio + $referral_ratio + $age_ratio + $task_ratio) / 4) * 100, 1);
+            $progress = round($mission_ratio * 100, 1);
         } else {
             $review_ratio = $policy['promotion_approved_reviews'] > 0
                 ? min(1, (int) ($stats['approved_reviews'] ?? 0) / (int) $policy['promotion_approved_reviews'])
@@ -865,7 +856,9 @@ function getUserLevelProgressData($user_or_id, PDO $db = null) {
             'approved_reviews_needed' => max(0, (int) $policy['promotion_approved_reviews'] - (int) ($stats['approved_reviews'] ?? 0)),
             'valid_referrals_needed' => max(0, (int) $policy['promotion_valid_referrals'] - (int) ($stats['valid_referrals'] ?? 0)),
             'accuracy_needed' => max(0, round((float) $policy['promotion_accuracy'] - (float) ($stats['accuracy'] ?? 0), 2)),
-            'completed_tasks_needed' => max(0, (int) $policy['promotion_completed_tasks'] - (int) ($stats['completed_tasks'] ?? 0)),
+            'completed_tasks_needed' => $next_level === 'pro' && !empty($stats['mission_completed'])
+                ? 0
+                : max(0, (int) $policy['promotion_completed_tasks'] - (int) ($stats['completed_tasks'] ?? 0)),
             'account_age_days_needed' => max(0, (int) $policy['promotion_account_age_days'] - (int) ($stats['account_age_days'] ?? 0)),
         ];
     }

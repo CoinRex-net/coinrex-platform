@@ -73,8 +73,8 @@
                 <div id="mysteryPartialMsg" class="taskhub-mystery-partial" hidden>
                     <div class="taskhub-mystery-partial-icon">10/10</div>
                     <div class="taskhub-mystery-partial-text">
-                        <strong>PRO Requirements</strong>
-                        <p>Complete the remaining requirements to unlock PRO.</p>
+                        <strong>LearnHub Progress</strong>
+                        <p>Finish the LearnHub mission to unlock PRO automatically.</p>
                         <ul class="taskhub-mystery-requirements" id="mysteryRequirementList"></ul>
                     </div>
                 </div>

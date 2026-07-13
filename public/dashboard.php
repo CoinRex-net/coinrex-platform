@@ -62,22 +62,18 @@ if (($user['level'] ?? '') === 'pro') {
 }
 
 $current_level = normalizeUserLevel((string) ($user['level'] ?? 'beginner'));
+$has_pro_access = in_array($current_level, ['pro', 'expert'], true);
 $next_level = $level_progress['next_level'] ?? null;
 $level_definitions = getLevelSystemDefinitions();
 $next_policy = $next_level && isset($level_definitions[$next_level]) ? $level_definitions[$next_level] : null;
 $remaining_requirements = [];
+$referrals_left = 0;
+$task_left = 0;
+$reviews_left = 0;
+$accuracy_left = 0;
 $next_goal_text = '';
 if ($next_policy) {
-    $current_tasks = (int) ($mini_task_stats['completed_total'] ?? 0);
-    $current_referrals = (int) ($user['valid_referrals'] ?? 0);
-    $current_reviews = (int) ($level_state['stats']['approved_reviews'] ?? 0);
-    $current_accuracy = (float) ($level_state['accuracy'] ?? 0);
     $mission_completed = !empty($level_state['stats']['mission_completed']);
-
-    $task_left = max(0, (int) ($next_policy['promotion_completed_tasks'] ?? 0) - $current_tasks);
-    $referrals_left = max(0, (int) ($next_policy['promotion_valid_referrals'] ?? 0) - $current_referrals);
-    $reviews_left = max(0, (int) ($next_policy['promotion_approved_reviews'] ?? 0) - $current_reviews);
-    $accuracy_left = max(0, (float) ($next_policy['promotion_accuracy'] ?? 0) - $current_accuracy);
 
     if ($next_level === 'pro') {
         if (!$mission_completed) {
@@ -179,6 +175,32 @@ $level_card_target = 'Pro';
 $level_card_path = 'Beginner to Pro';
 $level_card_title = 'Complete 4 Pro requirements';
 $level_card_unlocked = $current_level === 'expert';
+
+if ($current_level !== 'pro' && $current_level !== 'expert') {
+    if ($next_level === 'pro' && !$pro_mission_complete) {
+        $next_goal_text = 'Complete all 10 LearnHub days -> Pro';
+    }
+
+    $pro_requirements = [
+        [
+            'key' => 'learnhub',
+            'label' => 'LearnHub Mission',
+            'complete' => $pro_mission_complete,
+            'blocked' => false,
+            'meta' => $pro_mission_complete ? '10-day mission complete' : 'Complete all 10 LearnHub days',
+            'helper' => $pro_mission_complete ? 'Done. PRO will sync automatically.' : 'Finish the final LearnHub mission flow, including the mystery box.',
+            'action_label' => $pro_mission_complete ? '' : 'Open LearnHub',
+            'action_url' => BASE_URL . '/public/taskhub.php',
+            'copy_text' => '',
+            'icon' => 'fas fa-graduation-cap',
+        ],
+    ];
+    $pro_completed_count = $pro_mission_complete ? 1 : 0;
+    $pro_total_count = 1;
+    $pro_progress_percent = $pro_mission_complete ? 100 : 0;
+    $pro_ready = $pro_mission_complete;
+    $level_card_title = 'Complete the 10-day LearnHub mission';
+}
 
 if ($current_level === 'pro') {
     $expert_policy = getLevelPolicy('expert');
@@ -354,7 +376,7 @@ require_once __DIR__ . '/../includes/header.php';
             : ($airdrop_days_to_finish > 0
             ? ($airdrop_days_to_finish . ' LearnHub day' . ($airdrop_days_to_finish === 1 ? '' : 's') . ' left')
             : 'Reach PRO Level');
-        $is_pro = ($user['level'] ?? '') === 'pro';
+        $is_pro = $has_pro_access;
         ?>
         <?php if ($show_airdrop_feature && $pending_airdrop > 0 && !$is_pro): ?>
         <section class="airdrop-premium">
@@ -427,7 +449,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php if ($pro_mission_complete): ?>
                                 <strong><?php echo htmlspecialchars($learnhub_completion_message, ENT_QUOTES, 'UTF-8'); ?></strong>. Reach <strong>PRO Level</strong> to unlock your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> airdrop.
                             <?php else: ?>
-                                Step 1: complete <strong><?php echo $airdrop_total_days; ?> LearnHub days</strong>. Step 2: reach <strong>PRO Level</strong>. Then your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> unlocks automatically.
+                                Complete <strong><?php echo $airdrop_total_days; ?> LearnHub days</strong> to automatically receive <strong>PRO Level</strong>. Then your <strong><?php echo number_format($pending_airdrop, 0); ?> $REX</strong> unlocks automatically.
                             <?php endif; ?>
                         </span>
                     </div>
@@ -575,10 +597,16 @@ require_once __DIR__ . '/../includes/header.php';
                             <span class="action-icon-btn-lock">🔒</span>
                         </span>
                     <?php endif; ?>
-                    <?php if ($show_learnhub_feature && !$pro_mission_complete): ?>
+                    <?php if ($show_learnhub_feature && !$has_pro_access && !$pro_mission_complete): ?>
                     <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="action-icon-btn" title="LearnHub">
                         <span class="action-icon-btn-icon">✅</span>
                         <span class="action-icon-btn-label">LearnHub</span>
+                    </a>
+                    <?php endif; ?>
+                    <?php if ($show_leaderboard_nav): ?>
+                    <a href="<?php echo BASE_URL; ?>/public/leaderboard.php" class="action-icon-btn" title="Leaderboard">
+                        <span class="action-icon-btn-icon">🏆</span>
+                        <span class="action-icon-btn-label">Leaders</span>
                     </a>
                     <?php endif; ?>
                     <?php if ($show_boosthub_feature): ?>
@@ -587,10 +615,6 @@ require_once __DIR__ . '/../includes/header.php';
                         <span class="action-icon-btn-label">Boost</span>
                     </a>
                     <?php endif; ?>
-                    <a href="<?php echo BASE_URL; ?>/public/rex-signer.php" class="action-icon-btn" title="RexLink">
-                        <span class="action-icon-btn-icon"><i class="fas fa-qrcode"></i></span>
-                        <span class="action-icon-btn-label">Signer</span>
-                    </a>
                     <?php if ($show_claim_feature): ?>
                     <span class="action-icon-btn action-icon-btn--locked" title="Coming soon">
                         <span class="action-icon-btn-icon">🏆</span>
@@ -634,8 +658,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                     <p class="pro-progress-summary">
                         <?php echo $pro_ready
-                            ? 'All ' . htmlspecialchars($level_card_target, ENT_QUOTES, 'UTF-8') . ' criteria are complete. Promotion will sync automatically.'
-                            : 'Complete the pending items below to unlock ' . htmlspecialchars($level_card_target, ENT_QUOTES, 'UTF-8') . ' access.'; ?>
+                            ? 'Your LearnHub mission is complete. PRO promotion will sync automatically.'
+                            : 'Complete LearnHub Day 10 to unlock ' . htmlspecialchars($level_card_target, ENT_QUOTES, 'UTF-8') . ' automatically.'; ?>
                     </p>
 
                     <div class="pro-requirement-list">
@@ -651,27 +675,29 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div class="pro-requirement-main">
                                     <div class="pro-requirement-title-row">
                                         <strong><?php echo htmlspecialchars((string) $requirement['label'], ENT_QUOTES, 'UTF-8'); ?></strong>
-                                        <span><?php echo htmlspecialchars($req_label, ENT_QUOTES, 'UTF-8'); ?></span>
                                     </div>
                                     <p><?php echo htmlspecialchars((string) $requirement['meta'], ENT_QUOTES, 'UTF-8'); ?></p>
                                     <small><?php echo htmlspecialchars((string) $requirement['helper'], ENT_QUOTES, 'UTF-8'); ?></small>
                                 </div>
-                                <?php if (!empty($requirement['action_label']) && !empty($requirement['action_url'])): ?>
-                                    <a class="pro-requirement-action" href="<?php echo htmlspecialchars((string) $requirement['action_url'], ENT_QUOTES, 'UTF-8'); ?>">
-                                        <?php echo htmlspecialchars((string) $requirement['action_label'], ENT_QUOTES, 'UTF-8'); ?>
-                                    </a>
-                                <?php elseif (!empty($requirement['action_label']) && !empty($requirement['copy_text'])): ?>
-                                    <button type="button" class="pro-requirement-action" data-copy-text="<?php echo htmlspecialchars((string) $requirement['copy_text'], ENT_QUOTES, 'UTF-8'); ?>">
-                                        <?php echo htmlspecialchars((string) $requirement['action_label'], ENT_QUOTES, 'UTF-8'); ?>
-                                    </button>
-                                <?php endif; ?>
+                                <div class="pro-requirement-side">
+                                    <span class="pro-requirement-status"><?php echo htmlspecialchars($req_label, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php if (!empty($requirement['action_label']) && !empty($requirement['action_url'])): ?>
+                                        <a class="pro-requirement-action" href="<?php echo htmlspecialchars((string) $requirement['action_url'], ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars((string) $requirement['action_label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </a>
+                                    <?php elseif (!empty($requirement['action_label']) && !empty($requirement['copy_text'])): ?>
+                                        <button type="button" class="pro-requirement-action" data-copy-text="<?php echo htmlspecialchars((string) $requirement['copy_text'], ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars((string) $requirement['action_label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
 
                     <div class="level-next-goal <?php echo $pro_ready ? 'level-next-goal--done' : ''; ?>">
                         <span class="level-next-goal-arrow"><i class="<?php echo $pro_ready ? 'fas fa-check' : 'fas fa-arrow-right'; ?>"></i></span>
-                        <span><?php echo $pro_ready ? 'All criteria met - promoting soon' : htmlspecialchars((string) ($next_goal_text ?: 'Finish the pending ' . $level_card_target . ' requirements'), ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span><?php echo $pro_ready ? 'LearnHub complete - promoting soon' : htmlspecialchars((string) ($next_goal_text ?: 'Finish the LearnHub mission to unlock ' . $level_card_target), ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 <?php endif; ?>
 

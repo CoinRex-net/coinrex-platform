@@ -28,7 +28,7 @@ if (!$claim_pairing_test_mode && !userCanAccessClaimCenter($level_state)) {
                 <div>
                     <span class="reward-tag">PRO Access</span>
                     <h1>Claim Center unlocks at PRO</h1>
-                    <p>Complete your LearnHub mission, referral, account-age, and security requirements to unlock REX claiming.</p>
+                    <p>Complete the 10-day LearnHub mission to automatically unlock PRO access and REX claiming.</p>
                     <div class="page-actions">
                         <a href="<?php echo BASE_URL; ?>/public/dashboard.php" class="secondary-btn">Back to Dashboard</a>
                         <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="primary-btn">Continue LearnHub</a>

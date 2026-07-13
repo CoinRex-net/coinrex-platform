@@ -338,10 +338,10 @@ function getLevelSystemDefinitions() {
             'approval_label' => 'Priority ~12 hours',
             'bonus_accuracy_threshold' => 70,
             'promotion_approved_reviews' => 0,
-            'promotion_valid_referrals' => PRO_MIN_VALID_REFERRALS,
+            'promotion_valid_referrals' => 0,
             'promotion_accuracy' => 0,
             'promotion_completed_tasks' => PRO_MIN_COMPLETED_TASKS,
-            'promotion_account_age_days' => PRO_MIN_ACCOUNT_AGE_DAYS,
+            'promotion_account_age_days' => 0,
             'demotion_rejection_ratio' => 0.35,
             'referral_commission_percent' => REFERRAL_COMMISSION_PERCENT,
         ],
@@ -382,28 +382,7 @@ function levelPromotionCriteriaMet($target_level, array $stats) {
     }
 
     if ($target_level === 'pro') {
-        // PRO promotion requires ALL of the following:
-        // 1. All 10 TaskHub mission days completed
-        // 2. Account age >= 7 days
-        // 3. At least 1 valid referral
-        // 4. No suspicious security signals
-        if (empty($stats['mission_completed'])) {
-            return false;
-        }
-
-        if ((int) ($stats['account_age_days'] ?? 0) < (int) ($policy['promotion_account_age_days'] ?? 0)) {
-            return false;
-        }
-
-        if ((int) ($stats['valid_referrals'] ?? 0) < (int) ($policy['promotion_valid_referrals'] ?? 0)) {
-            return false;
-        }
-
-        $signals = getUserSecuritySignals((int) ($stats['user_id'] ?? 0));
-        if (!empty($signals['is_suspicious'])) {
-            return false;
-        }
-        return true;
+        return !empty($stats['mission_completed']);
     }
 
     if ((int) ($stats['approved_reviews'] ?? 0) < (int) ($policy['promotion_approved_reviews'] ?? 0)) {
@@ -441,28 +420,6 @@ function getLevelPromotionBlockers($target_level, array $stats) {
     if ($target_level === 'pro') {
         if (empty($stats['mission_completed'])) {
             $blockers[] = 'Complete all 10 TaskHub days first.';
-        }
-
-        $age_days = (int) ($stats['account_age_days'] ?? 0);
-        $min_age = (int) ($policy['promotion_account_age_days'] ?? 0);
-        if ($age_days < $min_age) {
-            $days_left = $min_age - $age_days;
-            $blockers[] = "Account must be {$min_age} days old ({$days_left} more day" . ($days_left > 1 ? 's' : '') . " needed).";
-        }
-
-        $referrals = (int) ($stats['valid_referrals'] ?? 0);
-        $min_refs = (int) ($policy['promotion_valid_referrals'] ?? 0);
-        if ($referrals < $min_refs) {
-            $refs_left = $min_refs - $referrals;
-            $blockers[] = "Need {$min_refs} valid referral" . ($min_refs > 1 ? 's' : '') . " ({$refs_left} more needed).";
-        }
-
-        // Check security signals
-        $signals = getUserSecuritySignals((int) ($stats['user_id'] ?? 0));
-        if (!empty($signals['reasons'])) {
-            foreach ($signals['reasons'] as $reason) {
-                $blockers[] = 'Security: ' . $reason;
-            }
         }
 
         return $blockers;

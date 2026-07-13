@@ -153,14 +153,7 @@ try {
     $level_state = syncUserLevelStatus((int) $user_id, $db);
     $new_level = normalizeUserLevel((string) ($level_state['level'] ?? $old_level));
     $level_stats = (array) ($level_state['stats'] ?? []);
-    $pro_policy = getLevelPolicy('pro');
-    $pro_security_signals = getUserSecuritySignals((int) $user_id, $db);
-    $pro_required_age_days = (int) ($pro_policy['promotion_account_age_days'] ?? PRO_MIN_ACCOUNT_AGE_DAYS);
-    $pro_required_referrals = (int) ($pro_policy['promotion_valid_referrals'] ?? PRO_MIN_VALID_REFERRALS);
-    $pro_account_age_days = (int) ($level_stats['account_age_days'] ?? 0);
-    $pro_valid_referrals = (int) ($level_stats['valid_referrals'] ?? 0);
     $pro_mission_complete = !empty($level_stats['mission_completed']);
-    $pro_security_clear = empty($pro_security_signals['is_suspicious']);
     $pro_requirements = [
         [
             'key' => 'mission',
@@ -168,29 +161,8 @@ try {
             'complete' => $pro_mission_complete,
             'meta' => $pro_mission_complete ? 'Completed' : 'Finish all 10 days and claim the mystery box',
         ],
-        [
-            'key' => 'account_age',
-            'label' => 'Account age',
-            'complete' => $pro_account_age_days >= $pro_required_age_days,
-            'meta' => number_format($pro_account_age_days) . '/' . number_format(max(1, $pro_required_age_days)) . ' days',
-        ],
-        [
-            'key' => 'valid_referral',
-            'label' => 'Valid referral',
-            'complete' => $pro_valid_referrals >= $pro_required_referrals,
-            'meta' => number_format($pro_valid_referrals) . '/' . number_format(max(1, $pro_required_referrals)) . ' valid referral',
-        ],
-        [
-            'key' => 'security',
-            'label' => 'Account security review',
-            'complete' => $pro_security_clear,
-            'meta' => $pro_security_clear ? 'Clear' : 'Under review',
-        ],
     ];
-    $pro_eligible = $pro_mission_complete
-        && $pro_account_age_days >= $pro_required_age_days
-        && $pro_valid_referrals >= $pro_required_referrals
-        && $pro_security_clear;
+    $pro_eligible = $pro_mission_complete;
     $pro_unlocked = $pro_eligible
         && $new_level !== 'beginner'
         && $new_level !== $old_level;
