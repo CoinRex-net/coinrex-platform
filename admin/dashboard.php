@@ -8,7 +8,10 @@ $has_content_flags_table = tableExists('content_flags');
 
 // ── Main Site (CoinRex / Client Area) Metrics ──
 $total_users          = (int) $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
-$active_users         = (int) $db->query("SELECT COUNT(*) FROM users WHERE status = 'active'")->fetchColumn();
+$active_user_window_minutes = 5;
+$active_users         = tableHasColumn('users', 'last_active')
+    ? (int) $db->query("SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL {$active_user_window_minutes} MINUTE)")->fetchColumn()
+    : (int) $db->query("SELECT COUNT(*) FROM users WHERE status = 'active'")->fetchColumn();
 $pro_users            = (int) $db->query("SELECT COUNT(*) FROM users WHERE LOWER(COALESCE(level, 'beginner')) IN ('pro', 'premium')")->fetchColumn();
 $expert_users         = (int) $db->query("SELECT COUNT(*) FROM users WHERE LOWER(COALESCE(level, 'beginner')) = 'expert'")->fetchColumn();
 $pending_reviews      = (int) $db->query("SELECT COUNT(*) FROM reviews WHERE status = 'pending'")->fetchColumn();
@@ -161,7 +164,7 @@ function timeAgo($datetime, $age_seconds = null) {
 <div class="dashboard-metric-grid">
     <?php
     metricCard('Total Users',       $total_users,       ADMIN_BASE_URL . '/users.php',                        'is-blue',   'fa-users');
-    metricCard('Active Users',      $active_users,      ADMIN_BASE_URL . '/users.php',                        'is-green',  'fa-user-check');
+    metricCard('Active Users Now',  $active_users,      ADMIN_BASE_URL . '/users.php',                        'is-green',  'fa-user-check');
     metricCard('Pro / Premium',     $pro_users,         ADMIN_BASE_URL . '/reward-users.php',                 'is-gold',   'fa-crown');
     metricCard('Expert Users',      $expert_users,      ADMIN_BASE_URL . '/reward-users.php',                 'is-purple', 'fa-gem');
     metricCard('Flagged Reviews',   $flagged_reviews,   ADMIN_BASE_URL . '/reviews.php?status=flagged',       'is-red',    'fa-flag');

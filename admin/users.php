@@ -87,6 +87,36 @@ $count_stmt->execute($count_params);
 $total_users = (int) $count_stmt->fetchColumn();
 $total_pages = max(1, (int) ceil($total_users / $perPage));
 
+$summary_sql = "
+    SELECT
+        COUNT(*) AS total,
+        SUM(CASE
+            WHEN LOWER(TRIM(COALESCE(level, 'beginner'))) IN ('pro', 'premium') THEN 1
+            ELSE 0
+        END) AS pro,
+        SUM(CASE
+            WHEN LOWER(TRIM(COALESCE(level, 'beginner'))) = 'expert' THEN 1
+            ELSE 0
+        END) AS expert
+    FROM users
+";
+$summary_params = [];
+if ($status_filter !== 'all') {
+    $summary_sql .= " WHERE status = ? ";
+    $summary_params[] = $status_filter;
+}
+if ($search !== '') {
+    $summary_sql .= ($status_filter !== 'all') ? " AND " : " WHERE ";
+    $summary_sql .= " (full_name LIKE ? OR username LIKE ? OR email LIKE ?) ";
+    $needle = '%' . $search . '%';
+    $summary_params[] = $needle;
+    $summary_params[] = $needle;
+    $summary_params[] = $needle;
+}
+$summary_stmt = $db->prepare($summary_sql);
+$summary_stmt->execute($summary_params);
+$summary_row = $summary_stmt->fetch() ?: [];
+
 // Data query
 $params = [];
 $query_sql = "
@@ -115,19 +145,11 @@ $stmt->execute($params);
 $users = $stmt->fetchAll();
 
 $user_summary = [
-    'total' => $total_users,
-    'beginner' => 0,
-    'pro' => 0,
-    'expert' => 0,
+    'total' => (int) ($summary_row['total'] ?? $total_users),
+    'pro' => (int) ($summary_row['pro'] ?? 0),
+    'expert' => (int) ($summary_row['expert'] ?? 0),
 ];
-
-foreach ($users as $summary_user) {
-    $summary_level = normalizeUserLevel($summary_user['level'] ?? 'beginner');
-    if (!isset($user_summary[$summary_level])) {
-        $summary_level = 'beginner';
-    }
-    $user_summary[$summary_level]++;
-}
+$user_summary['beginner'] = max(0, $user_summary['total'] - $user_summary['pro'] - $user_summary['expert']);
 
 // AJAX mode
 if ($is_ajax_request) {
