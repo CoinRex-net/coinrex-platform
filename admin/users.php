@@ -37,6 +37,34 @@ function adminUserListLevelState(array $user): array {
     ];
 }
 
+function adminUserListLearnHubCompletedDays(array $user, PDO $db): int {
+    $total_days = defined('TASKHUB_TOTAL_DAYS') ? (int) TASKHUB_TOTAL_DAYS : 10;
+    $current_day = max(1, (int) ($user['current_day'] ?? 1));
+    $completed_days = max(0, min($total_days, $current_day - 1));
+
+    if (function_exists('taskHubMissionCompleted') && taskHubMissionCompleted((int) ($user['id'] ?? 0), $db)) {
+        return $total_days;
+    }
+
+    return $completed_days;
+}
+
+function adminUserListBuildBoosthubEvidenceUrl(array $user): string {
+    $params = ['user_id=' . (int) ($user['id'] ?? 0)];
+    $username = trim((string) ($user['username'] ?? ''));
+    if ($username !== '') {
+        $params[] = 'username=' . rawurlencode($username);
+    }
+
+    return ADMIN_BASE_URL . '/boosthub-evidence.php?' . implode('&', $params);
+}
+
+function adminUserListDecorate(array $user, PDO $db): array {
+    $user['learnhub_completed_days'] = adminUserListLearnHubCompletedDays($user, $db);
+    $user['boosthub_evidence_url'] = adminUserListBuildBoosthubEvidenceUrl($user);
+    return $user;
+}
+
 $perPage = 20;
 $page = paginationGetPage('page', 1);
 $offset = ($page - 1) * $perPage;
@@ -120,29 +148,65 @@ $summary_row = $summary_stmt->fetch() ?: [];
 // Data query
 $params = [];
 $query_sql = "
-    SELECT id, full_name, username, email, status, role, level, total_reviews, approved_reviews_count, valid_referrals, created_at
-    FROM users
+    SELECT
+        u.id,
+        u.full_name,
+        u.username,
+        u.email,
+        u.status,
+        u.role,
+        u.level,
+        u.total_reviews,
+        u.approved_reviews_count,
+        u.valid_referrals,
+        u.created_at,
+        u.current_day,
+        u.last_login,
+        u.last_active,
+        u.reward_frozen,
+        u.security_flagged,
+        u.security_flag_reason,
+        u.security_suspended,
+        u.login_attempts,
+        u.taskhub_blocked_until,
+        u.boosthub_blocked_until,
+        u.review_blocked_until,
+        COALESCE(boosthub_stats.completed_total, 0) AS boosthub_completed_tasks
+    FROM users u
+    LEFT JOIN (
+        SELECT
+            utl.user_id,
+            COUNT(*) AS completed_total
+        FROM user_task_logs utl
+        INNER JOIN mini_tasks mt ON mt.id = utl.task_id
+        WHERE mt.task_group = 'boosthub'
+          AND utl.status = 'completed'
+        GROUP BY utl.user_id
+    ) boosthub_stats ON boosthub_stats.user_id = u.id
 ";
 if ($status_filter !== 'all') {
-    $query_sql .= " WHERE status = ? ";
+    $query_sql .= " WHERE u.status = ? ";
     $params[] = $status_filter;
 }
 
 if ($search !== '') {
     $query_sql .= ($status_filter !== 'all') ? " AND " : " WHERE ";
-    $query_sql .= " (full_name LIKE ? OR username LIKE ? OR email LIKE ?) ";
+    $query_sql .= " (u.full_name LIKE ? OR u.username LIKE ? OR u.email LIKE ?) ";
     $needle = '%' . $search . '%';
     $params[] = $needle;
     $params[] = $needle;
     $params[] = $needle;
 }
-$query_sql .= " ORDER BY id DESC LIMIT ? OFFSET ?";
+$query_sql .= " ORDER BY u.id DESC LIMIT ? OFFSET ?";
 $params[] = $perPage;
 $params[] = $offset;
 
 $stmt = $db->prepare($query_sql);
 $stmt->execute($params);
 $users = $stmt->fetchAll();
+$users = array_map(static function (array $user) use ($db): array {
+    return adminUserListDecorate($user, $db);
+}, $users);
 
 $user_summary = [
     'total' => (int) ($summary_row['total'] ?? $total_users),
@@ -204,6 +268,19 @@ if ($is_ajax_request) {
             $tableBody .= ' data-approved-reviews="' . (int) ($user['approved_reviews_count'] ?? 0) . '"';
             $tableBody .= ' data-valid-referrals="' . (int) ($user['valid_referrals'] ?? 0) . '"';
             $tableBody .= ' data-created-at="' . htmlspecialchars((string) ($user['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
+            $tableBody .= ' data-last-login="' . htmlspecialchars((string) ($user['last_login'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
+            $tableBody .= ' data-last-active="' . htmlspecialchars((string) ($user['last_active'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
+            $tableBody .= ' data-learnhub-completed-days="' . (int) ($user['learnhub_completed_days'] ?? 0) . '"';
+            $tableBody .= ' data-boosthub-completed-tasks="' . (int) ($user['boosthub_completed_tasks'] ?? 0) . '"';
+            $tableBody .= ' data-boosthub-evidence-url="' . htmlspecialchars((string) ($user['boosthub_evidence_url'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
+            $tableBody .= ' data-reward-frozen="' . (!empty($user['reward_frozen']) ? '1' : '0') . '"';
+            $tableBody .= ' data-security-flagged="' . (!empty($user['security_flagged']) ? '1' : '0') . '"';
+            $tableBody .= ' data-security-flag-reason="' . htmlspecialchars((string) ($user['security_flag_reason'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
+            $tableBody .= ' data-security-suspended="' . (!empty($user['security_suspended']) ? '1' : '0') . '"';
+            $tableBody .= ' data-login-attempts="' . (int) ($user['login_attempts'] ?? 0) . '"';
+            $tableBody .= ' data-taskhub-blocked-until="' . htmlspecialchars((string) ($user['taskhub_blocked_until'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
+            $tableBody .= ' data-boosthub-blocked-until="' . htmlspecialchars((string) ($user['boosthub_blocked_until'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
+            $tableBody .= ' data-review-blocked-until="' . htmlspecialchars((string) ($user['review_blocked_until'] ?? ''), ENT_QUOTES, 'UTF-8') . '"';
             $tableBody .= '>View</button>';
             if ($target_status === 'suspended') {
                 $escaped_username = htmlspecialchars(str_replace("'", "\\'", (string) ($user['username'] ?? '')), ENT_QUOTES, 'UTF-8');
@@ -379,6 +456,19 @@ paginationRenderStyles();
                                 data-approved-reviews="<?php echo (int) ($user['approved_reviews_count'] ?? 0); ?>"
                                 data-valid-referrals="<?php echo (int) ($user['valid_referrals'] ?? 0); ?>"
                                 data-created-at="<?php echo htmlspecialchars((string) ($user['created_at'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-last-login="<?php echo htmlspecialchars((string) ($user['last_login'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-last-active="<?php echo htmlspecialchars((string) ($user['last_active'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-learnhub-completed-days="<?php echo (int) ($user['learnhub_completed_days'] ?? 0); ?>"
+                                data-boosthub-completed-tasks="<?php echo (int) ($user['boosthub_completed_tasks'] ?? 0); ?>"
+                                data-boosthub-evidence-url="<?php echo htmlspecialchars((string) ($user['boosthub_evidence_url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-reward-frozen="<?php echo !empty($user['reward_frozen']) ? '1' : '0'; ?>"
+                                data-security-flagged="<?php echo !empty($user['security_flagged']) ? '1' : '0'; ?>"
+                                data-security-flag-reason="<?php echo htmlspecialchars((string) ($user['security_flag_reason'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-security-suspended="<?php echo !empty($user['security_suspended']) ? '1' : '0'; ?>"
+                                data-login-attempts="<?php echo (int) ($user['login_attempts'] ?? 0); ?>"
+                                data-taskhub-blocked-until="<?php echo htmlspecialchars((string) ($user['taskhub_blocked_until'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-boosthub-blocked-until="<?php echo htmlspecialchars((string) ($user['boosthub_blocked_until'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-review-blocked-until="<?php echo htmlspecialchars((string) ($user['review_blocked_until'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                             >View</button>
                             <?php if ($target_status === 'suspended'): ?>
                                 <?php $suspend_csrf = htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>
@@ -448,7 +538,7 @@ paginationRenderStyles();
 <!-- ════════════════════════════════════════════ -->
 <div class="dashboard-modal" id="userDetailsModal" aria-hidden="true">
 
-    <div class="dashboard-modal-card">
+    <div class="dashboard-modal-card user-details-modal-card">
         <div class="dashboard-modal-header">
             <div>
                 <span class="modal-kicker"><i class="fas fa-user"></i> User Profile</span>
@@ -473,6 +563,14 @@ paginationRenderStyles();
                     <h4><i class="fas fa-shield"></i> Account State</h4>
                     <div class="dashboard-detail-list" id="userAccountBlock"></div>
                 </div>
+                <div class="dashboard-modal-card-inner">
+                    <h4><i class="fas fa-bolt"></i> Hub Activity</h4>
+                    <div class="dashboard-detail-list" id="userHubBlock"></div>
+                </div>
+                <div class="dashboard-modal-card-inner">
+                    <h4><i class="fas fa-triangle-exclamation"></i> Security Flags</h4>
+                    <div class="dashboard-detail-list" id="userSecurityBlock"></div>
+                </div>
                 <div class="dashboard-modal-card-inner dashboard-modal-card-inner-wide">
                     <h4><i class="fas fa-chart-bar"></i> Performance Snapshot</h4>
                     <div class="dashboard-detail-list" id="userPerformanceBlock"></div>
@@ -481,6 +579,84 @@ paginationRenderStyles();
         </div>
     </div>
 </div>
+
+<style>
+.user-details-modal-card {
+    width: min(920px, 100%);
+}
+.user-status-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.user-modal-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.55);
+    color: #cbd5e1;
+}
+.user-modal-chip.is-danger {
+    border-color: rgba(248, 113, 113, 0.35);
+    background: rgba(127, 29, 29, 0.22);
+    color: #fecaca;
+}
+.user-modal-chip.is-warning {
+    border-color: rgba(250, 204, 21, 0.35);
+    background: rgba(113, 63, 18, 0.2);
+    color: #fde68a;
+}
+.user-modal-chip.is-info {
+    border-color: rgba(96, 165, 250, 0.35);
+    background: rgba(30, 64, 175, 0.18);
+    color: #bfdbfe;
+}
+.user-modal-chip.is-success {
+    border-color: rgba(74, 222, 128, 0.35);
+    background: rgba(20, 83, 45, 0.22);
+    color: #bbf7d0;
+}
+.user-modal-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #93c5fd;
+    text-decoration: none;
+    font-weight: 700;
+}
+.user-modal-link:hover {
+    color: #dbeafe;
+}
+.dashboard-detail-list > div.user-detail-stack {
+    display: block;
+}
+.dashboard-detail-list > div.user-detail-stack .detail-value {
+    display: block;
+    margin-top: 6px;
+    line-height: 1.55;
+}
+@media (max-width: 768px) {
+    .user-details-modal-card {
+        width: 100%;
+    }
+    .dashboard-detail-list > div {
+        gap: 8px;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .user-status-inline {
+        justify-content: flex-start;
+    }
+}
+</style>
 
 <script>
 (function() {
@@ -493,6 +669,8 @@ paginationRenderStyles();
     var title = document.getElementById('userModalTitle');
     var identity = document.getElementById('userIdentityBlock');
     var account = document.getElementById('userAccountBlock');
+    var hub = document.getElementById('userHubBlock');
+    var security = document.getElementById('userSecurityBlock');
     var performance = document.getElementById('userPerformanceBlock');
     var avatarEl = document.getElementById('userModalAvatar');
     var avatarName = document.getElementById('userModalAvatarName');
@@ -504,16 +682,104 @@ paginationRenderStyles();
         return d.innerHTML;
     }
 
+    function formatDateTime(value) {
+        if (!value) {
+            return '-';
+        }
+
+        var normalized = String(value).replace(' ', 'T');
+        var date = new Date(normalized);
+        if (isNaN(date.getTime())) {
+            return esc(value);
+        }
+
+        return esc(date.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        }));
+    }
+
+    function formatRelative(value) {
+        if (!value) {
+            return '';
+        }
+
+        var normalized = String(value).replace(' ', 'T');
+        var date = new Date(normalized);
+        if (isNaN(date.getTime())) {
+            return '';
+        }
+
+        var diffMs = Date.now() - date.getTime();
+        var future = diffMs < 0;
+        var diffSeconds = Math.round(Math.abs(diffMs) / 1000);
+        var units = [
+            ['day', 86400],
+            ['hour', 3600],
+            ['minute', 60]
+        ];
+
+        for (var i = 0; i < units.length; i++) {
+            var unitName = units[i][0];
+            var unitSeconds = units[i][1];
+            if (diffSeconds >= unitSeconds) {
+                var amount = Math.floor(diffSeconds / unitSeconds);
+                return future
+                    ? 'in ' + amount + ' ' + unitName + (amount === 1 ? '' : 's')
+                    : amount + ' ' + unitName + (amount === 1 ? '' : 's') + ' ago';
+            }
+        }
+
+        return future ? 'in a moment' : 'just now';
+    }
+
+    function formatDateWithRelative(value) {
+        if (!value) {
+            return '-';
+        }
+
+        var absolute = formatDateTime(value);
+        var relative = formatRelative(value);
+        return relative ? absolute + ' (' + esc(relative) + ')' : absolute;
+    }
+
+    function buildChip(label, variant) {
+        return '<span class="user-modal-chip' + (variant ? ' ' + variant : '') + '">' + esc(label) + '</span>';
+    }
+
     function openModal(btn) {
         title.textContent = 'User #' + (btn.dataset.userId || '') + ' Details';
 
-        // Avatar
         var fullName = btn.dataset.fullName || '';
         var username = btn.dataset.username || '';
         var initial = (fullName || username || 'U').charAt(0).toUpperCase();
         avatarEl.textContent = initial;
-        avatarName.textContent = fullName || username || '—';
-        avatarUsername.textContent = '@' + (username || '—');
+        avatarName.textContent = fullName || username || '-';
+        avatarUsername.textContent = '@' + (username || '-');
+
+        var learnhubCompletedDays = parseInt(btn.dataset.learnhubCompletedDays || '0', 10);
+        var boosthubCompletedTasks = parseInt(btn.dataset.boosthubCompletedTasks || '0', 10);
+        var loginAttempts = parseInt(btn.dataset.loginAttempts || '0', 10);
+        var rewardFrozen = btn.dataset.rewardFrozen === '1';
+        var securityFlagged = btn.dataset.securityFlagged === '1';
+        var securitySuspended = btn.dataset.securitySuspended === '1';
+        var taskhubBlockedUntil = btn.dataset.taskhubBlockedUntil || '';
+        var boosthubBlockedUntil = btn.dataset.boosthubBlockedUntil || '';
+        var reviewBlockedUntil = btn.dataset.reviewBlockedUntil || '';
+        var securityReason = btn.dataset.securityFlagReason || '';
+        var securityPills = [];
+
+        if (securityFlagged) securityPills.push(buildChip('Flagged', 'is-warning'));
+        if (rewardFrozen) securityPills.push(buildChip('Rewards Frozen', 'is-danger'));
+        if (securitySuspended || (btn.dataset.status || '').toLowerCase() === 'suspended') securityPills.push(buildChip('Suspended', 'is-danger'));
+        if (taskhubBlockedUntil) securityPills.push(buildChip('LearnHub Blocked', 'is-info'));
+        if (boosthubBlockedUntil) securityPills.push(buildChip('BoostHub Blocked', 'is-info'));
+        if (reviewBlockedUntil) securityPills.push(buildChip('Review Blocked', 'is-info'));
+        if (loginAttempts >= 10) securityPills.push(buildChip('Suspicious Login Pattern', 'is-warning'));
+        if (securityPills.length === 0) securityPills.push(buildChip('Clear', 'is-success'));
 
         identity.innerHTML =
             '<div><strong>Full Name</strong><span class="detail-value">' + esc(btn.dataset.fullName || '-') + '</span></div>' +
@@ -522,14 +788,31 @@ paginationRenderStyles();
         account.innerHTML =
             '<div><strong>Status</strong><span class="detail-value">' + esc(btn.dataset.status || '-') + '</span></div>' +
             '<div><strong>Role</strong><span class="detail-value">' + esc(btn.dataset.role || 'user') + '</span></div>' +
-            '<div><strong>Joined</strong><span class="detail-value">' + esc(btn.dataset.createdAt || '-') + '</span></div>';
+            '<div><strong>Joined</strong><span class="detail-value">' + formatDateWithRelative(btn.dataset.createdAt || '') + '</span></div>' +
+            '<div><strong>Last Login</strong><span class="detail-value">' + formatDateWithRelative(btn.dataset.lastLogin || '') + '</span></div>' +
+            '<div><strong>Last Active</strong><span class="detail-value">' + formatDateWithRelative(btn.dataset.lastActive || '') + '</span></div>';
+        if (hub) {
+            hub.innerHTML =
+                '<div><strong>LearnHub Completed</strong><span class="detail-value">' + esc(String(learnhubCompletedDays)) + ' day' + (learnhubCompletedDays === 1 ? '' : 's') + '</span></div>' +
+                '<div class="user-detail-stack"><strong>BoostHub Completed Tasks</strong><span class="detail-value"><a class="user-modal-link" href="' + esc(btn.dataset.boosthubEvidenceUrl || '#') + '"><i class="fas fa-arrow-up-right-from-square"></i> ' + esc(String(boosthubCompletedTasks)) + ' task' + (boosthubCompletedTasks === 1 ? '' : 's') + '</a></span></div>' +
+                '<div><strong>Valid Referrals</strong><span class="detail-value">' + esc(btn.dataset.validReferrals || '0') + '</span></div>';
+        }
+        if (security) {
+            security.innerHTML =
+                '<div class="user-detail-stack"><strong>Flags & Status</strong><span class="detail-value user-status-inline">' + securityPills.join(' ') + '</span></div>' +
+                '<div><strong>Login Attempts</strong><span class="detail-value">' + esc(String(loginAttempts)) + '</span></div>' +
+                '<div><strong>Security Reason</strong><span class="detail-value">' + esc(securityReason || '-') + '</span></div>' +
+                '<div><strong>LearnHub Block</strong><span class="detail-value">' + formatDateWithRelative(taskhubBlockedUntil) + '</span></div>' +
+                '<div><strong>BoostHub Block</strong><span class="detail-value">' + formatDateWithRelative(boosthubBlockedUntil) + '</span></div>' +
+                '<div><strong>Review Block</strong><span class="detail-value">' + formatDateWithRelative(reviewBlockedUntil) + '</span></div>';
+        }
         performance.innerHTML =
             '<div><strong>Level</strong><span class="detail-value">' + esc(btn.dataset.level || '-') + '</span></div>' +
             '<div><strong>Trust Weight</strong><span class="detail-value">' + esc(btn.dataset.trust || '1') + 'x</span></div>' +
             '<div><strong>Accuracy</strong><span class="detail-value">' + esc(btn.dataset.accuracy || '0') + '%</span></div>' +
             '<div><strong>Approved Reviews</strong><span class="detail-value">' + esc(btn.dataset.approvedReviews || '0') + '</span></div>' +
             '<div><strong>Total Reviews</strong><span class="detail-value">' + esc(btn.dataset.totalReviews || '0') + '</span></div>' +
-            '<div><strong>Valid Referrals</strong><span class="detail-value">' + esc(btn.dataset.validReferrals || '0') + '</span></div>';
+            '<div><strong>User ID</strong><span class="detail-value">#' + esc(btn.dataset.userId || '0') + '</span></div>';
 
         modal.classList.add('show');
         modal.setAttribute('aria-hidden', 'false');

@@ -7,6 +7,18 @@ require_once __DIR__ . '/includes/pagination.php';
 
 $db = getDBConnection();
 $task_categories = adminRewardTaskCategories();
+$filtered_user_id = max(0, (int) ($_GET['user_id'] ?? 0));
+$filtered_username = trim((string) ($_GET['username'] ?? ''));
+$filtered_user = null;
+
+if ($filtered_user_id > 0) {
+    $user_stmt = $db->prepare("SELECT id, username, email FROM users WHERE id = ? LIMIT 1");
+    $user_stmt->execute([$filtered_user_id]);
+    $filtered_user = $user_stmt->fetch() ?: null;
+    if ($filtered_user) {
+        $filtered_username = (string) ($filtered_user['username'] ?? $filtered_username);
+    }
+}
 ?>
 <?php paginationRenderStyles(); ?>
 <style>
@@ -404,6 +416,21 @@ $task_categories = adminRewardTaskCategories();
 </div>
 
 <div class="boosthub-evidence-log">
+    <?php if ($filtered_user_id > 0): ?>
+    <div class="dashboard-panel" style="padding:16px 18px;">
+        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div>
+                <strong style="display:block;color:#f8fafc;">Showing submissions for user #<?php echo (int) $filtered_user_id; ?></strong>
+                <span class="muted">
+                    <?php echo htmlspecialchars($filtered_username !== '' ? '@' . $filtered_username : 'Specific user filter is active.', ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+            </div>
+            <a href="<?php echo ADMIN_BASE_URL; ?>/boosthub-evidence.php" class="btn btn-secondary">
+                <i class="fas fa-list"></i> View All
+            </a>
+        </div>
+    </div>
+    <?php endif; ?>
     <!-- Filters -->
     <div class="evidence-filters">
         <label for="evidenceFilterCategory"><i class="fas fa-tag"></i> Task Type</label>
@@ -484,6 +511,7 @@ $task_categories = adminRewardTaskCategories();
 
     var pathPrefix = window.location.pathname.indexOf('/coinrex/') === 0 ? '/coinrex' : '';
     var API_BASE = pathPrefix + '/api/admin/boosthub.php';
+    var filteredUserId = <?php echo (int) $filtered_user_id; ?>;
 
     var categorySelect = document.getElementById('evidenceFilterCategory');
     var statusSelect = document.getElementById('evidenceFilterStatus');
@@ -513,7 +541,8 @@ $task_categories = adminRewardTaskCategories();
         var url = API_BASE + '?action=all_evidence&task_category=' + encodeURIComponent(category) +
                   '&status=' + encodeURIComponent(status) +
                   '&page=' + page +
-                  '&per_page=20';
+                  '&per_page=20' +
+                  (filteredUserId > 0 ? '&user_id=' + encodeURIComponent(filteredUserId) : '');
 
         console.log('Fetching URL:', url);
         fetch(url)

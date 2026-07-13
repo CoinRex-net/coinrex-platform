@@ -432,9 +432,10 @@ function adminRewardGetBoosthubReviewRows(PDO $db) {
  * @param string $status_filter Filter by evidence status: 'submitted', 'completed', 'failed', or 'all'
  * @param int    $page          Current page (1-based)
  * @param int    $perPage       Items per page
+ * @param int    $user_id       Optional user filter
  * @return array ['rows' => array, 'total' => int, 'pages' => int]
  */
-function adminRewardGetBoosthubAllEvidence(PDO $db, string $task_category = 'all', string $status_filter = 'all', int $page = 1, int $perPage = 20): array {
+function adminRewardGetBoosthubAllEvidence(PDO $db, string $task_category = 'all', string $status_filter = 'all', int $page = 1, int $perPage = 20, int $user_id = 0): array {
     $page = max(1, $page);
     $perPage = max(1, min(100, $perPage));
     $offset = ($page - 1) * $perPage;
@@ -450,6 +451,11 @@ function adminRewardGetBoosthubAllEvidence(PDO $db, string $task_category = 'all
     if ($status_filter !== 'all') {
         $where .= " AND utl.status = ?";
         $params[] = $status_filter;
+    }
+
+    if ($user_id > 0) {
+        $where .= " AND utl.user_id = ?";
+        $params[] = $user_id;
     }
 
     // Count total

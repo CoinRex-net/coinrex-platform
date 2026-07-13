@@ -47,14 +47,16 @@ try {
             $status_filter = trim((string) ($_GET['status'] ?? 'all'));
             $page = max(1, (int) ($_GET['page'] ?? 1));
             $perPage = max(1, min(100, (int) ($_GET['per_page'] ?? 20)));
+            $user_id = max(0, (int) ($_GET['user_id'] ?? 0));
 
-            $result = adminRewardGetBoosthubAllEvidence($db, $task_category, $status_filter, $page, $perPage);
+            $result = adminRewardGetBoosthubAllEvidence($db, $task_category, $status_filter, $page, $perPage, $user_id);
             echo json_encode([
                 'success' => true,
                 'data' => $result['rows'],
                 'total' => $result['total'],
                 'pages' => $result['pages'],
                 'page' => $page,
+                'user_id' => $user_id,
             ]);
             exit;
         }
