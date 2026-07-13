@@ -153,6 +153,7 @@ $show_reviews_nav = featureIsVisible('reviews');
 $show_learnhub_nav = featureIsVisible('learnhub');
 $can_access_taskhub_nav = $show_learnhub_nav && (!$is_logged_in || !$taskhub_mission_completed_for_nav);
 $show_boosthub_nav = featureIsVisible('boosthub');
+$show_leaderboard_nav = featureIsVisible('leaderboard');
 $show_claim_center_nav = featureIsVisible('claim_center');
 $show_devhub_nav = featureIsVisible('devhub_full') || featureIsVisible('devhub_auth');
 $show_login_nav = featureIsVisible('login');
@@ -160,6 +161,7 @@ $can_access_claim_center_nav = $is_logged_in && $show_claim_center_nav;
 $claim_center_accessible_nav = featureIsAccessible('claim_center');
 $learnhub_nav_url = BASE_URL . '/public/taskhub.php';
 $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
+$leaderboard_nav_url = BASE_URL . '/public/leaderboard.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -321,6 +323,12 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
                         <span class="nex-nav-label">BoostHub <span class="nex-hot-badge">NEW</span></span>
                     </a>
                 <?php endif; ?>
+                <?php if($show_leaderboard_nav): ?>
+                    <a href="<?php echo $leaderboard_nav_url; ?>" class="<?php echo ($current_page == 'leaderboard') ? 'active' : ''; ?>">
+                        <i class="fas fa-trophy"></i>
+                        <span>Leaderboard</span>
+                    </a>
+                <?php endif; ?>
                 <?php $resources_active = in_array($current_page, ['roadmap', 'litepaper', 'blog', 'blog-post', 'blog-category', 'blog-tag', 'about'], true); ?>
                 <div class="nex-resource-menu">
                     <button type="button" class="nex-resource-trigger <?php echo $resources_active ? 'active' : ''; ?>" aria-haspopup="true" aria-expanded="false">
@@ -434,6 +442,13 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
         </span>
         <span class="mobile-nav-label">LearnHub</span>
     </a>
+    <?php elseif($show_leaderboard_nav): ?>
+    <a href="<?php echo $leaderboard_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'leaderboard') ? 'active' : ''; ?>">
+        <span class="mobile-nav-icon-wrap">
+            <i class="fas fa-trophy"></i>
+        </span>
+        <span class="mobile-nav-label">Leaders</span>
+    </a>
     <?php endif; ?>
     <a href="<?php echo $boosthub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
         <span class="mobile-nav-icon-wrap">
@@ -455,12 +470,6 @@ $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
             <i class="fas fa-star"></i>
             <span>Reviews</span>
         </a>
-        <?php if (!$can_access_taskhub_nav): ?>
-        <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="mobile-nav-item <?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
-            <i class="fas fa-file-alt"></i>
-            <span>Litepaper</span>
-        </a>
-        <?php endif; ?>
     <?php else: ?>
         <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="mobile-nav-item <?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
             <i class="fas fa-file-alt"></i>

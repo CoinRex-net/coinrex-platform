@@ -15,6 +15,7 @@ require_once __DIR__ . '/functions/notifications.php';
 require_once __DIR__ . '/functions/user.php';
 require_once __DIR__ . '/functions/email.php';
 require_once __DIR__ . '/functions/reward_ledger.php';
+require_once __DIR__ . '/functions/leaderboard.php';
 require_once __DIR__ . '/functions/boosthub.php';
 require_once __DIR__ . '/functions/taskhub.php';
 require_once __DIR__ . '/functions/referrals.php';

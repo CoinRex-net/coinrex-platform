@@ -41,6 +41,7 @@ if ((string) ($_GET['th_embed'] ?? '') === '1') {
                 <a href="<?php echo BASE_URL; ?>/index.php"><i class="fas fa-home"></i><span>Home</span></a>
 <?php if (featureIsVisible('projects')): ?><a href="<?php echo BASE_URL; ?>/public/projects.php"><i class="fas fa-chart-line"></i><span>Projects</span></a><?php endif; ?>
 <?php if (featureIsVisible('reviews')): ?><a href="<?php echo BASE_URL; ?>/public/reviews.php"><i class="fas fa-star"></i><span>Reviews</span></a><?php endif; ?>
+<?php if (featureIsVisible('leaderboard')): ?><a href="<?php echo BASE_URL; ?>/public/leaderboard.php"><i class="fas fa-trophy"></i><span>Leaderboard</span></a><?php endif; ?>
 <?php if (featureIsVisible('devhub_full') || featureIsVisible('devhub_auth')): ?><a href="<?php echo BASE_URL; ?>/devhub/index.php"><i class="fas fa-code"></i><span>Dev Hub</span></a><?php endif; ?>
             </div>
 

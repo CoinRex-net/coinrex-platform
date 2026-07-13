@@ -76,6 +76,16 @@ function getDefaultFeatureFlags(): array {
             'fallback_cta_label' => 'Go to Dashboard',
             'fallback_cta_url' => $default_cta_user,
         ],
+        'leaderboard' => [
+            'label' => 'Leaderboard',
+            'group' => 'Community',
+            'is_visible' => 1,
+            'is_accessible' => 1,
+            'fallback_title' => 'Leaderboard is temporarily unavailable',
+            'fallback_message' => 'Leaderboard rankings are being refreshed right now. Please check back shortly.',
+            'fallback_cta_label' => 'Back to Home',
+            'fallback_cta_url' => $default_cta_guest,
+        ],
         'claim_center' => [
             'label' => 'Claim Center',
             'group' => 'Rewards',
