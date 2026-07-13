@@ -547,6 +547,23 @@ function getDefaultNavigationControls(): array {
             'admin_route_hint' => BASE_URL . '/public/leaderboard.php',
             'active_pages' => ['leaderboard'],
         ],
+        'mobile_leaderboard' => [
+            'nav_key' => 'mobile_leaderboard',
+            'location' => 'mobile',
+            'section_key' => 'bottom',
+            'section_label' => 'Mobile Bottom Nav',
+            'label' => 'Leaderboard',
+            'route_key' => 'leaderboard',
+            'icon_class' => 'fas fa-trophy',
+            'badge_text' => '',
+            'sort_order' => 15,
+            'is_enabled' => 1,
+            'audience' => 'all',
+            'feature_key' => 'leaderboard',
+            'admin_hint' => 'Fixed mobile bottom nav leaderboard item.',
+            'admin_route_hint' => BASE_URL . '/public/leaderboard.php',
+            'active_pages' => ['leaderboard'],
+        ],
         'mobile_boosthub' => [
             'nav_key' => 'mobile_boosthub',
             'location' => 'mobile',
@@ -679,6 +696,22 @@ function getDefaultNavigationControls(): array {
             'admin_route_hint' => BASE_URL . '/public/litepaper.php',
             'active_pages' => ['litepaper'],
         ],
+        'mobile_litepaper_member' => [
+            'nav_key' => 'mobile_litepaper_member',
+            'location' => 'mobile',
+            'section_key' => 'bottom',
+            'section_label' => 'Mobile Bottom Nav',
+            'label' => 'LitePaper',
+            'route_key' => 'litepaper',
+            'icon_class' => 'fas fa-file-alt',
+            'badge_text' => '',
+            'sort_order' => 80,
+            'is_enabled' => 1,
+            'audience' => 'member',
+            'admin_hint' => 'Signed-in mobile nav item.',
+            'admin_route_hint' => BASE_URL . '/public/litepaper.php',
+            'active_pages' => ['litepaper'],
+        ],
         'mobile_roadmap_guest' => [
             'nav_key' => 'mobile_roadmap_guest',
             'location' => 'mobile',
@@ -694,6 +727,38 @@ function getDefaultNavigationControls(): array {
             'admin_hint' => 'Guest mobile nav item.',
             'admin_route_hint' => BASE_URL . '/public/roadmap.php',
             'active_pages' => ['roadmap'],
+        ],
+        'mobile_roadmap_member' => [
+            'nav_key' => 'mobile_roadmap_member',
+            'location' => 'mobile',
+            'section_key' => 'bottom',
+            'section_label' => 'Mobile Bottom Nav',
+            'label' => 'Roadmap',
+            'route_key' => 'roadmap',
+            'icon_class' => 'fas fa-route',
+            'badge_text' => '',
+            'sort_order' => 90,
+            'is_enabled' => 1,
+            'audience' => 'member',
+            'admin_hint' => 'Signed-in mobile nav item.',
+            'admin_route_hint' => BASE_URL . '/public/roadmap.php',
+            'active_pages' => ['roadmap'],
+        ],
+        'mobile_about_guest' => [
+            'nav_key' => 'mobile_about_guest',
+            'location' => 'mobile',
+            'section_key' => 'bottom',
+            'section_label' => 'Mobile Bottom Nav',
+            'label' => 'About',
+            'route_key' => 'about',
+            'icon_class' => 'fas fa-circle-info',
+            'badge_text' => '',
+            'sort_order' => 60,
+            'is_enabled' => 1,
+            'audience' => 'guest',
+            'admin_hint' => 'Guest mobile nav item.',
+            'admin_route_hint' => BASE_URL . '/public/about.php',
+            'active_pages' => ['about'],
         ],
     ];
 }
@@ -1021,6 +1086,7 @@ function coinrexNavigationCanRenderKey(string $navKey, array $context = []): boo
         case 'mobile_home_guest':
         case 'mobile_litepaper_guest':
         case 'mobile_roadmap_guest':
+        case 'mobile_about_guest':
             return !$isLoggedIn;
         case 'header_projects':
         case 'header_marketplace_project':
@@ -1041,6 +1107,7 @@ function coinrexNavigationCanRenderKey(string $navKey, array $context = []): boo
             return featureIsVisible('boosthub');
         case 'header_leaderboard':
         case 'footer_platform_leaderboard':
+        case 'mobile_leaderboard':
             return featureIsVisible('leaderboard');
         case 'header_marketplace_devhub':
         case 'footer_platform_devhub':
@@ -1110,6 +1177,57 @@ function getManagedNavigationItems(string $location, string $sectionKey = '', ar
     });
 
     return $items;
+}
+
+function getFixedMobileBottomNavigationItems(array $context = []): array {
+    $isLoggedIn = !empty($context['is_logged_in']);
+    $userLevel = normalizeUserLevel((string) ($context['user_level'] ?? 'beginner'));
+
+    if (!$isLoggedIn) {
+        $keys = [
+            'mobile_leaderboard',
+            'mobile_roadmap_guest',
+            'mobile_home_guest',
+            'mobile_litepaper_guest',
+            'mobile_about_guest',
+        ];
+    } elseif (in_array($userLevel, ['pro', 'expert'], true)) {
+        $keys = [
+            'mobile_boosthub',
+            'mobile_projects_member',
+            'mobile_home_member',
+            'mobile_leaderboard',
+            'mobile_litepaper_member',
+        ];
+    } else {
+        $keys = [
+            'mobile_boosthub',
+            'mobile_learnhub',
+            'mobile_home_member',
+            'mobile_leaderboard',
+            'mobile_roadmap_member',
+        ];
+    }
+
+    $items = [];
+    $registry = getNavigationControlRegistry();
+    $defaults = getDefaultNavigationControls();
+    foreach ($keys as $key) {
+        $item = $registry[$key] ?? ($defaults[$key] ?? null);
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $href = trim((string) ($item['custom_url'] ?? ''));
+        if ($href === '') {
+            $href = coinrexNavigationRouteUrl((string) ($item['route_key'] ?? ''), $context);
+        }
+        $item['href'] = $href;
+        $item['is_active'] = coinrexNavigationItemIsActive($item, $context);
+        $items[] = $item;
+    }
+
+    return array_slice($items, 0, 5);
 }
 
 function getManagedNavigationSlotItems(string $slotGroup, string $location, string $sectionKey, int $limit, array $context = []): array {
