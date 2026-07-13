@@ -129,6 +129,112 @@ require_once __DIR__ . '/../includes/header.php';
 <style>
 .reward-history-shell{gap:18px}.reward-history-hero{align-items:center}.reward-history-grid{grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:18px}.reward-history-table-card,.reward-history-claim-card,.reward-history-bridge-card{border-radius:20px;padding:20px}.reward-history-filter-head{align-items:center}.reward-history-filter-head p,.reward-history-table-card p,.reward-history-claim-card p,.reward-history-bridge-card p{margin:0}.reward-history-toolbar{gap:12px;margin-top:16px;padding:12px;border-radius:16px;background:rgba(2,6,23,.22)}.reward-filter-group label{margin-bottom:6px;color:#8ea2bd;font-size:10px}.reward-filter-group select{border-radius:12px;padding:10px 12px}.reward-history-stats{gap:12px}.reward-history-stat{border-radius:18px;padding:16px}.reward-history-stat strong{margin-top:8px;font-size:1.35rem}.reward-balance-label{display:block;color:#91a4bd;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.reward-note,.reward-bridge-note,.reward-clean-note{display:none}.reward-history-list{gap:10px}.reward-history-item{padding:15px;border-radius:16px}.reward-history-item-top{gap:14px;flex-wrap:nowrap}.reward-history-main span{display:none}.reward-history-date{display:block;color:#8fa5c2;font-size:12px;line-height:1.5;word-break:break-word}.reward-history-row-amount{display:grid;gap:8px;justify-items:end;text-align:right;flex-shrink:0}.reward-history-pills{gap:7px}.reward-history-details{display:none!important}.reward-history-meta{margin-top:10px;padding-top:10px;border-top:1px solid rgba(148,163,184,.09);min-width:0}.reward-history-meta summary{width:max-content;max-width:100%;color:#93c5fd;font-size:12px;font-weight:800;cursor:pointer;list-style:none}.reward-history-meta summary::-webkit-details-marker{display:none}.reward-history-meta summary::after{content:"+";display:inline-flex;margin-left:8px;color:#cbd5e1}.reward-history-meta[open] summary::after{content:"-"}.reward-history-meta-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}.reward-history-detail span{font-size:10px}.reward-history-detail strong,.reward-history-detail small{font-size:12px}.reward-chip{min-height:28px;padding:0 10px;font-size:10px;font-weight:900}.reward-amount{font-size:15px}.reward-soon-cta{margin-top:14px}.reward-soon-btn{min-height:42px;border-radius:12px;padding:0 14px}.reward-compact-message{margin:10px 0 0!important;color:#c7d2fe!important;font-size:13px;line-height:1.55}.reward-readiness-grid{gap:10px;margin-top:12px}.reward-readiness-grid .claim-metric{padding:14px}.reward-claim-history{gap:10px;margin-top:12px}.reward-claim-item{padding:12px 0}.reward-claim-item strong,.reward-claim-item span{display:block}.reward-claim-item span{font-size:12px;margin-top:4px}@media (max-width:1100px){.reward-history-meta-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:720px){.reward-history-meta-grid{grid-template-columns:1fr}.reward-history-item-top{flex-direction:column;align-items:flex-start}.reward-history-row-amount{justify-items:start;text-align:left}.reward-history-pills{justify-content:flex-start}.reward-history-table-card,.reward-history-claim-card,.reward-history-bridge-card{padding:16px}}
 </style>
+<style>
+@media (max-width: 980px) {
+    .reward-page {
+        padding-bottom: 132px;
+    }
+    .reward-page-shell.reward-history-shell {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    .reward-history-hero,
+    .reward-history-grid,
+    .reward-history-stats,
+    .reward-history-toolbar,
+    .reward-readiness-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .reward-history-table-card,
+    .reward-history-claim-card,
+    .reward-history-bridge-card,
+    .reward-history-stat,
+    .reward-balance-box {
+        min-width: 0;
+        width: 100%;
+    }
+    .reward-history-toolbar {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+    }
+    .reward-history-toolbar .page-actions {
+        grid-column: auto !important;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 2px;
+    }
+    .reward-filter-group select,
+    .reward-history-toolbar .primary-btn,
+    .reward-history-toolbar .secondary-btn {
+        width: 100%;
+        min-width: 0;
+    }
+    .reward-side-stack {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .reward-history-item-top {
+        flex-wrap: wrap;
+    }
+}
+@media (max-width: 560px) {
+    .reward-page {
+        padding-top: 16px;
+        padding-bottom: 148px;
+    }
+    .reward-page-shell.reward-history-shell {
+        padding-left: 10px;
+        padding-right: 10px;
+        gap: 14px;
+    }
+    .reward-panel,
+    .reward-history-table-card,
+    .reward-history-claim-card,
+    .reward-history-bridge-card {
+        border-radius: 18px;
+        padding: 16px;
+    }
+    .reward-balance-box strong,
+    .reward-history-stat strong,
+    .claim-metric strong {
+        font-size: clamp(1.35rem, 9vw, 2.1rem);
+        line-height: 1.08;
+        overflow-wrap: anywhere;
+    }
+    .reward-history-toolbar .page-actions {
+        grid-template-columns: 1fr;
+    }
+    .reward-history-filter-head {
+        align-items: flex-start;
+    }
+    .reward-history-item-top {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .reward-history-row-amount {
+        justify-items: start;
+        text-align: left;
+        width: 100%;
+    }
+    .reward-history-pills {
+        justify-content: flex-start;
+    }
+    .reward-claim-item,
+    .history-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .fixed-social,
+    .fixed-back-to-top {
+        display: none !important;
+    }
+}
+</style>
 
 <main class="reward-page">
     <div class="reward-page-shell reward-history-shell">

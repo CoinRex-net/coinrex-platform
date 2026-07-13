@@ -68,6 +68,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success_message = $reset_messages
                 ? 'MVP defaults restored, including fallback messages.'
                 : 'MVP defaults restored. Custom fallback messages were preserved.';
+        } elseif ($action === 'save_navigation_slots') {
+            $slot_groups = [
+                'desktop_guest_slots' => ['slot_group' => 'desktop_guest', 'location' => 'header', 'section_key' => 'primary', 'audience' => 'guest', 'limit' => 6],
+                'desktop_member_slots' => ['slot_group' => 'desktop_member', 'location' => 'header', 'section_key' => 'primary', 'audience' => 'member', 'limit' => 6],
+                'mobile_guest_slots' => ['slot_group' => 'mobile_guest', 'location' => 'mobile', 'section_key' => 'bottom', 'audience' => 'guest', 'limit' => 5],
+                'mobile_member_slots' => ['slot_group' => 'mobile_member', 'location' => 'mobile', 'section_key' => 'bottom', 'audience' => 'member', 'limit' => 5],
+            ];
+
+            foreach ($slot_groups as $field => $slot_group) {
+                $posted_slots = $_POST[$field] ?? [];
+                if (!is_array($posted_slots)) {
+                    $posted_slots = [];
+                }
+
+                for ($slot = 1; $slot <= (int) $slot_group['limit']; $slot++) {
+                    $selected_key = trim((string) ($posted_slots[$slot] ?? ''));
+                    if ($selected_key !== '') {
+                        $db->prepare("UPDATE navigation_controls SET is_enabled = 1, updated_by = ?, updated_at = NOW() WHERE nav_key = ?")
+                            ->execute([
+                                $current_admin_id > 0 ? $current_admin_id : null,
+                                $selected_key,
+                            ]);
+                    }
+                    $db->prepare("
+                        INSERT INTO navigation_slots (
+                            slot_group, location, section_key, audience, slot_number, nav_key, updated_by
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            location = VALUES(location),
+                            section_key = VALUES(section_key),
+                            audience = VALUES(audience),
+                            nav_key = VALUES(nav_key),
+                            updated_by = VALUES(updated_by),
+                            updated_at = NOW()
+                    ")
+                        ->execute([
+                            (string) $slot_group['slot_group'],
+                            (string) $slot_group['location'],
+                            (string) $slot_group['section_key'],
+                            (string) $slot_group['audience'],
+                            $slot,
+                            $selected_key,
+                            $current_admin_id > 0 ? $current_admin_id : null,
+                        ]);
+                }
+            }
+
+            getNavigationControlRegistry(true);
+            $success_message = 'Header slots updated successfully.';
         } elseif ($action === 'save_navigation') {
             $registry = getNavigationControlRegistry();
             foreach ($registry as $key => $default_item) {
@@ -105,6 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $key,
                 ]);
             }
+            getNavigationControlRegistry(true);
             $success_message = 'Navigation controller updated successfully.';
         } elseif ($action === 'create_navigation_item') {
             $label = trim((string) ($_POST['new_nav']['label'] ?? ''));
@@ -156,6 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $custom_url,
                 $current_admin_id > 0 ? $current_admin_id : null,
             ]);
+            getNavigationControlRegistry(true);
             $success_message = 'New navigation item added successfully.';
         } elseif ($action === 'delete_navigation_item') {
             $nav_key = trim((string) ($_POST['nav_key'] ?? ''));
@@ -165,9 +216,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $delete = $db->prepare("DELETE FROM navigation_controls WHERE nav_key = ? AND is_system = 0 LIMIT 1");
             $delete->execute([$nav_key]);
+            getNavigationControlRegistry(true);
             $success_message = 'Custom navigation item deleted successfully.';
         } elseif ($action === 'restore_navigation_defaults') {
             seedDefaultNavigationControls($db, true, true);
+            getNavigationControlRegistry(true);
             $success_message = 'Navigation controller defaults restored.';
         } else {
             $error_message = 'Invalid launch control action.';
@@ -283,6 +336,125 @@ foreach ($navigation_registry as $nav_item) {
         }
     }
 }
+
+$navigation_slot_options = static function (array $registry, string $location, string $sectionKey, string $targetAudience, array $featureFlagsByKey): array {
+    $options = [];
+    foreach ($registry as $key => $item) {
+        if ((string) ($item['location'] ?? '') !== $location) {
+            continue;
+        }
+        if ((string) ($item['section_key'] ?? '') !== $sectionKey) {
+            continue;
+        }
+
+        $feature_key = (string) ($item['feature_key'] ?? '');
+        $feature_note = '';
+        if ($feature_key !== '') {
+            $feature = $featureFlagsByKey[$feature_key] ?? [];
+            if (empty($feature['is_visible'])) {
+                $feature_note = ' - hidden by Feature Access';
+            } elseif (empty($feature['is_accessible'])) {
+                $feature_note = ' - opens fallback';
+            }
+        }
+
+        $audience = (string) ($item['audience'] ?? 'all');
+        if ($audience !== 'all' && $audience !== $targetAudience) {
+            continue;
+        }
+        $audience_label = $audience === 'member' ? 'signed-in' : ($audience === 'guest' ? 'guest' : 'all');
+        $options[] = [
+            'key' => (string) $key,
+            'label' => (string) ($item['label'] ?? 'Navigation item') . ' (' . $audience_label . ')' . $feature_note,
+            'sort_order' => (int) ($item['sort_order'] ?? 0),
+            'is_enabled' => !empty($item['is_enabled']),
+        ];
+    }
+
+    usort($options, static function (array $a, array $b): int {
+        $enabledCompare = (int) $b['is_enabled'] <=> (int) $a['is_enabled'];
+        if ($enabledCompare !== 0) {
+            return $enabledCompare;
+        }
+
+        $sortCompare = (int) $a['sort_order'] <=> (int) $b['sort_order'];
+        if ($sortCompare !== 0) {
+            return $sortCompare;
+        }
+
+        return strcmp((string) $a['label'], (string) $b['label']);
+    });
+
+    return $options;
+};
+$navigation_slot_values = static function (PDO $db, array $registry, string $slotGroup, string $location, string $sectionKey, string $targetAudience, int $limit): array {
+    $values = [];
+    try {
+        $stmt = $db->prepare("SELECT slot_number, nav_key FROM navigation_slots WHERE slot_group = ? ORDER BY slot_number ASC");
+        $stmt->execute([$slotGroup]);
+        foreach ($stmt->fetchAll() ?: [] as $row) {
+            $slot_number = (int) ($row['slot_number'] ?? 0);
+            if ($slot_number >= 1 && $slot_number <= $limit) {
+                $values[$slot_number] = (string) ($row['nav_key'] ?? '');
+            }
+        }
+    } catch (Throwable $e) {
+        $values = [];
+    }
+
+    if ($values) {
+        for ($slot = 1; $slot <= $limit; $slot++) {
+            $values[$slot] = (string) ($values[$slot] ?? '');
+        }
+
+        return $values;
+    }
+
+    $items = [];
+    foreach ($registry as $key => $item) {
+        if ((string) ($item['location'] ?? '') !== $location) {
+            continue;
+        }
+        if ((string) ($item['section_key'] ?? '') !== $sectionKey) {
+            continue;
+        }
+        if (empty($item['is_enabled'])) {
+            continue;
+        }
+        $audience = (string) ($item['audience'] ?? 'all');
+        if ($audience !== 'all' && $audience !== $targetAudience) {
+            continue;
+        }
+        $items[] = [
+            'key' => (string) $key,
+            'sort_order' => (int) ($item['sort_order'] ?? 0),
+        ];
+    }
+
+    usort($items, static function (array $a, array $b): int {
+        $sortCompare = (int) $a['sort_order'] <=> (int) $b['sort_order'];
+        if ($sortCompare !== 0) {
+            return $sortCompare;
+        }
+
+        return strcmp((string) $a['key'], (string) $b['key']);
+    });
+
+    $values = [];
+    for ($slot = 1; $slot <= $limit; $slot++) {
+        $values[$slot] = (string) ($items[$slot - 1]['key'] ?? '');
+    }
+
+    return $values;
+};
+$desktop_guest_slot_options = $navigation_slot_options($navigation_registry, 'header', 'primary', 'guest', $feature_flags_by_key);
+$desktop_member_slot_options = $navigation_slot_options($navigation_registry, 'header', 'primary', 'member', $feature_flags_by_key);
+$mobile_guest_slot_options = $navigation_slot_options($navigation_registry, 'mobile', 'bottom', 'guest', $feature_flags_by_key);
+$mobile_member_slot_options = $navigation_slot_options($navigation_registry, 'mobile', 'bottom', 'member', $feature_flags_by_key);
+$desktop_guest_slot_values = $navigation_slot_values($db, $navigation_registry, 'desktop_guest', 'header', 'primary', 'guest', 6);
+$desktop_member_slot_values = $navigation_slot_values($db, $navigation_registry, 'desktop_member', 'header', 'primary', 'member', 6);
+$mobile_guest_slot_values = $navigation_slot_values($db, $navigation_registry, 'mobile_guest', 'mobile', 'bottom', 'guest', 5);
+$mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 'mobile_member', 'mobile', 'bottom', 'member', 5);
 ?>
 
 <style>
@@ -441,6 +613,25 @@ foreach ($navigation_registry as $nav_item) {
 .launch-phone-slot.is-empty { color: #64748b; border-style: dashed; }
 .launch-phone-slot.is-empty i { color: #475569; }
 .launch-mobile-note { margin-top: 10px; color: #94a3b8; font-size: 12px; line-height: 1.5; }
+.launch-slot-card { border: 1px solid rgba(34,197,94,.18); border-radius: 18px; padding: 18px; background: linear-gradient(135deg, rgba(15,23,42,.72), rgba(6,78,59,.18)); box-shadow: 0 16px 42px rgba(2,6,23,.18); }
+.launch-slot-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.launch-slot-head h3 { margin: 0 0 6px; color: #f8fafc; display: inline-flex; align-items: center; gap: 9px; }
+.launch-slot-head p { margin: 0; color: #a7f3d0; line-height: 1.55; font-size: 13px; }
+.launch-slot-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.launch-slot-group { border: 1px solid rgba(148,163,184,.12); border-radius: 16px; padding: 14px; background: rgba(2,6,23,.26); }
+.launch-slot-group h4 { margin: 0 0 10px; color: #e2e8f0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+.launch-slot-grid { display: grid; gap: 10px; }
+.launch-slot-grid label { display: grid; gap: 6px; color: #94a3b8; font-size: 12px; font-weight: 800; }
+.launch-slot-grid select {
+    width: 100%;
+    border: 1px solid rgba(148,163,184,.18);
+    border-radius: 12px;
+    background: rgba(2,6,23,.44);
+    color: #e2e8f0;
+    padding: 10px 12px;
+    font: inherit;
+    color-scheme: dark;
+}
 .launch-nav-row { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(320px, 1fr) minmax(240px, .7fr); gap: 16px; padding: 18px; border-bottom: 1px solid rgba(148,163,184,.09); }
 .launch-nav-row.is-mobile-item { background: linear-gradient(90deg, rgba(59,130,246,.08), rgba(15,23,42,0)); }
 .launch-nav-row:last-child { border-bottom: 0; }
@@ -468,8 +659,8 @@ foreach ($navigation_registry as $nav_item) {
 .launch-delete-btn { width: fit-content; }
 .launch-tab-panel[hidden] { display: none; }
 @media (max-width: 1180px) { .launch-row { grid-template-columns: 1fr; } .launch-field-grid { grid-template-columns: 1fr; } }
-@media (max-width: 1180px) { .launch-nav-row, .launch-nav-grid-2, .launch-nav-grid-3, .launch-helper-grid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .launch-wrap { padding: 0 14px 18px; } .launch-control-hero { grid-template-columns: 1fr; padding: 20px; } .launch-metrics, .launch-nav-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .launch-defaults { margin-left: 0; } .launch-tabs { display: grid; grid-template-columns: 1fr; } .launch-group-head, .launch-title, .launch-create-actions, .launch-actions { flex-direction: column; align-items: stretch; } .launch-group-count, .launch-delete-btn { width: 100%; } .launch-delete-btn, .launch-create-actions .btn, .launch-actions .btn { justify-content: center; } .launch-mode-card { min-width: 0; } .launch-phone-bar { gap: 6px; padding: 8px; } .launch-phone-slot { min-height: 64px; } }
+@media (max-width: 1180px) { .launch-nav-row, .launch-nav-grid-2, .launch-nav-grid-3, .launch-helper-grid, .launch-slot-groups { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .launch-wrap { padding: 0 14px 18px; } .launch-control-hero { grid-template-columns: 1fr; padding: 20px; } .launch-metrics, .launch-nav-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .launch-defaults { margin-left: 0; } .launch-tabs { display: grid; grid-template-columns: 1fr; } .launch-group-head, .launch-title, .launch-create-actions, .launch-actions, .launch-slot-head { flex-direction: column; align-items: stretch; } .launch-group-count, .launch-delete-btn { width: 100%; } .launch-delete-btn, .launch-create-actions .btn, .launch-actions .btn { justify-content: center; } .launch-mode-card { min-width: 0; } .launch-phone-bar { gap: 6px; padding: 8px; } .launch-phone-slot { min-height: 64px; } }
 @media (max-width: 520px) { .launch-metrics, .launch-nav-summary { grid-template-columns: 1fr; } .launch-row, .launch-nav-row { padding: 14px; } .launch-save-bar .btn, .launch-create-actions .btn, .launch-delete-btn { width: 100%; justify-content: center; } .launch-save-bar { position: static; } .launch-control-hero { padding: 16px; } .launch-create-card, .launch-group { border-radius: 16px; } }
 </style>
 
@@ -614,73 +805,97 @@ foreach ($navigation_registry as $nav_item) {
 
 <section class="launch-tab-panel" <?php echo $current_tab === 'navigation' ? '' : 'hidden'; ?>>
     <div class="launch-panel">
-        <section class="launch-nav-summary" aria-label="Navigation controller summary">
-            <div class="launch-nav-card"><span>Total Items</span><strong><?php echo (int) $navigation_summary['total']; ?></strong></div>
-            <div class="launch-nav-card is-enabled"><span>Enabled</span><strong><?php echo (int) $navigation_summary['enabled']; ?></strong></div>
-            <div class="launch-nav-card is-disabled"><span>Disabled</span><strong><?php echo (int) $navigation_summary['disabled']; ?></strong></div>
-            <div class="launch-nav-card is-feature-blocked"><span>Feature Hidden</span><strong><?php echo (int) $navigation_summary['feature_blocked']; ?></strong></div>
-        </section>
-
-        <section class="launch-helper-grid">
-            <div class="launch-help-card">
-                <h3><i class="fas fa-circle-info"></i> How This Works</h3>
-                <p>This controller edits the shared public menus without changing templates.</p>
-                <ul class="launch-simple-list">
-                    <li><i class="fas fa-toggle-on"></i><span><strong>Show item</strong> makes the link available, but audience and feature rules can still hide it.</span></li>
-                    <li><i class="fas fa-users"></i><span><strong>Audience</strong> decides who can see it: guest, signed-in users, or everyone.</span></li>
-                    <li><i class="fas fa-arrow-down-1-9"></i><span><strong>Order</strong> decides position. Lower number appears first.</span></li>
-                    <li><i class="fas fa-mobile-screen"></i><span><strong>Mobile bottom nav</strong> uses exactly 5 visible slots. Items after the first 5 are kept enabled, but do not show there.</span></li>
-                </ul>
+        <form method="POST" action="" class="launch-slot-card">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+            <input type="hidden" name="action" value="save_navigation_slots">
+            <input type="hidden" name="current_tab" value="navigation">
+            <div class="launch-slot-head">
+                <div>
+                    <h3><i class="fas fa-table-cells-large"></i> Simple Navigation Slots</h3>
+                    <p>Select links for guest and signed-in users. Desktop header has 6 slots; mobile bottom has 5 slots.</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Header Slots</button>
             </div>
-            <div class="launch-help-card">
-                <h3><i class="fas fa-mobile-screen-button"></i> Mobile Bottom Preview</h3>
-                <div class="launch-phone-preview">
-                    <div>
-                        <h4>Guest view: <?php echo count($mobile_guest_preview); ?>/5 slots</h4>
-                        <div class="launch-phone-bar" aria-label="Guest mobile navigation preview">
-                            <?php foreach ($mobile_preview_slots($mobile_guest_preview) as $slot): ?>
-                                <?php if (is_array($slot)): ?>
-                                    <?php $slot_icon = trim((string) ($slot['icon_class'] ?? '')) !== '' ? trim((string) $slot['icon_class']) : 'fas fa-circle'; ?>
-                                    <div class="launch-phone-slot">
-                                        <i class="<?php echo htmlspecialchars($slot_icon, ENT_QUOTES, 'UTF-8'); ?>"></i>
-                                        <span><?php echo htmlspecialchars((string) ($slot['label'] ?? 'Link'), ENT_QUOTES, 'UTF-8'); ?></span>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="launch-phone-slot is-empty">
-                                        <i class="fas fa-plus"></i>
-                                        <span>Empty</span>
-                                    </div>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <div>
-                        <h4>Signed-in view: <?php echo count($mobile_member_preview); ?>/5 slots</h4>
-                        <div class="launch-phone-bar" aria-label="Signed-in mobile navigation preview">
-                            <?php foreach ($mobile_preview_slots($mobile_member_preview) as $slot): ?>
-                                <?php if (is_array($slot)): ?>
-                                    <?php $slot_icon = trim((string) ($slot['icon_class'] ?? '')) !== '' ? trim((string) $slot['icon_class']) : 'fas fa-circle'; ?>
-                                    <div class="launch-phone-slot">
-                                        <i class="<?php echo htmlspecialchars($slot_icon, ENT_QUOTES, 'UTF-8'); ?>"></i>
-                                        <span><?php echo htmlspecialchars((string) ($slot['label'] ?? 'Link'), ENT_QUOTES, 'UTF-8'); ?></span>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="launch-phone-slot is-empty">
-                                        <i class="fas fa-plus"></i>
-                                        <span>Empty</span>
-                                    </div>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
+            <div class="launch-slot-groups">
+                <div class="launch-slot-group">
+                    <h4>Desktop Header - Guest</h4>
+                    <div class="launch-slot-grid">
+                        <?php for ($slot = 1; $slot <= 6; $slot++): ?>
+                            <label>
+                                Slot <?php echo (int) $slot; ?>
+                                <select name="desktop_guest_slots[<?php echo (int) $slot; ?>]">
+                                    <option value="">Empty slot</option>
+                                    <?php foreach ($desktop_guest_slot_options as $option): ?>
+                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $desktop_guest_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        <?php endfor; ?>
                     </div>
                 </div>
-                <p class="launch-mobile-note">Enabled mobile candidates: <?php echo (int) $mobile_group_counts['enabled']; ?>. Candidates with icons: <?php echo (int) $mobile_group_counts['with_icon']; ?>. If a slot is empty, check feature visibility, audience, and icon class.</p>
+                <div class="launch-slot-group">
+                    <h4>Desktop Header - Signed-in</h4>
+                    <div class="launch-slot-grid">
+                        <?php for ($slot = 1; $slot <= 6; $slot++): ?>
+                            <label>
+                                Slot <?php echo (int) $slot; ?>
+                                <select name="desktop_member_slots[<?php echo (int) $slot; ?>]">
+                                    <option value="">Empty slot</option>
+                                    <?php foreach ($desktop_member_slot_options as $option): ?>
+                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $desktop_member_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+                <div class="launch-slot-group">
+                    <h4>Mobile Bottom - Guest</h4>
+                    <div class="launch-slot-grid">
+                        <?php for ($slot = 1; $slot <= 5; $slot++): ?>
+                            <label>
+                                Slot <?php echo (int) $slot; ?>
+                                <select name="mobile_guest_slots[<?php echo (int) $slot; ?>]">
+                                    <option value="">Empty slot</option>
+                                    <?php foreach ($mobile_guest_slot_options as $option): ?>
+                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $mobile_guest_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+                <div class="launch-slot-group">
+                    <h4>Mobile Bottom - Signed-in</h4>
+                    <div class="launch-slot-grid">
+                        <?php for ($slot = 1; $slot <= 5; $slot++): ?>
+                            <label>
+                                Slot <?php echo (int) $slot; ?>
+                                <select name="mobile_member_slots[<?php echo (int) $slot; ?>]">
+                                    <option value="">Empty slot</option>
+                                    <?php foreach ($mobile_member_slot_options as $option): ?>
+                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $mobile_member_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        <?php endfor; ?>
+                    </div>
+                </div>
             </div>
-        </section>
+            <p class="launch-mobile-note">Feature Access still controls whether a selected page is live during MVP launch.</p>
+        </form>
 
         <section class="launch-create-card">
-            <h3><i class="fas fa-plus-circle"></i> Add New Navigation Link</h3>
-            <p>Use this form to add future links to the header, footer, or mobile navigation. Custom links will be inserted into the selected section and can be managed later from this tab.</p>
+            <h3><i class="fas fa-plus-circle"></i> Add New Link/Page</h3>
+            <p>Add a page or custom URL, then select it in the slot dropdown above.</p>
             <form method="POST" action="" class="launch-create-form">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="action" value="create_navigation_item">
@@ -739,147 +954,12 @@ foreach ($navigation_registry as $nav_item) {
                     </label>
                 </div>
                 <div class="launch-create-actions" style="margin-top:14px;">
-                    <button type="submit" class="btn btn-primary">Add Navigation Link</button>
-                    <span class="launch-defaults">Tip: for header links, use the `primary`, `resources`, or `marketplace` sections.</span>
+                    <button type="submit" class="btn btn-primary">Add Link/Page</button>
+                    <span class="launch-defaults">Tip: use Header Primary for desktop slots, or Mobile Bottom for mobile slots.</span>
                 </div>
             </form>
         </section>
 
-        <form method="POST" action="">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
-            <input type="hidden" name="action" value="save_navigation">
-            <input type="hidden" name="current_tab" value="navigation">
-
-            <?php foreach ($navigation_grouped as $group => $items): ?>
-                <section class="launch-group">
-                    <div class="launch-group-head">
-                        <h3><i class="fas fa-bars-staggered"></i><?php echo htmlspecialchars((string) $group, ENT_QUOTES, 'UTF-8'); ?></h3>
-                        <span class="launch-group-count"><?php echo count($items); ?> items</span>
-                    </div>
-                    <?php foreach ($items as $nav_item): ?>
-                        <?php
-                            $nav_key = (string) $nav_item['nav_key'];
-                            $is_mobile_bottom_item = (string) ($nav_item['location'] ?? '') === 'mobile' && (string) ($nav_item['section_key'] ?? '') === 'bottom';
-                            $linked_feature_key = (string) ($nav_item['feature_key'] ?? '');
-                            $linked_feature = $linked_feature_key !== '' ? ($feature_flags_by_key[$linked_feature_key] ?? []) : [];
-                            $linked_feature_visible = $linked_feature_key === '' || !empty($linked_feature['is_visible']);
-                            $linked_feature_accessible = $linked_feature_key === '' || !empty($linked_feature['is_accessible']);
-                            $linked_feature_badge_class = 'is-feature-live';
-                            $linked_feature_badge_label = '';
-                            if ($linked_feature_key !== '') {
-                                if ($linked_feature_visible && $linked_feature_accessible) {
-                                    $linked_feature_badge_label = 'Feature live';
-                                } elseif ($linked_feature_visible && !$linked_feature_accessible) {
-                                    $linked_feature_badge_class = 'is-feature-hidden';
-                                    $linked_feature_badge_label = 'Feature fallback';
-                                } elseif (!$linked_feature_visible && $linked_feature_accessible) {
-                                    $linked_feature_badge_class = 'is-feature-hidden';
-                                    $linked_feature_badge_label = 'Feature hidden';
-                                } else {
-                                    $linked_feature_badge_class = 'is-feature-off';
-                                    $linked_feature_badge_label = 'Feature off';
-                                }
-                            }
-                        ?>
-                        <div class="launch-nav-row <?php echo $is_mobile_bottom_item ? 'is-mobile-item' : ''; ?>">
-                            <div class="launch-nav-meta">
-                                <div class="launch-title">
-                                    <strong><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></strong>
-                                </div>
-                                <div class="launch-pill-row">
-                                    <span class="launch-nav-status <?php echo !empty($nav_item['is_enabled']) ? 'is-enabled' : 'is-disabled'; ?>"><?php echo !empty($nav_item['is_enabled']) ? 'Enabled' : 'Disabled'; ?></span>
-                                    <span class="launch-nav-origin <?php echo !empty($nav_item['is_system']) ? 'is-system' : 'is-custom'; ?>"><?php echo !empty($nav_item['is_system']) ? 'System' : 'Custom'; ?></span>
-                                    <?php if ($is_mobile_bottom_item): ?>
-                                        <span class="launch-nav-origin is-mobile">5-slot mobile</span>
-                                    <?php endif; ?>
-                                    <?php if ($linked_feature_key !== ''): ?>
-                                        <span class="launch-nav-origin <?php echo htmlspecialchars($linked_feature_badge_class, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($linked_feature_badge_label, ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                <span class="launch-key"><?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?></span>
-                                <small><?php echo htmlspecialchars((string) ($nav_item['admin_hint'] ?? 'Shared navigation item.'), ENT_QUOTES, 'UTF-8'); ?></small>
-                                <small>Default route: <?php echo htmlspecialchars((string) ($nav_item['admin_route_hint'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></small>
-                                <?php if ($linked_feature_key !== ''): ?>
-                                    <small>Linked feature: <?php echo htmlspecialchars($linked_feature_key, ENT_QUOTES, 'UTF-8'); ?>. Turn it on in Feature Access if this nav item should appear live.</small>
-                                <?php endif; ?>
-                                <?php if ($is_mobile_bottom_item && trim((string) ($nav_item['icon_class'] ?? '')) === ''): ?>
-                                    <small><strong>Missing icon:</strong> add a Font Awesome class like fas fa-home so the bottom bar is not blank.</small>
-                                <?php endif; ?>
-                                <?php if (empty($nav_item['is_system'])): ?>
-                                    <button type="submit"
-                                            form="delete-nav-<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>"
-                                            class="btn btn-secondary launch-delete-btn">Delete Custom Link</button>
-                                <?php endif; ?>
-                            </div>
-                            <div class="launch-nav-fields">
-                                <div class="launch-nav-grid-2">
-                                    <label>
-                                        Label
-                                        <input type="text" name="nav_items[<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>][label]" value="<?php echo htmlspecialchars((string) ($nav_item['label'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                                    </label>
-                                    <label>
-                                        Custom URL
-                                        <input type="text" name="nav_items[<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>][custom_url]" value="<?php echo htmlspecialchars((string) ($nav_item['custom_url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" placeholder="Leave blank to use default route">
-                                    </label>
-                                </div>
-                                <div class="launch-nav-grid-3">
-                                    <label>
-                                        Order
-                                        <input type="number" name="nav_items[<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>][sort_order]" value="<?php echo (int) ($nav_item['sort_order'] ?? 0); ?>">
-                                    </label>
-                                    <label>
-                                        Icon class
-                                        <input type="text" name="nav_items[<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>][icon_class]" value="<?php echo htmlspecialchars((string) ($nav_item['icon_class'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" placeholder="fas fa-home">
-                                    </label>
-                                    <label>
-                                        Badge
-                                        <input type="text" name="nav_items[<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>][badge_text]" value="<?php echo htmlspecialchars((string) ($nav_item['badge_text'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" placeholder="HOT">
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="launch-toggles">
-                                <label class="launch-toggle">
-                                    <span class="launch-switch">
-                                        <input type="checkbox" name="nav_items[<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>][is_enabled]" value="1" <?php echo !empty($nav_item['is_enabled']) ? 'checked' : ''; ?>>
-                                        <span class="launch-slider"></span>
-                                    </span>
-                                    <span class="launch-toggle-copy">
-                                        <span>Show item</span>
-                                        <small>Business rules and feature flags still apply</small>
-                                    </span>
-                                </label>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </section>
-            <?php endforeach; ?>
-
-            <div class="launch-actions launch-save-bar">
-                <button type="submit" class="btn btn-primary">Save Navigation Controller</button>
-                <span class="launch-defaults">Label, URL, icon, badge, order, and visibility apply immediately.</span>
-            </div>
-        </form>
-
-        <form method="POST" action="" class="launch-actions">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
-            <input type="hidden" name="action" value="restore_navigation_defaults">
-            <input type="hidden" name="current_tab" value="navigation">
-            <button type="submit" class="btn btn-secondary">Restore Navigation Defaults</button>
-        </form>
-
-        <?php foreach ($navigation_grouped as $items): ?>
-            <?php foreach ($items as $nav_item): ?>
-                <?php if (empty($nav_item['is_system'])): ?>
-                    <?php $nav_key = (string) $nav_item['nav_key']; ?>
-                    <form id="delete-nav-<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>" method="POST" action="" hidden>
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
-                        <input type="hidden" name="action" value="delete_navigation_item">
-                        <input type="hidden" name="current_tab" value="navigation">
-                        <input type="hidden" name="nav_key" value="<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>">
-                    </form>
-                <?php endif; ?>
-            <?php endforeach; ?>
-        <?php endforeach; ?>
     </div>
 </section>
 </div>

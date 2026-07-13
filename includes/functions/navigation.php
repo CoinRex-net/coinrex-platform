@@ -740,8 +740,29 @@ function ensureNavigationControlsSchema(PDO $db = null): void {
     coinrexEnsureNavigationColumn($db, 'admin_route_hint', "ALTER TABLE navigation_controls ADD COLUMN admin_route_hint VARCHAR(500) NOT NULL DEFAULT '' AFTER admin_hint");
     coinrexEnsureNavigationColumn($db, 'is_system', "ALTER TABLE navigation_controls ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0 AFTER admin_route_hint");
 
+    coinrexEnsureNavigationSlotsSchema($db);
     seedDefaultNavigationControls($db, false, false);
     $ensured = true;
+}
+
+function coinrexEnsureNavigationSlotsSchema(PDO $db): void {
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS navigation_slots (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            slot_group VARCHAR(80) NOT NULL,
+            location VARCHAR(40) NOT NULL,
+            section_key VARCHAR(60) NOT NULL,
+            audience VARCHAR(20) NOT NULL DEFAULT 'all',
+            slot_number INT NOT NULL,
+            nav_key VARCHAR(120) NOT NULL DEFAULT '',
+            updated_by INT UNSIGNED NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_navigation_slots_group_slot (slot_group, slot_number),
+            KEY idx_navigation_slots_lookup (location, section_key, audience)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
 }
 
 function coinrexEnsureNavigationColumn(PDO $db, string $column, string $ddl): void {
@@ -840,8 +861,11 @@ function seedDefaultNavigationControls(PDO $db = null, bool $resetPresentation =
     }
 }
 
-function getNavigationControlRegistry(): array {
+function getNavigationControlRegistry(bool $refresh = false): array {
     static $cache = null;
+    if ($refresh) {
+        $cache = null;
+    }
     if (is_array($cache)) {
         return $cache;
     }
@@ -1084,6 +1108,47 @@ function getManagedNavigationItems(string $location, string $sectionKey = '', ar
 
         return strcmp((string) ($a['nav_key'] ?? ''), (string) ($b['nav_key'] ?? ''));
     });
+
+    return $items;
+}
+
+function getManagedNavigationSlotItems(string $slotGroup, string $location, string $sectionKey, int $limit, array $context = []): array {
+    $slotGroup = trim($slotGroup);
+    if ($slotGroup === '') {
+        return array_slice(getManagedNavigationItems($location, $sectionKey, $context), 0, $limit);
+    }
+
+    try {
+        $db = getDBConnection();
+        ensureNavigationControlsSchema($db);
+        $stmt = $db->prepare("
+            SELECT nav_key
+            FROM navigation_slots
+            WHERE slot_group = ?
+            ORDER BY slot_number ASC
+            LIMIT " . (int) $limit
+        );
+        $stmt->execute([$slotGroup]);
+        $slotKeys = array_values(array_filter(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [])));
+    } catch (Throwable $e) {
+        $slotKeys = [];
+    }
+
+    if (!$slotKeys) {
+        return array_slice(getManagedNavigationItems($location, $sectionKey, $context), 0, $limit);
+    }
+
+    $available = [];
+    foreach (getManagedNavigationItems($location, $sectionKey, $context) as $item) {
+        $available[(string) ($item['nav_key'] ?? '')] = $item;
+    }
+
+    $items = [];
+    foreach ($slotKeys as $slotKey) {
+        if (isset($available[$slotKey])) {
+            $items[] = $available[$slotKey];
+        }
+    }
 
     return $items;
 }
