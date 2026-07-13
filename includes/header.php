@@ -171,7 +171,7 @@ $navigation_context = [
 ];
 $header_primary_items = getManagedNavigationItems('header', 'primary', $navigation_context);
 $header_resource_items = getManagedNavigationItems('header', 'resources', $navigation_context);
-$mobile_navigation_items = getManagedNavigationItems('mobile', 'bottom', $navigation_context);
+$mobile_navigation_items = array_slice(getManagedNavigationItems('mobile', 'bottom', $navigation_context), 0, 5);
 $resources_active = false;
 foreach ($header_resource_items as $header_resource_item) {
     if (!empty($header_resource_item['is_active'])) {
@@ -478,15 +478,16 @@ foreach ($header_resource_items as $header_resource_item) {
                 $mobile_item_classes[] = 'active';
             }
             $mobile_badge = trim((string) ($nav_item['badge_text'] ?? ''));
+            $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle';
         ?>
         <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo htmlspecialchars(implode(' ', $mobile_item_classes), ENT_QUOTES, 'UTF-8'); ?>">
             <?php if ($mobile_badge !== ''): ?>
                 <span class="mobile-nav-icon-wrap">
-                    <i class="<?php echo htmlspecialchars((string) ($nav_item['icon_class'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"></i>
+                    <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
                     <span class="mobile-hot-badge"><?php echo htmlspecialchars($mobile_badge, ENT_QUOTES, 'UTF-8'); ?></span>
                 </span>
             <?php else: ?>
-                <i class="<?php echo htmlspecialchars((string) ($nav_item['icon_class'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"></i>
+                <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
             <?php endif; ?>
             <span class="<?php echo $mobile_badge !== '' ? 'mobile-nav-label' : ''; ?>"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
         </a>

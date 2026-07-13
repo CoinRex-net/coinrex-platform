@@ -631,6 +631,38 @@ function getDefaultNavigationControls(): array {
             'admin_route_hint' => BASE_URL . '/public/reviews.php',
             'active_pages' => ['reviews', 'my-reviews', 'submit-review'],
         ],
+        'mobile_rewards_member' => [
+            'nav_key' => 'mobile_rewards_member',
+            'location' => 'mobile',
+            'section_key' => 'bottom',
+            'section_label' => 'Mobile Bottom Nav',
+            'label' => 'Rewards',
+            'route_key' => 'reward_history',
+            'icon_class' => 'fas fa-clock-rotate-left',
+            'badge_text' => '',
+            'sort_order' => 60,
+            'is_enabled' => 1,
+            'audience' => 'member',
+            'admin_hint' => 'Signed-in MVP-safe mobile shortcut. Useful when marketplace links are hidden.',
+            'admin_route_hint' => BASE_URL . '/public/reward-history.php',
+            'active_pages' => ['reward-history'],
+        ],
+        'mobile_profile_member' => [
+            'nav_key' => 'mobile_profile_member',
+            'location' => 'mobile',
+            'section_key' => 'bottom',
+            'section_label' => 'Mobile Bottom Nav',
+            'label' => 'Profile',
+            'route_key' => 'profile',
+            'icon_class' => 'fas fa-id-badge',
+            'badge_text' => '',
+            'sort_order' => 70,
+            'is_enabled' => 1,
+            'audience' => 'member',
+            'admin_hint' => 'Signed-in MVP-safe mobile shortcut. Helps keep the bottom nav at 5 slots during launch.',
+            'admin_route_hint' => BASE_URL . '/public/profile.php',
+            'active_pages' => ['profile'],
+        ],
         'mobile_litepaper_guest' => [
             'nav_key' => 'mobile_litepaper_guest',
             'location' => 'mobile',
@@ -920,6 +952,10 @@ function coinrexNavigationRouteUrl(string $routeKey, array $context = []): strin
             return BASE_URL . '/public/boosthub.php';
         case 'leaderboard':
             return BASE_URL . '/public/leaderboard.php';
+        case 'reward_history':
+            return BASE_URL . '/public/reward-history.php';
+        case 'profile':
+            return BASE_URL . '/public/profile.php';
         case 'roadmap':
             return BASE_URL . '/public/roadmap.php';
         case 'litepaper':

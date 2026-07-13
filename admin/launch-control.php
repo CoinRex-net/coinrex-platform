@@ -131,6 +131,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($audience, ['all', 'guest', 'member'], true)) {
                 $audience = 'all';
             }
+            if ($location === 'mobile' && $icon_class === '') {
+                $icon_class = 'fas fa-circle';
+            }
 
             $nav_key = coinrexGenerateNavigationKey($location, $section_key, $label);
             $insert = $db->prepare("
@@ -200,6 +203,11 @@ foreach ($flags as $flag) {
     }
 }
 
+$feature_flags_by_key = [];
+foreach ($flags as $flag) {
+    $feature_flags_by_key[(string) ($flag['feature_key'] ?? '')] = $flag;
+}
+
 $status_meta = static function (array $flag): array {
     $visible = !empty($flag['is_visible']);
     $accessible = !empty($flag['is_accessible']);
@@ -221,6 +229,7 @@ $navigation_summary = [
     'total' => 0,
     'enabled' => 0,
     'disabled' => 0,
+    'feature_blocked' => 0,
 ];
 foreach ($navigation_registry as $nav_item) {
     $group_key = (string) ($nav_item['section_label'] ?? (($nav_item['location'] ?? 'Navigation') . ' / ' . ($nav_item['section_key'] ?? 'default')));
@@ -230,6 +239,48 @@ foreach ($navigation_registry as $nav_item) {
         $navigation_summary['enabled']++;
     } else {
         $navigation_summary['disabled']++;
+    }
+    $linked_feature_key = (string) ($nav_item['feature_key'] ?? '');
+    if ($linked_feature_key !== '' && empty($feature_flags_by_key[$linked_feature_key]['is_visible'])) {
+        $navigation_summary['feature_blocked']++;
+    }
+}
+
+$mobile_guest_preview = getManagedNavigationItems('mobile', 'bottom', [
+    'is_logged_in' => false,
+    'current_page' => '',
+    'user_level' => 'beginner',
+    'taskhub_mission_completed' => false,
+]);
+$mobile_member_preview = getManagedNavigationItems('mobile', 'bottom', [
+    'is_logged_in' => true,
+    'current_page' => '',
+    'user_level' => 'beginner',
+    'taskhub_mission_completed' => false,
+]);
+$mobile_guest_preview = array_slice($mobile_guest_preview, 0, 5);
+$mobile_member_preview = array_slice($mobile_member_preview, 0, 5);
+$mobile_preview_slots = static function (array $items): array {
+    $slots = [];
+    for ($index = 0; $index < 5; $index++) {
+        $slots[] = $items[$index] ?? null;
+    }
+
+    return $slots;
+};
+$mobile_group_counts = [
+    'enabled' => 0,
+    'with_icon' => 0,
+];
+foreach ($navigation_registry as $nav_item) {
+    if ((string) ($nav_item['location'] ?? '') !== 'mobile' || (string) ($nav_item['section_key'] ?? '') !== 'bottom') {
+        continue;
+    }
+    if (!empty($nav_item['is_enabled'])) {
+        $mobile_group_counts['enabled']++;
+        if (trim((string) ($nav_item['icon_class'] ?? '')) !== '') {
+            $mobile_group_counts['with_icon']++;
+        }
     }
 }
 ?>
@@ -367,13 +418,31 @@ foreach ($navigation_registry as $nav_item) {
 .launch-warning i { margin-top: 2px; }
 .launch-warning p { margin: 0; color: #f8e7b0; line-height: 1.55; font-size: 13px; }
 .launch-section-gap { margin-top: 6px; }
-.launch-nav-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.launch-nav-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .launch-nav-card { border: 1px solid rgba(148,163,184,.12); border-radius: 16px; padding: 16px; background: rgba(15,23,42,.62); }
 .launch-nav-card span { display: block; color: #94a3b8; font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .launch-nav-card strong { display: block; margin-top: 8px; color: #f8fafc; font-size: 28px; line-height: 1; }
 .launch-nav-card.is-enabled strong { color: #86efac; }
 .launch-nav-card.is-disabled strong { color: #fca5a5; }
+.launch-nav-card.is-feature-blocked strong { color: #fbbf24; }
+.launch-helper-grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 14px; }
+.launch-help-card { border: 1px solid rgba(148,163,184,.12); border-radius: 18px; padding: 16px; background: rgba(15,23,42,.58); box-shadow: 0 16px 42px rgba(2,6,23,.16); }
+.launch-help-card h3 { margin: 0 0 8px; color: #f8fafc; display: flex; gap: 8px; align-items: center; }
+.launch-help-card p { margin: 0; color: #94a3b8; line-height: 1.6; font-size: 13px; }
+.launch-simple-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.launch-simple-list li { display: flex; gap: 8px; align-items: flex-start; color: #cbd5e1; font-size: 13px; line-height: 1.45; }
+.launch-simple-list i { color: #facc15; margin-top: 2px; }
+.launch-phone-preview { display: grid; gap: 12px; }
+.launch-phone-preview h4 { margin: 0; color: #e2e8f0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+.launch-phone-bar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 10px; border: 1px solid rgba(148,163,184,.14); border-radius: 16px; background: rgba(2,6,23,.34); }
+.launch-phone-slot { min-height: 72px; display: grid; place-items: center; gap: 5px; border-radius: 12px; border: 1px solid rgba(148,163,184,.12); background: rgba(15,23,42,.58); color: #cbd5e1; text-align: center; padding: 8px 4px; }
+.launch-phone-slot i { color: #facc15; font-size: 16px; }
+.launch-phone-slot span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 800; }
+.launch-phone-slot.is-empty { color: #64748b; border-style: dashed; }
+.launch-phone-slot.is-empty i { color: #475569; }
+.launch-mobile-note { margin-top: 10px; color: #94a3b8; font-size: 12px; line-height: 1.5; }
 .launch-nav-row { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(320px, 1fr) minmax(240px, .7fr); gap: 16px; padding: 18px; border-bottom: 1px solid rgba(148,163,184,.09); }
+.launch-nav-row.is-mobile-item { background: linear-gradient(90deg, rgba(59,130,246,.08), rgba(15,23,42,0)); }
 .launch-nav-row:last-child { border-bottom: 0; }
 .launch-nav-meta { display: grid; gap: 8px; align-content: start; }
 .launch-nav-status { display: inline-flex; width: fit-content; align-items: center; gap: 8px; border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 900; text-transform: uppercase; }
@@ -383,6 +452,10 @@ foreach ($navigation_registry as $nav_item) {
 .launch-nav-origin { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 900; text-transform: uppercase; }
 .launch-nav-origin.is-system { background: rgba(59,130,246,.14); color: #93c5fd; }
 .launch-nav-origin.is-custom { background: rgba(245,158,11,.16); color: #fbbf24; }
+.launch-nav-origin.is-mobile { background: rgba(14,165,233,.14); color: #7dd3fc; }
+.launch-nav-origin.is-feature-live { background: rgba(34,197,94,.14); color: #86efac; }
+.launch-nav-origin.is-feature-hidden { background: rgba(245,158,11,.16); color: #fbbf24; }
+.launch-nav-origin.is-feature-off { background: rgba(239,68,68,.14); color: #fca5a5; }
 .launch-nav-meta small { color: #64748b; line-height: 1.5; }
 .launch-nav-fields { display: grid; gap: 10px; }
 .launch-nav-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -395,8 +468,8 @@ foreach ($navigation_registry as $nav_item) {
 .launch-delete-btn { width: fit-content; }
 .launch-tab-panel[hidden] { display: none; }
 @media (max-width: 1180px) { .launch-row { grid-template-columns: 1fr; } .launch-field-grid { grid-template-columns: 1fr; } }
-@media (max-width: 1180px) { .launch-nav-row, .launch-nav-grid-2, .launch-nav-grid-3 { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .launch-wrap { padding: 0 14px 18px; } .launch-control-hero { grid-template-columns: 1fr; padding: 20px; } .launch-metrics, .launch-nav-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .launch-defaults { margin-left: 0; } .launch-tabs { display: grid; grid-template-columns: 1fr; } .launch-group-head, .launch-title, .launch-create-actions, .launch-actions { flex-direction: column; align-items: stretch; } .launch-group-count, .launch-delete-btn { width: 100%; } .launch-delete-btn, .launch-create-actions .btn, .launch-actions .btn { justify-content: center; } .launch-mode-card { min-width: 0; } }
+@media (max-width: 1180px) { .launch-nav-row, .launch-nav-grid-2, .launch-nav-grid-3, .launch-helper-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .launch-wrap { padding: 0 14px 18px; } .launch-control-hero { grid-template-columns: 1fr; padding: 20px; } .launch-metrics, .launch-nav-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .launch-defaults { margin-left: 0; } .launch-tabs { display: grid; grid-template-columns: 1fr; } .launch-group-head, .launch-title, .launch-create-actions, .launch-actions { flex-direction: column; align-items: stretch; } .launch-group-count, .launch-delete-btn { width: 100%; } .launch-delete-btn, .launch-create-actions .btn, .launch-actions .btn { justify-content: center; } .launch-mode-card { min-width: 0; } .launch-phone-bar { gap: 6px; padding: 8px; } .launch-phone-slot { min-height: 64px; } }
 @media (max-width: 520px) { .launch-metrics, .launch-nav-summary { grid-template-columns: 1fr; } .launch-row, .launch-nav-row { padding: 14px; } .launch-save-bar .btn, .launch-create-actions .btn, .launch-delete-btn { width: 100%; justify-content: center; } .launch-save-bar { position: static; } .launch-control-hero { padding: 16px; } .launch-create-card, .launch-group { border-radius: 16px; } }
 </style>
 
@@ -545,11 +618,64 @@ foreach ($navigation_registry as $nav_item) {
             <div class="launch-nav-card"><span>Total Items</span><strong><?php echo (int) $navigation_summary['total']; ?></strong></div>
             <div class="launch-nav-card is-enabled"><span>Enabled</span><strong><?php echo (int) $navigation_summary['enabled']; ?></strong></div>
             <div class="launch-nav-card is-disabled"><span>Disabled</span><strong><?php echo (int) $navigation_summary['disabled']; ?></strong></div>
+            <div class="launch-nav-card is-feature-blocked"><span>Feature Hidden</span><strong><?php echo (int) $navigation_summary['feature_blocked']; ?></strong></div>
         </section>
 
-        <section class="launch-warning">
-            <i class="fas fa-wand-magic-sparkles"></i>
-            <p><strong>Navigation tab:</strong> manage shared public menus here. Route logic stays safe in code, while labels, icons, badges, order, and custom URLs stay editable in admin.</p>
+        <section class="launch-helper-grid">
+            <div class="launch-help-card">
+                <h3><i class="fas fa-circle-info"></i> How This Works</h3>
+                <p>This controller edits the shared public menus without changing templates.</p>
+                <ul class="launch-simple-list">
+                    <li><i class="fas fa-toggle-on"></i><span><strong>Show item</strong> makes the link available, but audience and feature rules can still hide it.</span></li>
+                    <li><i class="fas fa-users"></i><span><strong>Audience</strong> decides who can see it: guest, signed-in users, or everyone.</span></li>
+                    <li><i class="fas fa-arrow-down-1-9"></i><span><strong>Order</strong> decides position. Lower number appears first.</span></li>
+                    <li><i class="fas fa-mobile-screen"></i><span><strong>Mobile bottom nav</strong> uses exactly 5 visible slots. Items after the first 5 are kept enabled, but do not show there.</span></li>
+                </ul>
+            </div>
+            <div class="launch-help-card">
+                <h3><i class="fas fa-mobile-screen-button"></i> Mobile Bottom Preview</h3>
+                <div class="launch-phone-preview">
+                    <div>
+                        <h4>Guest view: <?php echo count($mobile_guest_preview); ?>/5 slots</h4>
+                        <div class="launch-phone-bar" aria-label="Guest mobile navigation preview">
+                            <?php foreach ($mobile_preview_slots($mobile_guest_preview) as $slot): ?>
+                                <?php if (is_array($slot)): ?>
+                                    <?php $slot_icon = trim((string) ($slot['icon_class'] ?? '')) !== '' ? trim((string) $slot['icon_class']) : 'fas fa-circle'; ?>
+                                    <div class="launch-phone-slot">
+                                        <i class="<?php echo htmlspecialchars($slot_icon, ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                        <span><?php echo htmlspecialchars((string) ($slot['label'] ?? 'Link'), ENT_QUOTES, 'UTF-8'); ?></span>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="launch-phone-slot is-empty">
+                                        <i class="fas fa-plus"></i>
+                                        <span>Empty</span>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <div>
+                        <h4>Signed-in view: <?php echo count($mobile_member_preview); ?>/5 slots</h4>
+                        <div class="launch-phone-bar" aria-label="Signed-in mobile navigation preview">
+                            <?php foreach ($mobile_preview_slots($mobile_member_preview) as $slot): ?>
+                                <?php if (is_array($slot)): ?>
+                                    <?php $slot_icon = trim((string) ($slot['icon_class'] ?? '')) !== '' ? trim((string) $slot['icon_class']) : 'fas fa-circle'; ?>
+                                    <div class="launch-phone-slot">
+                                        <i class="<?php echo htmlspecialchars($slot_icon, ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                        <span><?php echo htmlspecialchars((string) ($slot['label'] ?? 'Link'), ENT_QUOTES, 'UTF-8'); ?></span>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="launch-phone-slot is-empty">
+                                        <i class="fas fa-plus"></i>
+                                        <span>Empty</span>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+                <p class="launch-mobile-note">Enabled mobile candidates: <?php echo (int) $mobile_group_counts['enabled']; ?>. Candidates with icons: <?php echo (int) $mobile_group_counts['with_icon']; ?>. If a slot is empty, check feature visibility, audience, and icon class.</p>
+            </div>
         </section>
 
         <section class="launch-create-card">
@@ -631,8 +757,31 @@ foreach ($navigation_registry as $nav_item) {
                         <span class="launch-group-count"><?php echo count($items); ?> items</span>
                     </div>
                     <?php foreach ($items as $nav_item): ?>
-                        <?php $nav_key = (string) $nav_item['nav_key']; ?>
-                        <div class="launch-nav-row">
+                        <?php
+                            $nav_key = (string) $nav_item['nav_key'];
+                            $is_mobile_bottom_item = (string) ($nav_item['location'] ?? '') === 'mobile' && (string) ($nav_item['section_key'] ?? '') === 'bottom';
+                            $linked_feature_key = (string) ($nav_item['feature_key'] ?? '');
+                            $linked_feature = $linked_feature_key !== '' ? ($feature_flags_by_key[$linked_feature_key] ?? []) : [];
+                            $linked_feature_visible = $linked_feature_key === '' || !empty($linked_feature['is_visible']);
+                            $linked_feature_accessible = $linked_feature_key === '' || !empty($linked_feature['is_accessible']);
+                            $linked_feature_badge_class = 'is-feature-live';
+                            $linked_feature_badge_label = '';
+                            if ($linked_feature_key !== '') {
+                                if ($linked_feature_visible && $linked_feature_accessible) {
+                                    $linked_feature_badge_label = 'Feature live';
+                                } elseif ($linked_feature_visible && !$linked_feature_accessible) {
+                                    $linked_feature_badge_class = 'is-feature-hidden';
+                                    $linked_feature_badge_label = 'Feature fallback';
+                                } elseif (!$linked_feature_visible && $linked_feature_accessible) {
+                                    $linked_feature_badge_class = 'is-feature-hidden';
+                                    $linked_feature_badge_label = 'Feature hidden';
+                                } else {
+                                    $linked_feature_badge_class = 'is-feature-off';
+                                    $linked_feature_badge_label = 'Feature off';
+                                }
+                            }
+                        ?>
+                        <div class="launch-nav-row <?php echo $is_mobile_bottom_item ? 'is-mobile-item' : ''; ?>">
                             <div class="launch-nav-meta">
                                 <div class="launch-title">
                                     <strong><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></strong>
@@ -640,10 +789,22 @@ foreach ($navigation_registry as $nav_item) {
                                 <div class="launch-pill-row">
                                     <span class="launch-nav-status <?php echo !empty($nav_item['is_enabled']) ? 'is-enabled' : 'is-disabled'; ?>"><?php echo !empty($nav_item['is_enabled']) ? 'Enabled' : 'Disabled'; ?></span>
                                     <span class="launch-nav-origin <?php echo !empty($nav_item['is_system']) ? 'is-system' : 'is-custom'; ?>"><?php echo !empty($nav_item['is_system']) ? 'System' : 'Custom'; ?></span>
+                                    <?php if ($is_mobile_bottom_item): ?>
+                                        <span class="launch-nav-origin is-mobile">5-slot mobile</span>
+                                    <?php endif; ?>
+                                    <?php if ($linked_feature_key !== ''): ?>
+                                        <span class="launch-nav-origin <?php echo htmlspecialchars($linked_feature_badge_class, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($linked_feature_badge_label, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php endif; ?>
                                 </div>
                                 <span class="launch-key"><?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?></span>
                                 <small><?php echo htmlspecialchars((string) ($nav_item['admin_hint'] ?? 'Shared navigation item.'), ENT_QUOTES, 'UTF-8'); ?></small>
                                 <small>Default route: <?php echo htmlspecialchars((string) ($nav_item['admin_route_hint'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></small>
+                                <?php if ($linked_feature_key !== ''): ?>
+                                    <small>Linked feature: <?php echo htmlspecialchars($linked_feature_key, ENT_QUOTES, 'UTF-8'); ?>. Turn it on in Feature Access if this nav item should appear live.</small>
+                                <?php endif; ?>
+                                <?php if ($is_mobile_bottom_item && trim((string) ($nav_item['icon_class'] ?? '')) === ''): ?>
+                                    <small><strong>Missing icon:</strong> add a Font Awesome class like fas fa-home so the bottom bar is not blank.</small>
+                                <?php endif; ?>
                                 <?php if (empty($nav_item['is_system'])): ?>
                                     <button type="submit"
                                             form="delete-nav-<?php echo htmlspecialchars($nav_key, ENT_QUOTES, 'UTF-8'); ?>"
