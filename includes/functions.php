@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/functions/core.php';
 require_once __DIR__ . '/functions/helpers.php';
+require_once __DIR__ . '/functions/navigation.php';
 require_once __DIR__ . '/functions/feature_flags.php';
 require_once __DIR__ . '/functions/roadmap.php';
 require_once __DIR__ . '/functions/rating.php';

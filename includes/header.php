@@ -163,6 +163,22 @@ $claim_center_accessible_nav = featureIsAccessible('claim_center');
 $learnhub_nav_url = BASE_URL . '/public/taskhub.php';
 $boosthub_nav_url = BASE_URL . '/public/boosthub.php';
 $leaderboard_nav_url = BASE_URL . '/public/leaderboard.php';
+$navigation_context = [
+    'is_logged_in' => $is_logged_in,
+    'current_page' => $current_page,
+    'user_level' => $user_level_for_nav,
+    'taskhub_mission_completed' => $taskhub_mission_completed_for_nav,
+];
+$header_primary_items = getManagedNavigationItems('header', 'primary', $navigation_context);
+$header_resource_items = getManagedNavigationItems('header', 'resources', $navigation_context);
+$mobile_navigation_items = getManagedNavigationItems('mobile', 'bottom', $navigation_context);
+$resources_active = false;
+foreach ($header_resource_items as $header_resource_item) {
+    if (!empty($header_resource_item['is_active'])) {
+        $resources_active = true;
+        break;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -295,42 +311,54 @@ $leaderboard_nav_url = BASE_URL . '/public/leaderboard.php';
 
             <!-- Desktop Navigation Links -->
             <div class="nex-nav-links">
-                <?php if($is_logged_in && $show_dashboard_nav): ?>
-                <a href="<?php echo BASE_URL; ?>/public/dashboard.php" class="<?php echo $home_active ? 'active' : ''; ?>">
-                    <i class="fas fa-gem"></i>
-                    <span>RexHub</span>
-                </a>
-                <?php else: ?>
-                <a href="<?php echo BASE_URL; ?>/index.php" class="<?php echo $home_active ? 'active' : ''; ?>">
-                    <i class="fas fa-home"></i>
-                    <span>Home</span>
-                </a>
-                <?php endif; ?>
-                <?php if($show_projects_nav): ?>
-                <a href="<?php echo BASE_URL; ?>/public/projects.php" class="<?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Projects</span>
-                </a>
-                <?php endif; ?>
-                <?php if($can_access_taskhub_nav): ?>
-                <a href="<?php echo $learnhub_nav_url; ?>" class="<?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
-                    <i class="fas fa-list-check"></i>
-                    <span class="nex-nav-label">LearnHub <span class="nex-hot-badge">HOT</span></span>
-                </a>
-                <?php endif; ?>
-                <?php if($show_boosthub_nav): ?>
-                    <a href="<?php echo $boosthub_nav_url; ?>" class="<?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
-                        <i class="fas fa-bolt"></i>
-                        <span class="nex-nav-label">BoostHub <span class="nex-hot-badge">NEW</span></span>
-                    </a>
-                <?php endif; ?>
-                <?php if($show_leaderboard_nav): ?>
-                    <a href="<?php echo $leaderboard_nav_url; ?>" class="<?php echo ($current_page == 'leaderboard') ? 'active' : ''; ?>">
-                        <i class="fas fa-trophy"></i>
-                        <span>Leaderboard</span>
-                    </a>
-                <?php endif; ?>
-                <?php $resources_active = in_array($current_page, ['roadmap', 'litepaper', 'blog', 'blog-post', 'blog-category', 'blog-tag', 'about'], true); ?>
+                <?php foreach ($header_primary_items as $nav_item): ?>
+                    <?php if ((string) ($nav_item['item_type'] ?? 'link') === 'dropdown'): ?>
+                        <?php
+                            $dropdown_children = getManagedNavigationItems('header', (string) ($nav_item['children_section_key'] ?? ''), $navigation_context);
+                            $dropdown_active = !empty($nav_item['is_active']);
+                            foreach ($dropdown_children as $dropdown_child) {
+                                if (!empty($dropdown_child['is_active'])) {
+                                    $dropdown_active = true;
+                                    break;
+                                }
+                            }
+                        ?>
+                        <?php if (!empty($dropdown_children)): ?>
+                        <div class="nex-resource-menu">
+                            <button type="button" class="nex-resource-trigger <?php echo $dropdown_active ? 'active' : ''; ?>" aria-haspopup="true" aria-expanded="false">
+                                <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
+                                    <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                <?php endif; ?>
+                                <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="nex-dropdown nex-resource-dropdown">
+                                <?php foreach ($dropdown_children as $dropdown_child): ?>
+                                    <a href="<?php echo htmlspecialchars((string) $dropdown_child['href'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php if (trim((string) ($dropdown_child['icon_class'] ?? '')) !== ''): ?>
+                                            <i class="<?php echo htmlspecialchars((string) $dropdown_child['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                        <?php endif; ?>
+                                        <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $dropdown_child['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo !empty($nav_item['is_active']) ? 'active' : ''; ?>">
+                            <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
+                                <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                            <?php endif; ?>
+                            <?php $nav_badge = trim((string) ($nav_item['badge_text'] ?? '')); ?>
+                            <?php if ($nav_badge !== ''): ?>
+                                <span class="nex-nav-label"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?> <span class="nex-hot-badge"><?php echo htmlspecialchars($nav_badge, ENT_QUOTES, 'UTF-8'); ?></span></span>
+                            <?php else: ?>
+                                <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            <?php endif; ?>
+                        </a>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+                <?php if (!empty($header_resource_items)): ?>
                 <div class="nex-resource-menu">
                     <button type="button" class="nex-resource-trigger <?php echo $resources_active ? 'active' : ''; ?>" aria-haspopup="true" aria-expanded="false">
                         <i class="fas fa-layer-group"></i>
@@ -338,12 +366,17 @@ $leaderboard_nav_url = BASE_URL . '/public/leaderboard.php';
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="nex-dropdown nex-resource-dropdown">
-                        <a href="<?php echo BASE_URL; ?>/public/roadmap.php"><i class="fas fa-route"></i><span class="nex-dropdown-link-label">Roadmap</span></a>
-                        <a href="<?php echo BASE_URL; ?>/public/litepaper.php"><i class="fas fa-file-alt"></i><span class="nex-dropdown-link-label">Litepaper</span></a>
-                        <a href="<?php echo BASE_URL; ?>/public/blog.php"><i class="fas fa-blog"></i><span class="nex-dropdown-link-label">Blog</span></a>
-                        <a href="<?php echo BASE_URL; ?>/public/about.php"><i class="fas fa-circle-info"></i><span class="nex-dropdown-link-label">About Us</span></a>
+                        <?php foreach ($header_resource_items as $nav_item): ?>
+                            <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
+                                    <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                <?php endif; ?>
+                                <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            </a>
+                        <?php endforeach; ?>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
 
             <!-- Right Actions -->
@@ -435,52 +468,29 @@ $leaderboard_nav_url = BASE_URL . '/public/leaderboard.php';
 
 <!-- Mobile Bottom Navigation Bar (appears only on mobile) -->
 <div class="mobile-bottom-nav">
-    <?php if($can_access_taskhub_nav): ?>
-    <a href="<?php echo $learnhub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'taskhub') ? 'active' : ''; ?>">
-        <span class="mobile-nav-icon-wrap">
-            <i class="fas fa-list-check"></i>
-            <span class="mobile-hot-badge">HOT</span>
-        </span>
-        <span class="mobile-nav-label">LearnHub</span>
-    </a>
-    <?php elseif($show_leaderboard_nav): ?>
-    <a href="<?php echo $leaderboard_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'leaderboard') ? 'active' : ''; ?>">
-        <span class="mobile-nav-icon-wrap">
-            <i class="fas fa-trophy"></i>
-        </span>
-        <span class="mobile-nav-label">Leaders</span>
-    </a>
-    <?php endif; ?>
-    <a href="<?php echo $boosthub_nav_url; ?>" class="mobile-nav-item <?php echo ($current_page == 'boosthub') ? 'active' : ''; ?>">
-        <span class="mobile-nav-icon-wrap">
-            <i class="fas fa-bolt"></i>
-            <span class="mobile-hot-badge">NEW</span>
-        </span>
-        <span class="mobile-nav-label">BoostHub</span>
-    </a>
-    <a href="<?php echo $home_url; ?>" class="mobile-nav-item mobile-nav-home <?php echo $home_active ? 'active' : ''; ?>">
-        <i class="fas fa-home"></i>
-        <span>Home</span>
-    </a>
-    <?php if($is_logged_in): ?>
-        <a href="<?php echo BASE_URL; ?>/public/projects.php" class="mobile-nav-item <?php echo ($current_page == 'projects') ? 'active' : ''; ?>">
-            <i class="fas fa-chart-line"></i>
-            <span>Projects</span>
+    <?php foreach ($mobile_navigation_items as $nav_item): ?>
+        <?php
+            $mobile_item_classes = ['mobile-nav-item'];
+            if (in_array((string) ($nav_item['nav_key'] ?? ''), ['mobile_home_guest', 'mobile_home_member'], true)) {
+                $mobile_item_classes[] = 'mobile-nav-home';
+            }
+            if (!empty($nav_item['is_active'])) {
+                $mobile_item_classes[] = 'active';
+            }
+            $mobile_badge = trim((string) ($nav_item['badge_text'] ?? ''));
+        ?>
+        <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo htmlspecialchars(implode(' ', $mobile_item_classes), ENT_QUOTES, 'UTF-8'); ?>">
+            <?php if ($mobile_badge !== ''): ?>
+                <span class="mobile-nav-icon-wrap">
+                    <i class="<?php echo htmlspecialchars((string) ($nav_item['icon_class'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"></i>
+                    <span class="mobile-hot-badge"><?php echo htmlspecialchars($mobile_badge, ENT_QUOTES, 'UTF-8'); ?></span>
+                </span>
+            <?php else: ?>
+                <i class="<?php echo htmlspecialchars((string) ($nav_item['icon_class'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"></i>
+            <?php endif; ?>
+            <span class="<?php echo $mobile_badge !== '' ? 'mobile-nav-label' : ''; ?>"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
         </a>
-        <a href="<?php echo BASE_URL; ?>/public/reviews.php" class="mobile-nav-item <?php echo in_array($current_page, ['reviews', 'my-reviews'], true) ? 'active' : ''; ?>">
-            <i class="fas fa-star"></i>
-            <span>Reviews</span>
-        </a>
-    <?php else: ?>
-        <a href="<?php echo BASE_URL; ?>/public/litepaper.php" class="mobile-nav-item <?php echo ($current_page == 'litepaper') ? 'active' : ''; ?>">
-            <i class="fas fa-file-alt"></i>
-            <span>Litepaper</span>
-        </a>
-        <a href="<?php echo BASE_URL; ?>/public/roadmap.php" class="mobile-nav-item <?php echo ($current_page == 'roadmap') ? 'active' : ''; ?>">
-            <i class="fas fa-route"></i>
-            <span>Roadmap</span>
-        </a>
-    <?php endif; ?>
+    <?php endforeach; ?>
 </div>
 
 <?php if ($is_logged_in): ?>

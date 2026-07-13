@@ -11,6 +11,15 @@ if ((string) ($_GET['th_embed'] ?? '') === '1') {
 <?php
     return;
 }
+
+$footer_navigation_context = [
+    'is_logged_in' => isset($_SESSION['user_id']) && $_SESSION['user_id'],
+    'current_page' => basename($_SERVER['PHP_SELF'], '.php'),
+];
+$footer_platform_items = getManagedNavigationItems('footer', 'platform', $footer_navigation_context);
+$footer_resource_items = getManagedNavigationItems('footer', 'resources', $footer_navigation_context);
+$footer_legal_items = getManagedNavigationItems('footer', 'legal', $footer_navigation_context);
+$footer_bottom_items = getManagedNavigationItems('footer', 'bottom', $footer_navigation_context);
 ?>
 
 <!-- Footer Stylesheet -->
@@ -38,30 +47,40 @@ if ((string) ($_GET['th_embed'] ?? '') === '1') {
             <!-- Platform Links -->
             <div class="footer-links">
                 <h4><i class="fas fa-rocket"></i> Platform</h4>
-                <a href="<?php echo BASE_URL; ?>/index.php"><i class="fas fa-home"></i><span>Home</span></a>
-<?php if (featureIsVisible('projects')): ?><a href="<?php echo BASE_URL; ?>/public/projects.php"><i class="fas fa-chart-line"></i><span>Projects</span></a><?php endif; ?>
-<?php if (featureIsVisible('reviews')): ?><a href="<?php echo BASE_URL; ?>/public/reviews.php"><i class="fas fa-star"></i><span>Reviews</span></a><?php endif; ?>
-<?php if (featureIsVisible('leaderboard')): ?><a href="<?php echo BASE_URL; ?>/public/leaderboard.php"><i class="fas fa-trophy"></i><span>Leaderboard</span></a><?php endif; ?>
-<?php if (featureIsVisible('devhub_full') || featureIsVisible('devhub_auth')): ?><a href="<?php echo BASE_URL; ?>/devhub/index.php"><i class="fas fa-code"></i><span>Dev Hub</span></a><?php endif; ?>
+                <?php foreach ($footer_platform_items as $nav_item): ?>
+                    <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
+                            <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                        <?php endif; ?>
+                        <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    </a>
+                <?php endforeach; ?>
             </div>
 
             <!-- Resources Links -->
             <div class="footer-links">
                 <h4><i class="fas fa-book"></i> Resources</h4>
-                <a href="<?php echo BASE_URL; ?>/public/about.php"><i class="fas fa-info-circle"></i><span>About Us</span></a>
-<a href="<?php echo BASE_URL; ?>/public/litepaper.php"><i class="fas fa-file-alt"></i><span>Litepaper</span></a>
-<a href="<?php echo BASE_URL; ?>/public/roadmap.php"><i class="fas fa-route"></i><span>Roadmap</span></a>
-<a href="<?php echo BASE_URL; ?>/public/faq.php"><i class="fas fa-question-circle"></i><span>FAQ</span></a>
-                <a href="<?php echo BASE_URL; ?>/public/contact.php"><i class="fas fa-envelope"></i><span>Contact</span></a>
-<a href="<?php echo BASE_URL; ?>/public/blog.php"><i class="fas fa-blog"></i><span>Blog</span></a>
+                <?php foreach ($footer_resource_items as $nav_item): ?>
+                    <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
+                            <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                        <?php endif; ?>
+                        <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    </a>
+                <?php endforeach; ?>
             </div>
 
             <!-- Legal Links -->
             <div class="footer-links">
                 <h4><i class="fas fa-gavel"></i> Legal</h4>
-              <a href="<?php echo BASE_URL; ?>/public/terms.php"><i class="fas fa-file-contract"></i><span>Terms of Service</span></a>
-<a href="<?php echo BASE_URL; ?>/public/privacy.php"><i class="fas fa-shield-alt"></i><span>Privacy Policy</span></a>
-<a href="<?php echo BASE_URL; ?>/public/cookies.php"><i class="fas fa-cookie-bite"></i><span>Cookie Policy</span></a>
+                <?php foreach ($footer_legal_items as $nav_item): ?>
+                    <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
+                            <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                        <?php endif; ?>
+                        <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    </a>
+                <?php endforeach; ?>
             </div>
 
         </div>
@@ -70,11 +89,10 @@ if ((string) ($_GET['th_embed'] ?? '') === '1') {
             <div class="footer-bottom-content">
                 <p>&copy; <?php echo date('Y'); ?> <?php echo SITE_NAME; ?> - Decentralized Trust Protocol. All rights reserved.</p>
                 <div class="footer-bottom-links">
-                    <a href="#">Support</a>
-                    <span>&bull;</span>
-                    <a href="#">Status</a>
-                    <span>&bull;</span>
-                    <?php if (featureIsVisible('devhub_full')): ?><a href="<?php echo BASE_URL; ?>/devhub/widget-api.php">API</a><?php endif; ?>
+                    <?php foreach ($footer_bottom_items as $index => $nav_item): ?>
+                        <?php if ($index > 0): ?><span>&bull;</span><?php endif; ?>
+                        <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></a>
+                    <?php endforeach; ?>
                 </div>
             </div>
             <p class="footer-warning">
