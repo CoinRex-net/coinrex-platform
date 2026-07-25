@@ -384,13 +384,230 @@
 
 .investor-share-body {
     min-height: 100vh;
-    background: #081120;
+    background:
+        linear-gradient(180deg, rgba(8, 17, 32, 0.96), rgba(5, 10, 20, 1)),
+        #081120;
 }
 
 .investor-share-shell {
     width: min(1440px, calc(100% - 32px));
     margin: 0 auto;
     padding: 28px 0 44px;
+}
+
+.investor-share-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 22px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.10);
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+}
+
+.investor-share-body .investor-share-brand {
+    position: sticky;
+    top: 12px;
+    z-index: 20;
+    backdrop-filter: blur(18px);
+}
+
+.investor-share-brand-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.investor-share-brand-left img {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    object-fit: contain;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    padding: 5px;
+}
+
+.investor-share-brand-left strong,
+.investor-share-brand-left span {
+    display: block;
+}
+
+.investor-share-brand-left strong {
+    color: #f1f5f9;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.investor-share-brand-left span {
+    color: #f5d76e;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.investor-share-brand-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.10);
+    border: 1px solid rgba(34, 197, 94, 0.20);
+    color: #86efac;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.investor-share-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 22px;
+    padding: 24px;
+    border-radius: 22px;
+    background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(17, 35, 56, 0.72)),
+        rgba(15, 23, 42, 0.86);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+}
+
+.investor-share-hero-copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.investor-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    margin-bottom: 14px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: rgba(212, 175, 55, 0.10);
+    border: 1px solid rgba(212, 175, 55, 0.20);
+    color: #f5d76e;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.investor-share-hero h1 {
+    margin: 0;
+    color: #f8fafc;
+    font-size: 34px;
+    line-height: 1.08;
+    font-weight: 850;
+}
+
+.investor-share-hero p {
+    max-width: 720px;
+    margin: 10px 0 0;
+    color: #cbd5e1;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.investor-report-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.investor-report-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.58);
+    border: 1px solid rgba(148, 163, 184, 0.10);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.investor-report-meta i {
+    color: #67e8f9;
+}
+
+.investor-snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.investor-snapshot-stat {
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(3, 7, 18, 0.34);
+    border: 1px solid rgba(148, 163, 184, 0.10);
+}
+
+.investor-snapshot-stat span {
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.investor-snapshot-stat strong {
+    color: #f8fafc;
+    font-size: 27px;
+    line-height: 1;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+}
+
+.investor-snapshot-stat small {
+    color: #67e8f9;
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.investor-share-body .investor-dashboard-header {
+    padding: 18px 20px;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.58);
+    border: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.investor-share-body .investor-metric-card {
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(22, 35, 54, 0.74));
+    border-color: rgba(148, 163, 184, 0.10);
+}
+
+.investor-share-body .dashboard-section-divider {
+    margin-top: 38px;
 }
 
 .investor-access-denied {
@@ -552,6 +769,10 @@
 }
 
 @media (max-width: 1100px) {
+    .investor-share-hero {
+        grid-template-columns: 1fr;
+    }
+
     .learnhub-funnel {
         grid-template-columns: repeat(5, minmax(110px, 1fr));
     }
@@ -589,6 +810,50 @@
     .investor-share-shell {
         width: min(100% - 20px, 1440px);
         padding: 18px 0 32px;
+    }
+
+    .investor-share-brand {
+        align-items: flex-start;
+        flex-direction: column;
+        margin-bottom: 18px;
+        top: 8px;
+    }
+
+    .investor-share-brand-badge {
+        width: 100%;
+    }
+
+    .investor-share-hero {
+        padding: 18px;
+        border-radius: 18px;
+    }
+
+    .investor-share-hero h1 {
+        font-size: 25px;
+        line-height: 1.12;
+    }
+
+    .investor-share-hero p {
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    .investor-report-meta {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .investor-report-meta span {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .investor-snapshot-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .investor-snapshot-stat {
+        min-height: 98px;
     }
 
     .investor-dashboard-header .dashboard-header-left {
