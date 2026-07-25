@@ -100,7 +100,7 @@ function investorMetricDisplayPercent($value, string $fallback = 'Collecting'): 
 
 function investorMetricFormatDuration($seconds): string {
     if ($seconds === null) {
-        return 'Collecting';
+        return 'Tracking now';
     }
     $seconds = max(0, (int) $seconds);
     if ($seconds <= 0) {
@@ -153,6 +153,7 @@ function investorWindowUrl($window): string {
 
 $analyticsQuality = !empty($metrics['analytics_has_data']) ? 'Tracked' : 'New';
 $activityQuality = (string) ($metrics['growth']['activity_quality'] ?? $analyticsQuality);
+$retentionQuality = (string) ($metrics['retention']['quality'] ?? $analyticsQuality);
 
 if ($isInvestorShareRequest && !$shareAccess):
 ?>
@@ -313,7 +314,7 @@ if ($isInvestorShareRequest):
 <?php if (empty($metrics['analytics_has_data'])): ?>
 <div class="dashboard-panel investor-data-note">
     <i class="fas fa-circle-info"></i>
-    <span>Activity headline cards use live <code>last_active</code> fallback while cohort retention and session-duration history continue collecting. Product, reward, review, LearnHub, BoostHub, and RexLink totals are live.</span>
+    <span>Activity and retention headline cards use live <code>last_active</code> fallback where historical tracking is still building. Product, reward, review, LearnHub, BoostHub, and RexLink totals are live.</span>
 </div>
 <?php endif; ?>
 
@@ -442,13 +443,13 @@ if ($isInvestorShareRequest):
 </div>
 <div class="dashboard-metric-grid investor-metric-grid">
     <?php
-    investorMetricCard('Day-1 Retention', investorMetricDisplayPercent($metrics['retention']['day1']), 'fa-calendar-check', 'is-green', 'Cohort return after signup', $analyticsQuality);
-    investorMetricCard('Day-7 Retention', investorMetricDisplayPercent($metrics['retention']['day7']), 'fa-calendar-week', 'is-cyan', 'Cohort return after signup', $analyticsQuality);
-    investorMetricCard('Day-30 Retention', investorMetricDisplayPercent($metrics['retention']['day30']), 'fa-calendar-days', 'is-purple', 'Cohort return after signup', $analyticsQuality);
+    investorMetricCard('Day-1 Retention', investorMetricDisplayPercent($metrics['retention']['day1'], 'No mature cohort'), 'fa-calendar-check', 'is-green', 'Return after signup', $retentionQuality);
+    investorMetricCard('Day-7 Retention', investorMetricDisplayPercent($metrics['retention']['day7'], 'No mature cohort'), 'fa-calendar-week', 'is-cyan', 'Return after signup', $retentionQuality);
+    investorMetricCard('Day-30 Retention', investorMetricDisplayPercent($metrics['retention']['day30'], 'No mature cohort'), 'fa-calendar-days', 'is-purple', 'Return after signup', $retentionQuality);
     investorMetricCard('Returning Users 24H', investorMetricDisplayPercent($metrics['retention']['returning_24h'], 'No activity'), 'fa-rotate-left', 'is-gold', 'Live fallback where available', $activityQuality);
     investorMetricCard('Returning Users 7D', investorMetricDisplayPercent($metrics['retention']['returning_7d'], 'No activity'), 'fa-repeat', 'is-orange', 'Live fallback where available', $activityQuality);
     investorMetricCard('Returning Users 30D', investorMetricDisplayPercent($metrics['retention']['returning_30d'], 'No activity'), 'fa-arrows-rotate', 'is-blue', 'Live fallback where available', $activityQuality);
-    investorMetricCard('Avg Session Duration', investorMetricFormatDuration($metrics['retention']['avg_session_seconds']), 'fa-stopwatch', 'is-green', 'Tracked session history', $analyticsQuality);
+    investorMetricCard('Avg Session Duration', investorMetricFormatDuration($metrics['retention']['avg_session_seconds']), 'fa-stopwatch', 'is-green', 'Session heartbeat', !empty($metrics['retention']['session_ready']) ? 'Tracked' : 'New');
     ?>
 </div>
 

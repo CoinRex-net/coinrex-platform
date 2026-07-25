@@ -393,6 +393,32 @@ function coinrexMetricsRetentionRate(PDO $db, int $offset_days): float {
     return coinrexMetricsPercent($retained, $cohort);
 }
 
+function coinrexMetricsEstimatedRetentionRate(PDO $db, int $offset_days): ?float {
+    if (!coinrexMetricsColumnExists('users', 'last_active')) {
+        return null;
+    }
+
+    $cohort = (float) coinrexMetricsScalar($db, "
+        SELECT COUNT(*)
+        FROM users
+        WHERE DATE(created_at) <= DATE_SUB(CURDATE(), INTERVAL {$offset_days} DAY)
+    ", [], 0);
+
+    if ($cohort <= 0) {
+        return null;
+    }
+
+    $retained = (float) coinrexMetricsScalar($db, "
+        SELECT COUNT(*)
+        FROM users
+        WHERE DATE(created_at) <= DATE_SUB(CURDATE(), INTERVAL {$offset_days} DAY)
+          AND last_active IS NOT NULL
+          AND last_active >= DATE_ADD(created_at, INTERVAL {$offset_days} DAY)
+    ", [], 0);
+
+    return coinrexMetricsPercent($retained, $cohort);
+}
+
 function getAdminInvestorMetrics(PDO $db, string $window = '30d'): array {
     ensureInvestorMetricsSchema($db);
 
@@ -445,6 +471,19 @@ function getAdminInvestorMetrics(PDO $db, string $window = '30d'): array {
         $returning_30d_count = max($returning_30d_count, (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL 30 DAY) AND created_at < (NOW() - INTERVAL 30 DAY)", [], 0));
     }
     $session_count = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM user_sessions WHERE duration_seconds > 0", [], 0) : 0;
+    $day1_retention = $analytics_has_data ? coinrexMetricsRetentionRate($db, 1) : null;
+    $day7_retention = $analytics_has_data ? coinrexMetricsRetentionRate($db, 7) : null;
+    $day30_retention = $analytics_has_data ? coinrexMetricsRetentionRate($db, 30) : null;
+    $retention_quality = $analytics_has_data ? 'Tracked' : 'Estimated';
+
+    if (!$analytics_has_data) {
+        $day1_retention = coinrexMetricsEstimatedRetentionRate($db, 1);
+        $day7_retention = coinrexMetricsEstimatedRetentionRate($db, 7);
+        $day30_retention = coinrexMetricsEstimatedRetentionRate($db, 30);
+        if ($day1_retention === null && $day7_retention === null && $day30_retention === null) {
+            $retention_quality = 'New';
+        }
+    }
 
     $learnhub_starts = coinrexMetricsTableExists('taskhub_learning_sessions')
         ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM taskhub_learning_sessions", [], 0)
@@ -579,11 +618,12 @@ function getAdminInvestorMetrics(PDO $db, string $window = '30d'): array {
             'valid_referrals' => (int) coinrexMetricsScalar($db, "SELECT COALESCE(SUM(valid_referrals), 0) FROM users", [], 0),
         ],
         'retention' => [
-            'cohort_ready' => $analytics_has_data,
+            'cohort_ready' => $analytics_has_data || $day1_retention !== null || $day7_retention !== null || $day30_retention !== null,
             'session_ready' => $session_count > 0,
-            'day1' => $analytics_has_data ? coinrexMetricsRetentionRate($db, 1) : null,
-            'day7' => $analytics_has_data ? coinrexMetricsRetentionRate($db, 7) : null,
-            'day30' => $analytics_has_data ? coinrexMetricsRetentionRate($db, 30) : null,
+            'quality' => $retention_quality,
+            'day1' => $day1_retention,
+            'day7' => $day7_retention,
+            'day30' => $day30_retention,
             'returning_24h' => $dau > 0 ? coinrexMetricsPercent((float) $returning_24h_count, (float) $dau) : null,
             'returning_7d' => $wau > 0 ? coinrexMetricsPercent((float) $returning_7d_count, (float) $wau) : null,
             'returning_30d' => $mau > 0 ? coinrexMetricsPercent((float) $returning_30d_count, (float) $mau) : null,
