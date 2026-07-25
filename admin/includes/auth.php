@@ -183,6 +183,8 @@ function requireAdminPermission($permission_name) {
 function requireAdminPageAccess($active_page) {
     $page_map = [
         'dashboard' => 'view_reports',
+        'metrics' => 'view_reports',
+        'inactive-learnhub-users' => 'view_reports',
         'users' => 'manage_users',
         'projects' => 'manage_projects',
         'reviews' => 'manage_reviews',

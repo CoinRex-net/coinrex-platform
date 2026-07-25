@@ -145,10 +145,8 @@ if ($needs_auth && isLoggedIn()) {
                                     <?php echo htmlspecialchars((string) $devhub_user_role, ENT_QUOTES, 'UTF-8'); ?>
                                 </span>
                             </div>
-                            <div class="devhub-profile-avatar">
-                                <?php if ($devhub_user_avatar !== ''): ?>
-                                    <img src="<?php echo htmlspecialchars($devhub_user_avatar, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $devhub_user_name, ENT_QUOTES, 'UTF-8'); ?>">
-                                <?php else: ?>
+                            <div class="devhub-profile-avatar<?php echo $devhub_user_avatar !== '' ? ' has-avatar-image' : ''; ?>"<?php if ($devhub_user_avatar !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($devhub_user_avatar, ENT_QUOTES, 'UTF-8'); ?>');" aria-label="<?php echo htmlspecialchars((string) $devhub_user_name, ENT_QUOTES, 'UTF-8'); ?> avatar"<?php endif; ?>>
+                                <?php if ($devhub_user_avatar === ''): ?>
                                     <span><?php echo htmlspecialchars((string) $devhub_user_initial, ENT_QUOTES, 'UTF-8'); ?></span>
                                 <?php endif; ?>
                             </div>

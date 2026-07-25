@@ -205,9 +205,20 @@ if ($filtered_user_id > 0) {
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+    .boosthub-evidence-log,
+    .boosthub-evidence-log .dashboard-panel,
+    .boosthub-evidence-log .dashboard-table-wrap {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
+    }
+
     .evidence-filters {
         flex-direction: column;
         align-items: stretch;
+        width: 100%;
+        min-width: 0;
     }
     .evidence-filters select {
         width: 100%;
@@ -222,6 +233,22 @@ if ($filtered_user_id > 0) {
     /* Table → card layout (matching boosthub.php style) */
     .dashboard-table-wrap {
         overflow-x: visible;
+    }
+    .boosthub-evidence-log .dashboard-table {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+    .boosthub-evidence-log .dashboard-table,
+    .boosthub-evidence-log .dashboard-table tbody,
+    .boosthub-evidence-log .dashboard-table tr,
+    .boosthub-evidence-log .dashboard-table td {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .dashboard-table thead { display: none; }
     .dashboard-table tbody tr {
@@ -239,6 +266,8 @@ if ($filtered_user_id > 0) {
         padding: 6px 0;
         border: none;
         text-align: left;
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
     .dashboard-table tbody tr td::before {
         content: attr(data-label);
@@ -250,6 +279,11 @@ if ($filtered_user_id > 0) {
         text-transform: uppercase;
         letter-spacing: 0.04em;
         padding-top: 2px;
+    }
+    .dashboard-table tbody tr td > * {
+        min-width: 0;
+        max-width: 100%;
+        overflow-wrap: anywhere;
     }
     .dashboard-table tbody tr td:last-child {
         padding-top: 10px;
@@ -275,10 +309,14 @@ if ($filtered_user_id > 0) {
 
     .evidence-action-btns {
         width: 100%;
+        min-width: 0;
+        flex-wrap: wrap;
     }
     .evidence-action-btns .btn {
         flex: 1;
+        min-width: 118px;
         justify-content: center;
+        white-space: normal;
     }
 
     /* ── Evidence detail modal responsive ── */

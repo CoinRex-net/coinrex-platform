@@ -1,4 +1,3 @@
-
 <?php
 /**
  * CoinRex Submit Review Page - Wizard Flow
@@ -32,6 +31,7 @@ $form = [
     'cons' => '',
     'holding_amount' => '',
     'holding_days' => '',
+    'proof_method' => 'connected',
     'tx_hash' => '',
     'wallet_address' => strtolower((string) ($user['wallet_address'] ?? '')),
     'wallet_type' => ($user['wallet_type'] ?? 'non_custodial'),
@@ -69,6 +69,24 @@ $experience_score_fields = [
 function esc($value)
 {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+function coinrexReviewBase64Url($value)
+{
+    return rtrim(strtr(base64_encode((string) $value), '+/', '-_'), '=');
+}
+
+function coinrexReviewNodeActorToken($user_id)
+{
+    $secret = (string) (getenv('COINREX_REALTIME_SECRET') ?: (getenv('COINREX_ENCRYPTION_KEY') ?: (getenv('COINREX_CSRF_KEY') ?: 'coinrex-dev-realtime-secret')));
+    $payload = coinrexReviewBase64Url(json_encode([
+        'user_id' => (int) $user_id,
+        'iat' => time(),
+        'exp' => time() + 900,
+        'scope' => 'review_pairing',
+    ], JSON_UNESCAPED_SLASHES));
+    $signature = coinrexReviewBase64Url(hash_hmac('sha256', $payload, $secret, true));
+    return $payload . '.' . $signature;
 }
 
 function normalizeWalletType($value)
@@ -252,6 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
     foreach ($form as $key => $value) {
         $form[$key] = trim((string)($_POST[$key] ?? $value));
     }
+    $form['proof_method'] = in_array($form['proof_method'], ['connected', 'manual'], true) ? $form['proof_method'] : 'connected';
     $form['wallet_type'] = normalizeWalletType($form['wallet_type']);
 
     if (!validateAppCsrfToken((string) ($_POST['csrf_token'] ?? ''))) {
@@ -270,8 +289,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
         $cons = $form['cons'];
         $holding_amount = (float)$form['holding_amount'];
         $holding_days = (int)$form['holding_days'];
+        $proof_method = $form['proof_method'];
         $tx_hash = $form['tx_hash'];
-        $wallet_address = $form['wallet_address'];
+        $manual_wallet_address = strtolower(trim((string) ($_POST['manual_wallet_address'] ?? '')));
+        $wallet_address = strtolower(trim($proof_method === 'manual' && $manual_wallet_address !== ''
+            ? $manual_wallet_address
+            : $form['wallet_address']));
+        $form['wallet_address'] = $wallet_address;
         $wallet_type = $form['wallet_type'];
 
         $tokenomics_score = ($form['tokenomics_score'] !== '') ? (int)$form['tokenomics_score'] : null;
@@ -288,8 +312,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
         if ($holding_amount <= 0) $errors[] = 'Valid holding amount is required';
         if ($holding_days <= 0) $errors[] = 'Valid holding days is required';
         if (empty($wallet_address)) $errors[] = 'Wallet address is required';
-        if (!preg_match('/^0x[a-fA-F0-9]{40}$/', $wallet_address)) $errors[] = 'Connect a valid EVM wallet address';
-        if (strtolower($wallet_address) !== strtolower((string) ($user['wallet_address'] ?? ''))) $errors[] = 'Connected wallet must match your verified CoinRex wallet.';
+        if (!preg_match('/^0x[a-fA-F0-9]{40}$/', $wallet_address)) $errors[] = 'Enter a valid EVM wallet address';
+        if ($proof_method === 'manual' && trim($tx_hash) === '') $errors[] = 'TX hash is required when submitting manual wallet proof.';
         if (!in_array($wallet_type, ['custodial', 'non_custodial'], true)) $errors[] = 'Invalid wallet type';
 
         $form_started_at = (int) ($_SESSION['submit_review_started_at'][$project_id] ?? 0);
@@ -318,7 +342,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
         }
 
         $eligibility_check = null;
-        if (empty($errors)) {
+        if (empty($errors) && $proof_method === 'connected') {
+            $used_review = reviewEligibilityFindWalletReviewUsage($db, strtolower($wallet_address), 0, $project_id);
+            if ($used_review) {
+                $errors[] = 'This Wallet already have used to Review the Same Project, Please Switch to Fresh wallet to Check Eligibility';
+            }
             $eligibility_check = reviewEligibilityGetFreshCheck($db, (int) $user['id'], $project_id, strtolower($wallet_address), 'eligible');
             if (!$eligibility_check) {
                 $errors[] = 'Review eligibility was not verified on-chain. Connect wallet and run Check Eligibility first.';
@@ -375,6 +403,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
             }
         }
 
+        if ($proof_method === 'manual' && $screenshot_url === '') {
+            $errors[] = 'Screenshot proof is required when submitting manual wallet proof.';
+        }
+
         if (empty($errors) && $project_rules) {
             try {
                 $db->beginTransaction();
@@ -407,6 +439,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
                     $updateWallet->execute([$wallet_type, $user['id']]);
                 }
 
+                $proof_status = $proof_method === 'connected' ? 'verified' : 'pending';
+                $eligibility_status = $proof_method === 'connected' ? 'eligible' : 'manual_pending';
+                $can_auto_approve = $auto_approve && $proof_method === 'connected';
+
                 if ($reviews_has_wallet_type_column) {
                     $sql = "INSERT INTO reviews (
                         user_id, project_id, review_title, review_content, rating,
@@ -415,8 +451,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
                         calculated_rex, status, proof_status" . ($reviews_has_eligibility_columns ? ",
                         eligibility_check_id, eligibility_status, eligibility_wallet_address, eligibility_chain_id, eligibility_contract_address" : "") . "
                     ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'verified'" . ($reviews_has_eligibility_columns ? ",
-                        ?, 'eligible', ?, ?, ?" : "") . "
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?" . ($reviews_has_eligibility_columns ? ",
+                        ?, ?, ?, ?, ?" : "") . "
                     )";
 
                     $eligibility_contract_address = '';
@@ -430,10 +466,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
                         $user['id'], $project_id, $review_title, $review_content, $rating,
                         $pros, $cons, $holding_amount, $holding_days, $wallet_type, ($tx_hash !== '' ? $tx_hash : null), strtolower($wallet_address), $screenshot_url !== '' ? $screenshot_url : null,
                         $tokenomics_score, $team_score, $utility_score, $community_score, $risk_score,
-                        $calculated_rex
+                        $calculated_rex, $proof_status
                     ];
                     if ($reviews_has_eligibility_columns) {
-                        $insert_params[] = (int) ($eligibility_check['id'] ?? 0);
+                        $insert_params[] = $eligibility_check ? (int) ($eligibility_check['id'] ?? 0) : null;
+                        $insert_params[] = $eligibility_status;
                         $insert_params[] = strtolower($wallet_address);
                         $insert_params[] = !empty($eligibility_check['matched_chain_id']) ? (int) $eligibility_check['matched_chain_id'] : null;
                         $insert_params[] = $eligibility_contract_address !== '' ? strtolower($eligibility_contract_address) : null;
@@ -446,7 +483,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
                         tokenomics_score, team_score, utility_score, community_score, risk_score,
                         calculated_rex, status, proof_status
                     ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'verified'
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?
                     )";
 
                     $stmt = $db->prepare($sql);
@@ -454,17 +491,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
                         $user['id'], $project_id, $review_title, $review_content, $rating,
                         $pros, $cons, $holding_amount, $holding_days, ($tx_hash !== '' ? $tx_hash : null), strtolower($wallet_address), $screenshot_url !== '' ? $screenshot_url : null,
                         $tokenomics_score, $team_score, $utility_score, $community_score, $risk_score,
-                        $calculated_rex
+                        $calculated_rex, $proof_status
                     ]);
                 }
 
                 if ($result) {
                     $new_review_id = (int) $db->lastInsertId();
-                    if ($reviews_has_proof_verified_at_column) {
+                    if ($proof_method === 'connected' && $reviews_has_proof_verified_at_column) {
                         $db->prepare("UPDATE reviews SET proof_verified_at = NOW() WHERE id = ?")->execute([$new_review_id]);
                     }
 
-                    if ($auto_approve && $new_review_id > 0) {
+                    if ($can_auto_approve && $new_review_id > 0) {
                         $base_score = calculateSubmissionBaseScore([
                             'holding_amount' => $holding_amount,
                             'holding_days' => $holding_days,
@@ -533,7 +570,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_review'])) {
                     $existing_project_review = [
                         'id' => $new_review_id,
                         'status' => $success === 'review_auto_approved' ? 'approved' : 'pending',
-                        'proof_status' => 'pending',
+                        'proof_status' => $proof_status,
                     ];
                     unset($_SESSION['submit_review_started_at'][$project_id]);
                     $_POST = [];
@@ -562,7 +599,8 @@ submit_review_complete:
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/submit-review.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/rexlink-auth.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/rexlink-auth.css'); ?>">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/submit-review.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/submit-review.css'); ?>">
 
 <main class="submit-review-main">
     <div class="submit-container submit-container-upgraded">
@@ -580,7 +618,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                     <div class="hero-points">
                         <div class="hero-point"><i class="fas fa-check-circle"></i><span>Simple 4-step flow</span></div>
-                        <div class="hero-point"><i class="fas fa-link"></i><span>On-chain eligibility check</span></div>
+                        <div class="hero-point"><i class="fas fa-link"></i><span>Hybrid proof check</span></div>
                         <div class="hero-point"><i class="fas fa-user-shield"></i><span><?php echo esc($user_level_state['approval_label']); ?> moderation lane</span></div>
                     </div>
                 </div>
@@ -589,10 +627,9 @@ require_once __DIR__ . '/../includes/header.php';
                     <span class="hero-sidecard-kicker">Before you start</span>
                     <h3>Need this first</h3>
                     <ul>
-                        <li>Connected wallet</li>
-                        <li>On-chain holder eligibility</li>
+                        <li>Connected wallet or manual proof</li>
                         <li>Short honest review</li>
-                        <li>Short honest review</li>
+                        <li>TX hash and screenshot for manual proof</li>
                     </ul>
                 </aside>
             </div>
@@ -650,52 +687,6 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-        <section class="review-trust-card review-trust-card-upgraded">
-            <div class="review-trust-head">
-                <span class="review-trust-kicker">Quick beginner tips</span>
-                <h2>Quick reminders</h2>
-                <p>Short tips so you can fill the form faster.</p>
-            </div>
-            <div class="review-trust-grid">
-                <article class="review-trust-item">
-                    <div class="review-trust-icon">
-                        <i class="fas fa-user-shield"></i>
-                    </div>
-                    <div class="review-trust-copy">
-                        <strong>Use your real wallet</strong>
-                        <p>Eligibility comes from the wallet that holds the project token/NFT.</p>
-                    </div>
-                </article>
-                <article class="review-trust-item">
-                    <div class="review-trust-icon">
-                        <i class="fas fa-eye-slash"></i>
-                    </div>
-                    <div class="review-trust-copy">
-                        <strong>Protect your security</strong>
-                        <p>Never upload seed phrases or private keys.</p>
-                    </div>
-                </article>
-                <article class="review-trust-item">
-                    <div class="review-trust-icon">
-                        <i class="fas fa-camera"></i>
-                    </div>
-                    <div class="review-trust-copy">
-                        <strong>Optional screenshots</strong>
-                        <p>Add screenshots only as extra context after eligibility passes.</p>
-                    </div>
-                </article>
-                <article class="review-trust-item">
-                    <div class="review-trust-icon">
-                        <i class="fas fa-ban"></i>
-                    </div>
-                    <div class="review-trust-copy">
-                        <strong>One project, one review</strong>
-                        <p>Only one review is allowed per project.</p>
-                    </div>
-                </article>
-            </div>
-        </section>
-
         <form method="POST" enctype="multipart/form-data" id="reviewForm" novalidate>
             <input type="hidden" name="project_id" value="<?php echo (int)$project['id']; ?>">
             <input type="hidden" name="csrf_token" value="<?php echo esc(appCsrfToken()); ?>">
@@ -706,10 +697,11 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="wizard-progress wizard-progress-upgraded">
                 <div class="wizard-track"></div>
                 <div class="wizard-fill" id="wizardFill"></div>
-                <div class="wizard-step-nav active" data-nav-step="1"><span>1</span><strong>Check eligibility</strong><small>Wallet holder proof</small></div>
-                <div class="wizard-step-nav" data-nav-step="2"><span>2</span><strong>Your review</strong><small>Rating & written feedback</small></div>
-                <div class="wizard-step-nav" data-nav-step="3"><span>3</span><strong>Extra detail</strong><small>Optional scoring</small></div>
-                <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Submit</strong><small>Check & confirm</small></div>
+                <div class="wizard-step-nav active" data-nav-step="1"><span>1</span><strong>Proof Path</strong><small>Wallet or manual</small></div>
+                <div class="wizard-step-nav" data-nav-step="2"><span>2</span><strong>Eligibility Check</strong><small>Prove access</small></div>
+                <div class="wizard-step-nav" data-nav-step="3"><span>3</span><strong>Your review</strong><small>Rating & feedback</small></div>
+                <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Extra detail</strong><small>Optional scoring</small></div>
+                <div class="wizard-step-nav" data-nav-step="5"><span>5</span><strong>Submit</strong><small>Check & confirm</small></div>
             </div>
 
             <div class="submit-card submit-card-upgraded">
@@ -717,53 +709,110 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="step-intro">
                         <div>
                             <span class="step-kicker">Step 1</span>
-                            <h3><i class="fas fa-shield-alt"></i> Check on-chain eligibility</h3>
-                            <p class="section-note">Connect the wallet you used for this project. CoinRex checks configured project contracts automatically.</p>
+                            <h3><i class="fas fa-route"></i> Choose Your Proof Path</h3>
+                            <p class="section-note">Choose connected wallet for automatic eligibility, or manual address if you cannot prove wallet ownership right now.</p>
                         </div>
                         <aside class="step-tip-card">
-                            <strong><i class="fas fa-lightbulb"></i> Holder proof</strong>
-                            <p>No TX hash or screenshot is required when your wallet passes.</p>
+                            <strong><i class="fas fa-lightbulb"></i> Recommended</strong>
+                            <p>Connected wallet is faster because it proves ownership before review submission.</p>
                         </aside>
                     </div>
 
                     <input type="hidden" name="wallet_type" value="non_custodial">
-                    <input type="hidden" name="tx_hash" id="tx_hash" value="<?php echo esc($form['tx_hash']); ?>">
-                    <input type="hidden" name="wallet_address" id="wallet_address" value="<?php echo esc($form['wallet_address']); ?>">
 
-                    <div class="wallet-explain">
-                        <div class="section-mini-head">
-                            <h4><i class="fas fa-wallet"></i> Connected wallet</h4>
-                            <span class="optional-chip">Required</span>
-                        </div>
-                        <p id="eligibilityWalletText"><?php echo !empty($form['wallet_address']) ? esc($form['wallet_address']) : 'No wallet connected yet.'; ?></p>
-                        <div class="action-grid" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
-                            <button type="button" class="btn-submit" id="btnUseAccountWallet" <?php echo empty($user['wallet_address']) ? 'disabled' : ''; ?>><i class="fas fa-link"></i> Use Account Wallet</button>
-                            <button type="button" class="btn-cancel" id="btnConnectBrowserWallet"><i class="fas fa-wallet"></i> Connect Browser Wallet</button>
-                            <button type="button" class="btn-submit" id="btnCheckEligibility" disabled><i class="fas fa-shield-check"></i> Check Eligibility</button>
-                        </div>
-                        <p class="section-note" id="eligibilityStatus">Eligibility must be checked before you can submit.</p>
-                    </div>
-
-                    <div class="proof-grid">
-                        <div class="form-group"><label>Holding Amount (USD) <span class="required-asterisk">*</span></label><input type="number" name="holding_amount" id="holdingAmount" step="0.01" value="<?php echo esc($form['holding_amount']); ?>" placeholder="e.g. 100.00"></div>
-                        <div class="form-group"><label>Holding Duration (Days) <span class="required-asterisk">*</span></label><input type="number" name="holding_days" id="holdingDays" value="<?php echo esc($form['holding_days']); ?>" placeholder="e.g. 30"></div>
-                        <div class="form-group full-width">
-                            <label>Screenshot Proof <span class="field-note field-note-block">Optional: add context only if useful</span></label>
-                            <div class="file-upload-area" id="fileUploadArea"><i class="fas fa-cloud-upload-alt"></i><p>Upload optional screenshot</p><small>Never upload seed phrases or private keys.</small><input type="file" name="screenshot" accept="image/*" hidden id="screenshotInput"></div>
-                            <div id="filePreview" class="file-preview" style="display:none;"><i class="fas fa-image"></i><span id="fileName"></span><button type="button" id="removeFile">x</button></div>
-                        </div>
-                    </div>
-
-                    <div class="proof-safety-note">
-                        <i class="fas fa-circle-info"></i>
-                        <span>Never upload seed phrases or private keys.</span>
+                    <div class="proof-path-summary" role="radiogroup" aria-label="Proof method">
+                        <label class="proof-path-card">
+                            <input type="radio" name="proof_method" value="connected" <?php echo $form['proof_method'] !== 'manual' ? 'checked' : ''; ?>>
+                            <span class="proof-path-icon"><i class="fas fa-wallet"></i></span>
+                            <span class="proof-path-copy">
+                                <strong>Connect Wallet</strong>
+                                <small>RexLink or external wallet</small>
+                                <p>Prove access first, then run the automatic eligibility check.</p>
+                            </span>
+                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
+                        </label>
+                        <label class="proof-path-card">
+                            <input type="radio" name="proof_method" value="manual" <?php echo $form['proof_method'] === 'manual' ? 'checked' : ''; ?>>
+                            <span class="proof-path-icon"><i class="fas fa-keyboard"></i></span>
+                            <span class="proof-path-copy">
+                                <strong>Manual Address</strong>
+                                <small>TX hash and screenshot</small>
+                                <p>Use this when you cannot prove ownership with a connected wallet.</p>
+                            </span>
+                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
+                        </label>
                     </div>
                 </section>
 
                 <section class="wizard-step" data-step="2">
-                    <div class="step-intro">
+                    <div class="step-intro step-intro-tight">
                         <div>
                             <span class="step-kicker">Step 2</span>
+                            <h3><i class="fas fa-shield-alt"></i> Eligibility Check</h3>
+                        </div>
+                    </div>
+
+                    <div class="wallet-explain connected-proof-actions eligibility-compact-panel">
+                        <div class="linked-wallet-panel" id="linkedWalletPanel">
+                            <div>
+                                <span>Linked Wallet</span>
+                                <strong id="linkedWalletText"><?php echo !empty($user['wallet_address']) ? esc(strtolower((string) $user['wallet_address'])) : 'No wallet linked yet'; ?></strong>
+                            </div>
+                            <div class="linked-wallet-types" aria-label="Wallet connection types">
+                                <span class="wallet-type-badge wallet-type-rexlink"><i class="fas fa-link"></i> RexLink</span>
+                                <span class="wallet-type-badge wallet-type-external"><i class="fas fa-wallet"></i> External</span>
+                            </div>
+                        </div>
+                        <input type="hidden" name="wallet_address" id="wallet_address" value="<?php echo esc($form['wallet_address']); ?>">
+                        <div class="wallet-proof-grid" id="walletProofGrid" aria-label="Connected wallet ownership options">
+                            <button type="button" class="wallet-proof-card wallet-proof-select" id="btnSelectRexLinkWallet">
+                                <div class="wallet-proof-card-head">
+                                    <i class="fas fa-link"></i>
+                                    <div><strong>RexLink</strong></div>
+                                </div>
+                            </button>
+                            <button type="button" class="wallet-proof-card wallet-proof-select" id="btnSelectExternalWallet">
+                                <div class="wallet-proof-card-head">
+                                    <i class="fas fa-wallet"></i>
+                                    <div><strong>External</strong></div>
+                                </div>
+                            </button>
+                        </div>
+                        <p class="wallet-verified-line" id="eligibilityWalletText" hidden></p>
+                        <div class="wallet-session-actions" id="walletSessionActions" hidden>
+                            <button type="button" class="btn-submit eligibility-check-btn" id="btnCheckEligibility"><i class="fas fa-shield-check"></i> <span>Check Eligibility</span></button>
+                            <button type="button" class="btn-cancel wallet-disconnect-btn" id="btnDisconnectWallet"><i class="fas fa-link-slash"></i> Disconnect</button>
+                        </div>
+                    </div>
+
+                    <div class="proof-grid step2-proof-details" id="step2ProofDetails">
+                        <input type="hidden" name="holding_amount" id="holdingAmount" value="<?php echo esc($form['holding_amount'] !== '' ? $form['holding_amount'] : (string) ($project['min_holding_amount'] ?? '1')); ?>">
+                        <input type="hidden" name="holding_days" id="holdingDays" value="<?php echo esc($form['holding_days'] !== '' ? $form['holding_days'] : (string) ($project['required_holding_days'] ?? '1')); ?>">
+                        <div class="form-group full-width manual-proof-field">
+                            <label>Manual Wallet Address <span class="required-asterisk">*</span></label>
+                            <input type="text" name="manual_wallet_address" id="manual_wallet_address" value="<?php echo $form['proof_method'] === 'manual' ? esc($form['wallet_address']) : ''; ?>" placeholder="Paste wallet address: 0x..." autocomplete="off">
+                        </div>
+                        <div class="form-group full-width manual-proof-field">
+                            <label>Transaction Hash <span class="manual-required required-asterisk">*</span></label>
+                            <input type="text" name="tx_hash" id="tx_hash" value="<?php echo esc($form['tx_hash']); ?>" placeholder="Paste the TX hash that shows activity with this project">
+                        </div>
+                        <div class="form-group full-width manual-proof-field">
+                            <label>Screenshot Proof <span class="field-note field-note-block" id="screenshotRequirementText">Optional after connected wallet eligibility passes</span></label>
+                            <div class="file-upload-area" id="fileUploadArea"><i class="fas fa-cloud-upload-alt"></i><p id="screenshotUploadText">Upload optional screenshot</p><small>Never upload seed phrases or private keys.</small><input type="file" name="screenshot" accept="image/*" hidden id="screenshotInput"></div>
+                            <div id="filePreview" class="file-preview" style="display:none;"><i class="fas fa-image"></i><span id="fileName"></span><button type="button" id="removeFile">x</button></div>
+                        </div>
+                    </div>
+
+                    <div class="proof-safety-note manual-proof-field">
+                        <i class="fas fa-circle-info"></i>
+                        <span>Manual proof goes to moderation. Never upload seed phrases, private keys, or recovery phrases.</span>
+                    </div>
+                </section>
+
+                <section class="wizard-step" data-step="3">
+                    <div class="step-intro">
+                        <div>
+                            <span class="step-kicker">Step 3</span>
                             <h3><i class="fas fa-star"></i> Tell us what really happened</h3>
                             <p class="section-note">Write what happened, what felt good, and what felt bad.</p>
                         </div>
@@ -788,10 +837,10 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 </section>
 
-                <section class="wizard-step" data-step="3">
+                <section class="wizard-step" data-step="4">
                     <div class="step-intro">
                         <div>
-                            <span class="step-kicker">Step 3</span>
+                            <span class="step-kicker">Step 4</span>
                             <h3><i class="fas fa-chart-bar"></i> Add extra detail if you want</h3>
                             <p class="section-note">Optional scores. Add only if you want extra detail.</p>
                         </div>
@@ -839,10 +888,10 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 </section>
 
-                <section class="wizard-step" data-step="4">
+                <section class="wizard-step" data-step="5">
                     <div class="step-intro">
                         <div>
-                            <span class="step-kicker">Step 4</span>
+                            <span class="step-kicker">Step 5</span>
                             <h3><i class="fas fa-paper-plane"></i> Final check and submit</h3>
                             <p class="section-note">Check once, accept terms, then submit.</p>
                         </div>
@@ -863,7 +912,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <div class="final-review-card">
                             <div class="final-review-item"><span>Project</span><strong><?php echo esc($project['name']); ?></strong></div>
-                        <div class="final-review-item"><span>Proof Required</span><strong>On-chain wallet eligibility</strong></div>
+                            <div class="final-review-item"><span>Proof Required</span><strong>Connected wallet or manual proof</strong></div>
                             <div class="final-review-item"><span>Review Limit</span><strong>One review per user</strong></div>
                             <div class="final-review-item"><span>Moderation</span><strong>All proof remains subject to validation</strong></div>
                         </div>
@@ -871,7 +920,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="beginner-checklist">
                             <h5><i class="fas fa-list-check"></i> Quick final checklist</h5>
                             <div class="beginner-checklist-grid">
-                                <span>Screenshot added</span>
+                                <span>Manual proof has screenshot</span>
                                 <span>Review is original</span>
                                 <span>No private keys shared</span>
                                 <span>One review only</span>
@@ -906,8 +955,47 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </form>
 
+        <section class="review-trust-card review-trust-card-upgraded review-trust-card-bottom">
+            <div class="review-trust-head">
+                <span class="review-trust-kicker">Quick beginner tips</span>
+                <h2>Quick reminders</h2>
+                <p>Short tips so you can fill the form faster.</p>
+            </div>
+            <div class="review-trust-grid">
+                <article class="review-trust-item">
+                    <div class="review-trust-icon"><i class="fas fa-user-shield"></i></div>
+                    <div class="review-trust-copy">
+                        <strong>Use real proof</strong>
+                        <p>Connect the wallet that holds project assets, or paste the address with TX hash and screenshot.</p>
+                    </div>
+                </article>
+                <article class="review-trust-item">
+                    <div class="review-trust-icon"><i class="fas fa-eye-slash"></i></div>
+                    <div class="review-trust-copy">
+                        <strong>Protect your security</strong>
+                        <p>Never upload seed phrases or private keys.</p>
+                    </div>
+                </article>
+                <article class="review-trust-item">
+                    <div class="review-trust-icon"><i class="fas fa-camera"></i></div>
+                    <div class="review-trust-copy">
+                        <strong>Screenshot proof</strong>
+                        <p>Optional for connected wallet, required when you paste an address manually.</p>
+                    </div>
+                </article>
+                <article class="review-trust-item">
+                    <div class="review-trust-icon"><i class="fas fa-ban"></i></div>
+                    <div class="review-trust-copy">
+                        <strong>One project, one review</strong>
+                        <p>Only one review is allowed per project.</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
         <?php endif; ?>
     </div>
+
 </main>
 
 <div id="termsModal" class="terms-modal">
@@ -919,7 +1007,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="terms-modal-body">
             <div class="terms-list">
                 <div class="term-item"><i class="fas fa-check-circle"></i><div><strong>Honest Reviews Only</strong><p>Fake, copied, or AI-spam reviews are rejected.</p></div></div>
-                <div class="term-item"><i class="fas fa-check-circle"></i><div><strong>Proof Required</strong><p>Connect your wallet and pass the on-chain eligibility check for this project.</p></div></div>
+                <div class="term-item"><i class="fas fa-check-circle"></i><div><strong>Proof Required</strong><p>Use connected wallet eligibility, or submit manual proof with wallet address, TX hash, and screenshot.</p></div></div>
                 <div class="term-item"><i class="fas fa-check-circle"></i><div><strong>One Review Per Project</strong><p>Duplicate reviews for the same project by the same user are not allowed.</p></div></div>
                 <div class="term-item"><i class="fas fa-check-circle"></i><div><strong>Moderator Validation</strong><p>Fast-lane handling does not remove proof checks. All submissions remain subject to moderation.</p></div></div>
                 <div class="term-item"><i class="fas fa-check-circle"></i><div><strong>Wallet Safety</strong><p>CoinRex never asks for private keys or seed phrases.</p></div></div>
@@ -932,6 +1020,78 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<div class="rexlink-modal" id="reviewRexLinkModal" role="dialog" aria-modal="true" aria-labelledby="reviewRexLinkModalTitle" hidden>
+    <div class="rexlink-backdrop" id="reviewRexLinkBackdrop"></div>
+    <div class="rexlink-dialog">
+        <div class="rexlink-head">
+            <div>
+                <span class="rexlink-tag" id="reviewWalletModalTag"><i class="fas fa-link"></i> Wallet Proof</span>
+                <h3 id="reviewRexLinkModalTitle">Prove Wallet Access</h3>
+            </div>
+            <button type="button" class="rexlink-close" id="reviewRexLinkClose" aria-label="Close RexLink pairing">&times;</button>
+        </div>
+        <div class="rexlink-progress" aria-label="RexLink pairing progress">
+            <span id="reviewRexLinkProgressScan" class="is-active">1. Scan QR</span>
+            <span id="reviewRexLinkProgressSuccess">2. Connected</span>
+        </div>
+        <div class="review-wallet-question" id="reviewWalletQuestion">
+            <h4 id="reviewWalletQuestionTitle">Do you still have access to this wallet?</h4>
+            <p id="reviewWalletQuestionCopy">Choose how you want to continue.</p>
+            <div class="review-wallet-address-highlight" id="reviewWalletQuestionAddress" hidden></div>
+            <div class="review-wallet-question-actions">
+                <button type="button" class="btn-submit" id="reviewWalletYesBtn"><i class="fas fa-check"></i> Yes, Prove Now</button>
+                <button type="button" class="btn-cancel" id="reviewWalletNoBtn"><i class="fas fa-rotate"></i> No, Replace Now</button>
+            </div>
+        </div>
+        <div class="rexlink-body" id="reviewRexLinkPairingBody" hidden>
+            <section class="rexlink-step is-active" id="reviewRexLinkQrStep">
+                <div class="rexlink-link-grid">
+                    <div class="rexlink-copy">
+                        <div class="rexlink-link-title">
+                            <h4>Pair RexLink with CoinRex</h4>
+                            <div class="rexlink-countdown" id="reviewRexLinkCountdown">Waiting for code</div>
+                        </div>
+                        <p>Open RexLink, scan this QR, or enter the 6 digit code. CoinRex will verify and link this wallet if it is not already used by another account.</p>
+                        <ul class="rexlink-guide">
+                            <li><i class="fas fa-mobile-screen-button"></i><span>Open RexLink app.</span></li>
+                            <li><i class="fas fa-qrcode"></i><span>Scan QR or enter this 6 digit code.</span></li>
+                        </ul>
+                        <div class="rexlink-link-actions">
+                            <button type="button" class="rexlink-primary" id="reviewRexLinkRefresh">Generate New QR</button>
+                        </div>
+                        <p class="rexlink-status" id="reviewRexLinkStatus">Ready to create RexLink pairing.</p>
+                    </div>
+                    <div class="rexlink-qr-card">
+                        <div class="rexlink-qr-stage">
+                            <div class="rexlink-qr-placeholder" id="reviewRexLinkQrPlaceholder"></div>
+                            <img id="reviewRexLinkQrImage" alt="RexLink pairing QR" hidden>
+                            <span class="rexlink-qr-logo-badge" id="reviewRexLinkQrLogoBadge" aria-hidden="true">
+                                <img src="<?php echo ASSETS_URL; ?>/images/rexlink-logo.png" alt="">
+                            </span>
+                        </div>
+                        <div class="rexlink-code-row">
+                            <strong class="rexlink-code" id="reviewRexLinkPairingCode">No code yet</strong>
+                            <button type="button" class="rexlink-copy-button" id="reviewRexLinkCopyCode" aria-label="Copy RexLink code" disabled><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="rexlink-step" id="reviewRexLinkSuccessStep">
+                <div class="rexlink-success">
+                    <div>
+                        <div class="rexlink-success-icon"><i class="fas fa-check"></i></div>
+                        <h4>Wallet connected</h4>
+                        <p id="reviewRexLinkSuccessMessage">RexLink wallet verified for eligibility.</p>
+                        <p class="rexlink-session-note">You can now run the eligibility check.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<script src="<?php echo ASSETS_URL; ?>/js/qrcode-browser.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/qrcode-browser.js'); ?>"></script>
+<script src="<?php echo ASSETS_URL; ?>/js/rexlink-pairing.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-pairing.js'); ?>"></script>
 <script>
 function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
@@ -965,15 +1125,26 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     const btnBack = document.getElementById('btnBack');
     const btnNext = document.getElementById('btnNext');
     const btnSubmit = document.getElementById('btnSubmit');
-        const totalSteps = 4;
+        const totalSteps = 5;
     let currentStep = 1;
         const draftKey = 'coinrex_submit_review_draft_' + <?php echo (int) ($project['id'] ?? 0); ?>;
-    const accountWallet = <?php echo json_encode(strtolower((string) ($user['wallet_address'] ?? ''))); ?>;
+    let currentAccountWallet = <?php echo json_encode(strtolower((string) ($user['wallet_address'] ?? ''))); ?>;
     const eligibilityProjectId = <?php echo (int) ($project['id'] ?? 0); ?>;
     const eligibilityNonceUrl = <?php echo json_encode(BASE_URL . '/api/review-eligibility/wallet_nonce.php'); ?>;
     const eligibilityVerifyUrl = <?php echo json_encode(BASE_URL . '/api/review-eligibility/verify_wallet.php'); ?>;
     const eligibilityCheckUrl = <?php echo json_encode(BASE_URL . '/api/review-eligibility/check.php'); ?>;
+    const rexSignerApiBaseUrl = <?php echo json_encode(BASE_URL); ?>;
+    const rexSignerWebActorToken = <?php echo json_encode(coinrexReviewNodeActorToken((int) ($user['id'] ?? 0))); ?>;
+    const rexSignerCreatePairingUrl = rexSignerApiBaseUrl.replace(/\/+$/, '') + '/api/review-eligibility/create_rexlink_pairing.php';
+    const rexSignerPairingQrUrl = rexSignerApiBaseUrl.replace(/\/+$/, '') + '/api/rex-signer/pairing_qr.php';
+    const rexSignerRevokeSessionUrl = rexSignerApiBaseUrl.replace(/\/+$/, '') + '/api/rex-signer/revoke_session.php';
+    const rexSignerRealtimeAuthUrl = rexSignerApiBaseUrl.replace(/\/+$/, '') + '/api/rex-signer/realtime_auth.php';
+    const rexSignerRealtimeWsUrl = <?php echo json_encode(preg_replace('/^http/i', 'ws', rtrim((defined('REXLINK_NODE_API_BASE_URL') ? REXLINK_NODE_API_BASE_URL : (defined('REXLINK_API_BASE_URL') ? REXLINK_API_BASE_URL : BASE_URL)), '/')) . '/ws'); ?>;
+    const rexLinkWalletUrl = rexSignerApiBaseUrl.replace(/\/+$/, '') + '/api/review-eligibility/rexlink_wallet.php';
+    const rexSignerPublicBaseUrl = <?php echo json_encode(defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL); ?>;
+    const rexPairing = window.CoinRexPairing || {};
     let eligibilityOk = false;
+    let walletOwnershipVerified = false;
 
     if (!steps.length || !fill || !btnBack || !btnNext || !btnSubmit) {
         return;
@@ -1020,25 +1191,45 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
 
     function validateStep(step) {
         if (step === 1) {
-            const wa = document.getElementById('wallet_address').value.trim();
-            const ha = parseFloat(document.getElementById('holdingAmount').value || 0);
-            const hd = parseInt(document.getElementById('holdingDays').value || 0, 10);
-            if (!wa || !/^0x[a-fA-F0-9]{40}$/.test(wa) || !eligibilityOk || ha <= 0 || hd <= 0) {
-                showToast('Step 1 incomplete: connect wallet, pass eligibility, and add holding info.', 'error');
+            if (!getProofMethod()) {
+                showToast('Choose Connect Wallet or Manual Proof to continue.', 'error');
                 return false;
             }
         }
 
         if (step === 2) {
-            const title = document.getElementById('review_title').value.trim();
-            const content = document.getElementById('review_content').value.trim();
-            if (!title || content.length < 150 || currentRating < 0.5) {
-                showToast('Step 2 incomplete: title, rating, and 150+ chars required.', 'error');
+            const method = getProofMethod();
+            const wa = syncStep2WalletAddress();
+            const txHash = document.getElementById('tx_hash')?.value.trim() || '';
+            const screenshotFile = document.getElementById('screenshotInput')?.files?.length || 0;
+            if (!wa || !/^0x[a-fA-F0-9]{40}$/.test(wa)) {
+                showToast(method === 'manual' ? 'Manual proof needs a valid wallet address.' : 'Step 2 incomplete: add wallet proof.', 'error');
+                return false;
+            }
+            if (method === 'connected' && !walletOwnershipVerified) {
+                showToast('Step 2 incomplete: start a wallet pairing session first.', 'error');
+                return false;
+            }
+            if (method === 'connected' && !eligibilityOk) {
+                showToast('Step 2 incomplete: run the connected wallet eligibility check.', 'error');
+                return false;
+            }
+            if (method === 'manual' && (!txHash || !screenshotFile)) {
+                showToast('Manual proof needs TX hash and screenshot.', 'error');
                 return false;
             }
         }
 
-        if (step === 4) {
+        if (step === 3) {
+            const title = document.getElementById('review_title').value.trim();
+            const content = document.getElementById('review_content').value.trim();
+            if (!title || content.length < 150 || currentRating < 0.5) {
+                showToast('Step 3 incomplete: title, rating, and 150+ chars required.', 'error');
+                return false;
+            }
+        }
+
+        if (step === 5) {
             const accepted = document.getElementById('termsCheckbox').checked;
             if (!accepted) {
                 showToast('Please accept terms before submitting.', 'error');
@@ -1055,7 +1246,10 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
                 currentStep,
                 tx_hash: document.getElementById('tx_hash')?.value || '',
                 wallet_address: document.getElementById('wallet_address')?.value || '',
+                manual_wallet_address: document.getElementById('manual_wallet_address')?.value || '',
+                proof_method: getProofMethod(),
                 eligibility_ok: eligibilityOk ? '1' : '0',
+                wallet_ownership_verified: walletOwnershipVerified ? '1' : '0',
                 holding_amount: document.getElementById('holdingAmount')?.value || '',
                 holding_days: document.getElementById('holdingDays')?.value || '',
                 review_title: document.getElementById('review_title')?.value || '',
@@ -1086,7 +1280,13 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             };
             setValue('tx_hash', payload.tx_hash || '');
             setValue('wallet_address', payload.wallet_address || '');
-            eligibilityOk = payload.eligibility_ok === '1';
+            setValue('manual_wallet_address', payload.manual_wallet_address || '');
+            eligibilityOk = false;
+            walletOwnershipVerified = false;
+            if (payload.proof_method) {
+                const methodRadio = document.querySelector('input[name="proof_method"][value="' + payload.proof_method + '"]');
+                if (methodRadio) methodRadio.checked = true;
+            }
             setValue('holdingAmount', payload.holding_amount || '');
             setValue('holdingDays', payload.holding_days || '');
             setValue('review_title', payload.review_title || '');
@@ -1128,7 +1328,8 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     });
 
     document.getElementById('reviewForm')?.addEventListener('submit', function(e) {
-        if (!validateStep(1) || !validateStep(2) || !validateStep(4)) {
+        syncStep2WalletAddress();
+        if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(5)) {
             e.preventDefault();
             return;
         }
@@ -1160,95 +1361,854 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     const holdingDays = document.getElementById('holdingDays');
     const walletTypeEls = document.querySelectorAll('input[name="wallet_type"]');
     const walletAddressInput = document.getElementById('wallet_address');
+    const manualWalletAddressInput = document.getElementById('manual_wallet_address');
     const eligibilityWalletText = document.getElementById('eligibilityWalletText');
-    const eligibilityStatus = document.getElementById('eligibilityStatus');
-    const btnUseAccountWallet = document.getElementById('btnUseAccountWallet');
-    const btnConnectBrowserWallet = document.getElementById('btnConnectBrowserWallet');
+    const linkedWalletPanel = document.getElementById('linkedWalletPanel');
+    const linkedWalletText = document.getElementById('linkedWalletText');
+    const walletProofGrid = document.getElementById('walletProofGrid');
+    const btnSelectRexLinkWallet = document.getElementById('btnSelectRexLinkWallet');
+    const btnSelectExternalWallet = document.getElementById('btnSelectExternalWallet');
     const btnCheckEligibility = document.getElementById('btnCheckEligibility');
+    const walletSessionActions = document.getElementById('walletSessionActions');
+    const btnDisconnectWallet = document.getElementById('btnDisconnectWallet');
+    const proofMethodEls = document.querySelectorAll('input[name="proof_method"]');
+    const connectedProofActions = document.querySelector('.connected-proof-actions');
+    const proofModeChip = document.getElementById('proofModeChip');
+    const screenshotRequirementText = document.getElementById('screenshotRequirementText');
+    const screenshotUploadText = document.getElementById('screenshotUploadText');
+    const rexModal = document.getElementById('reviewRexLinkModal');
+    const rexBackdrop = document.getElementById('reviewRexLinkBackdrop');
+    const rexClose = document.getElementById('reviewRexLinkClose');
+    const rexModalTag = document.getElementById('reviewWalletModalTag');
+    const rexModalTitle = document.getElementById('reviewRexLinkModalTitle');
+    const walletQuestion = document.getElementById('reviewWalletQuestion');
+    const walletQuestionCopy = document.getElementById('reviewWalletQuestionCopy');
+    const walletQuestionAddress = document.getElementById('reviewWalletQuestionAddress');
+    const walletYesBtn = document.getElementById('reviewWalletYesBtn');
+    const walletNoBtn = document.getElementById('reviewWalletNoBtn');
+    const rexPairingBody = document.getElementById('reviewRexLinkPairingBody');
+    const rexQrStep = document.getElementById('reviewRexLinkQrStep');
+    const rexSuccessStep = document.getElementById('reviewRexLinkSuccessStep');
+    const rexProgressScan = document.getElementById('reviewRexLinkProgressScan');
+    const rexProgressSuccess = document.getElementById('reviewRexLinkProgressSuccess');
+    const rexSuccessMessage = document.getElementById('reviewRexLinkSuccessMessage');
+    const rexRefresh = document.getElementById('reviewRexLinkRefresh');
+    const rexStatus = document.getElementById('reviewRexLinkStatus');
+    const rexCountdown = document.getElementById('reviewRexLinkCountdown');
+    const rexPairingCode = document.getElementById('reviewRexLinkPairingCode');
+    const rexCopyCode = document.getElementById('reviewRexLinkCopyCode');
+    const rexQrPlaceholder = document.getElementById('reviewRexLinkQrPlaceholder');
+    const rexQrImage = document.getElementById('reviewRexLinkQrImage');
+    const rexQrLogoBadge = document.getElementById('reviewRexLinkQrLogoBadge');
+    let rexPairingId = 0;
+    let rexPollTimer = null;
+    let rexWatcherStartTimer = null;
+    let rexCountdownTimer = null;
+    let rexRealtimeSocket = null;
+    let rexRealtimePingTimer = null;
+    let rexRealtimeConnected = false;
+    let rexPairingBusy = false;
+    let rexConfirmBusy = false;
+    let rexConfirmQueuedPayload = null;
+    let rexVerificationComplete = false;
+    let rexPollFailureCount = 0;
+    let rexRestoreTimer = null;
+    let activeRexSessionId = 0;
+    let walletProofMode = 'rexlink';
+    let walletProofAction = 'prove';
 
-    function setEligibilityStatus(message, type = '') {
-        if (!eligibilityStatus) return;
-        eligibilityStatus.textContent = message;
-        eligibilityStatus.style.color = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#cbd5e1';
+    function getProofMethod() {
+        const checked = document.querySelector('input[name="proof_method"]:checked');
+        return checked ? checked.value : 'connected';
     }
 
-    function setWalletAddress(address, alreadyEligible = false) {
+    function getStep2WalletAddress() {
+        const manualValue = manualWalletAddressInput?.value.trim().toLowerCase() || '';
+        const connectedValue = walletAddressInput?.value.trim().toLowerCase() || '';
+        return getProofMethod() === 'manual' ? manualValue : connectedValue;
+    }
+
+    function syncStep2WalletAddress() {
+        const value = getStep2WalletAddress();
+        if (walletAddressInput) walletAddressInput.value = value;
+        return value;
+    }
+
+    function setEligibilityStatus(message, type = '') {
+        return;
+    }
+
+    function maskAddress(address) {
+        const value = String(address || '');
+        return value.length > 22 ? value.slice(0, 14) + '....' + value.slice(-4) : value;
+    }
+
+    function syncLinkedWallet(address) {
+        currentAccountWallet = String(address || '').toLowerCase();
+        if (linkedWalletText) {
+            linkedWalletText.textContent = currentAccountWallet || 'No wallet linked yet';
+        }
+    }
+
+    function renderWalletSessionState() {
+        const method = getProofMethod();
+        const value = walletAddressInput?.value.trim().toLowerCase() || '';
+        const hasPairedSession = method !== 'manual' && walletOwnershipVerified && /^0x[a-f0-9]{40}$/.test(value);
+        if (linkedWalletPanel) linkedWalletPanel.hidden = method === 'manual' || hasPairedSession;
+        if (walletProofGrid) walletProofGrid.hidden = method === 'manual' || hasPairedSession;
+        if (eligibilityWalletText) {
+            eligibilityWalletText.hidden = !hasPairedSession;
+            eligibilityWalletText.textContent = hasPairedSession ? 'Wallet Paired "' + maskAddress(value) + '"' : '';
+        }
+        if (walletSessionActions) walletSessionActions.hidden = !hasPairedSession;
+        if (btnCheckEligibility) {
+            btnCheckEligibility.disabled = !hasPairedSession;
+            btnCheckEligibility.hidden = method === 'manual';
+        }
+    }
+
+    function setWalletAddress(address, alreadyEligible = false, ownershipVerified = false) {
         const value = String(address || '').toLowerCase();
         if (walletAddressInput) walletAddressInput.value = value;
-        if (eligibilityWalletText) eligibilityWalletText.textContent = value || 'No wallet connected yet.';
         eligibilityOk = alreadyEligible;
-        if (btnCheckEligibility) btnCheckEligibility.disabled = !/^0x[a-f0-9]{40}$/.test(value);
-        setEligibilityStatus(alreadyEligible ? 'Eligibility verified. You can continue.' : 'Wallet connected. Run Check Eligibility.', alreadyEligible ? 'success' : '');
+        walletOwnershipVerified = ownershipVerified;
+        renderWalletSessionState();
         saveDraft();
     }
 
-    async function postJson(url, payload) {
-        const response = await fetch(url, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload || {})
-        });
-        return response.json();
+    function clearReviewWalletSession() {
+        walletOwnershipVerified = false;
+        eligibilityOk = false;
+        activeRexSessionId = 0;
+        if (walletAddressInput) walletAddressInput.value = currentAccountWallet || '';
+        renderWalletSessionState();
+        saveDraft();
     }
 
-    btnUseAccountWallet?.addEventListener('click', function() {
-        if (!accountWallet) {
-            setEligibilityStatus('No verified account wallet found. Connect browser wallet instead.', 'error');
-            return;
+    function syncProofMethodUI() {
+        const method = getProofMethod();
+        document.body.classList.toggle('review-proof-connected', method !== 'manual');
+        document.body.classList.toggle('review-proof-manual', method === 'manual');
+        if (connectedProofActions) connectedProofActions.style.display = method === 'manual' ? 'none' : 'grid';
+        if (proofModeChip) proofModeChip.textContent = method === 'manual' ? 'Manual proof' : 'Connected wallet';
+        if (screenshotRequirementText) screenshotRequirementText.textContent = method === 'manual'
+            ? 'Required for manual address proof'
+            : 'Optional after connected wallet eligibility passes';
+        if (screenshotUploadText) screenshotUploadText.textContent = method === 'manual'
+            ? 'Upload required screenshot'
+            : 'Upload optional screenshot';
+        if (method === 'manual') {
+            eligibilityOk = false;
+            walletOwnershipVerified = false;
+            if (walletAddressInput) {
+                walletAddressInput.readOnly = false;
+                walletAddressInput.value = manualWalletAddressInput?.value.trim().toLowerCase() || '';
+            }
+            if (btnCheckEligibility) {
+                btnCheckEligibility.hidden = true;
+                btnCheckEligibility.disabled = true;
+            }
+        } else {
+            if (walletAddressInput) walletAddressInput.readOnly = true;
+            if (walletAddressInput && !walletAddressInput.value && currentAccountWallet) {
+                walletAddressInput.value = currentAccountWallet;
+            }
         }
-        setWalletAddress(accountWallet, false);
-    });
+        renderWalletSessionState();
+        saveDraft();
+    }
 
-    btnConnectBrowserWallet?.addEventListener('click', async function() {
+    async function postJson(url, payload, options = {}) {
+        let response = null;
+        const timeoutMs = Math.max(0, Number(options.timeoutMs || 0));
+        const controller = timeoutMs > 0 && 'AbortController' in window ? new AbortController() : null;
+        const timeoutId = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : null;
+        const headers = { 'Content-Type': 'application/json' };
+        if (rexSignerWebActorToken && String(url || '').replace(/\/+$/, '').indexOf(rexSignerApiBaseUrl.replace(/\/+$/, '')) === 0) {
+            headers['X-CoinRex-Web-Actor'] = rexSignerWebActorToken;
+        }
         try {
-            if (!window.ethereum || !window.ethereum.request) {
-                setEligibilityStatus('Browser wallet not found. Use RexLink/account wallet or install MetaMask.', 'error');
+            response = await fetch(url, {
+                method: 'POST',
+                credentials: 'include',
+                cache: 'no-store',
+                signal: controller ? controller.signal : undefined,
+                headers,
+                body: JSON.stringify(payload || {})
+            });
+        } catch (error) {
+            throw new Error(error && error.name === 'AbortError'
+                ? 'RexLink check timed out. Still checking...'
+                : 'Network is slow. Still checking RexLink...');
+        } finally {
+            if (timeoutId) window.clearTimeout(timeoutId);
+        }
+        const text = await response.text();
+        let data = null;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (error) {
+            throw new Error('Unexpected server response. Please refresh and try again.');
+        }
+        if (!response.ok && data && data.message) {
+            throw new Error(data.message);
+        }
+        return data || {};
+    }
+
+    function rexSetStatus(message, type = '') {
+        if (!rexStatus) return;
+        rexStatus.textContent = message;
+        rexStatus.classList.toggle('is-error', type === 'error');
+        rexStatus.classList.toggle('is-success', type === 'success');
+    }
+
+    function setEligibilityChecking(isChecking) {
+        if (!btnCheckEligibility) return;
+        btnCheckEligibility.disabled = Boolean(isChecking);
+        btnCheckEligibility.classList.toggle('is-loading', Boolean(isChecking));
+        btnCheckEligibility.innerHTML = isChecking
+            ? '<i class="fas fa-spinner fa-spin"></i> <span>Checking...</span>'
+            : '<i class="fas fa-shield-check"></i> <span>Check Eligibility</span>';
+    }
+
+    function rexSetStep(step) {
+        if (rexQrStep) rexQrStep.classList.toggle('is-active', step === 'qr');
+        if (rexSuccessStep) rexSuccessStep.classList.toggle('is-active', step === 'success');
+        if (rexProgressScan) {
+            rexProgressScan.classList.toggle('is-active', step === 'qr');
+            rexProgressScan.classList.toggle('is-complete', step === 'success');
+        }
+        if (rexProgressSuccess) {
+            rexProgressSuccess.classList.toggle('is-active', step === 'success');
+        }
+    }
+
+    function stopRexPolling() {
+        if (rexWatcherStartTimer) {
+            window.clearTimeout(rexWatcherStartTimer);
+            rexWatcherStartTimer = null;
+        }
+        if (rexPollTimer) {
+            window.clearInterval(rexPollTimer);
+            rexPollTimer = null;
+        }
+    }
+
+    function stopRexRealtime() {
+        if (rexRealtimePingTimer) {
+            window.clearInterval(rexRealtimePingTimer);
+            rexRealtimePingTimer = null;
+        }
+        if (rexRealtimeSocket) {
+            try { rexRealtimeSocket.close(); } catch (error) {}
+            rexRealtimeSocket = null;
+        }
+        rexRealtimeConnected = false;
+    }
+
+    function stopRexCountdown() {
+        if (rexCountdownTimer) {
+            window.clearInterval(rexCountdownTimer);
+            rexCountdownTimer = null;
+        }
+    }
+
+    function stopRexRestoreTimer() {
+        if (rexRestoreTimer) {
+            window.clearTimeout(rexRestoreTimer);
+            rexRestoreTimer = null;
+        }
+    }
+
+    function resetRexQrState() {
+        rexVerificationComplete = false;
+        rexConfirmBusy = false;
+        rexPollFailureCount = 0;
+        rexSetStep('qr');
+        if (rexPairingCode) rexPairingCode.textContent = 'Creating code...';
+        if (rexCopyCode) {
+            rexCopyCode.disabled = true;
+            rexCopyCode.innerHTML = '<i class="fas fa-copy"></i>';
+        }
+        if (rexRefresh) rexRefresh.textContent = 'Generate New QR';
+        if (rexQrPlaceholder) {
+            rexQrPlaceholder.hidden = false;
+            rexQrPlaceholder.classList.remove('is-rendered');
+            rexQrPlaceholder.innerHTML = '';
+        }
+        if (rexQrImage) {
+            rexQrImage.hidden = true;
+            rexQrImage.onload = null;
+            rexQrImage.onerror = null;
+            rexQrImage.removeAttribute('src');
+        }
+        if (rexQrLogoBadge) rexQrLogoBadge.classList.remove('is-visible');
+    }
+
+    function renderRexQr(qrPayload) {
+        if (!rexQrPlaceholder || !qrPayload) return Promise.resolve(false);
+        const normalizedRexApiBaseUrl = String(qrPayload.api_base_url || qrPayload.base_url || rexSignerApiBaseUrl || '').replace(/\/+$/, '');
+        if (rexPairing.renderQr) {
+            return rexPairing.renderQr(qrPayload, {
+                placeholder: rexQrPlaceholder,
+                image: rexQrImage,
+                logoBadge: rexQrLogoBadge,
+                fallbackUrl: rexSignerPairingQrUrl,
+                fallbackText: 'Use the 6 digit code below.',
+                preferCanvas: true,
+                slowRenderMs: 250,
+                beforeSlowRender: (placeholder) => {
+                    placeholder.innerHTML = '<span>QR is taking longer than expected. You can enter the code below.</span>';
+                },
+                qrOptions: {
+                    width: 232,
+                    margin: 1,
+                    errorCorrectionLevel: 'L',
+                    maskPattern: 0,
+                },
+                payloadDefaults: {
+                    purpose: 'review_eligibility',
+                    apiBaseUrl: normalizedRexApiBaseUrl,
+                    baseUrl: normalizedRexApiBaseUrl,
+                    dappName: 'CoinRex Review',
+                    dappUrl: rexSignerPublicBaseUrl,
+                    networkSlug: 'polygon',
+                    chainId: 137,
+                    durationMinutes: 10,
+                },
+            });
+        }
+        rexQrPlaceholder.hidden = false;
+        rexQrPlaceholder.classList.remove('is-rendered');
+        rexQrPlaceholder.innerHTML = '<span>Use the 6 digit code below.</span>';
+        if (rexQrImage) {
+            rexQrImage.hidden = true;
+            rexQrImage.removeAttribute('src');
+        }
+        if (rexQrLogoBadge) rexQrLogoBadge.classList.remove('is-visible');
+        return Promise.resolve(false);
+    }
+
+    function startRexPairingWatchers() {
+        rexWatcherStartTimer = null;
+        if (!rexPairingId || !rexModal || rexModal.hidden) return;
+        stopRexPolling();
+        rexPollTimer = window.setInterval(pollRexLinkPairing, 1500);
+        window.setTimeout(pollRexLinkPairing, 0);
+        window.setTimeout(() => connectRexRealtime().catch(() => {}), 0);
+    }
+
+    function startRexCountdown(seconds, expiresAtUnix = 0) {
+        const startedAtMs = Date.now();
+        const ttlSeconds = Math.max(0, Number(seconds || 300));
+        const expiresAtMs = Number(expiresAtUnix || 0) > 0
+            ? Number(expiresAtUnix) * 1000
+            : startedAtMs + ttlSeconds * 1000;
+        stopRexCountdown();
+        const tick = () => {
+            const remaining = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
+            const minutes = Math.floor(remaining / 60);
+            const secs = String(remaining % 60).padStart(2, '0');
+            if (rexCountdown) rexCountdown.textContent = remaining > 0 ? 'QR expires in ' + minutes + 'm ' + secs + 's' : 'QR expired';
+            if (remaining <= 0) {
+                stopRexPolling();
+                stopRexCountdown();
+                rexSetStatus('This RexLink QR expired. Generate a new QR.', 'error');
                 return;
             }
-            btnConnectBrowserWallet.disabled = true;
-            setEligibilityStatus('Requesting wallet connection...');
+        };
+        tick();
+        rexCountdownTimer = window.setInterval(tick, 1000);
+    }
+
+    async function confirmRexLinkWallet(payload = {}) {
+        if (rexVerificationComplete) return true;
+        if (rexConfirmBusy) {
+            rexConfirmQueuedPayload = Object.assign({}, rexConfirmQueuedPayload || {}, payload || {});
+            return false;
+        }
+        rexConfirmBusy = true;
+        try {
+            const silent = Boolean(payload.silent);
+            const advanceToCheck = Boolean(payload.advance_to_check);
+            const requestPayload = Object.assign({}, payload);
+            delete requestPayload.silent;
+            delete requestPayload.advance_to_check;
+            const result = await postJson(rexLinkWalletUrl, Object.assign({
+                project_id: eligibilityProjectId,
+            }, requestPayload), { timeoutMs: 3500 });
+            if (!result.success) throw new Error(result.message || 'Could not verify RexLink wallet.');
+                const status = String(result.status || '');
+                if (status === 'connected') {
+                    rexPollFailureCount = 0;
+                    activeRexSessionId = Number(result.session_id || requestPayload.session_id || activeRexSessionId || 0);
+                    rexVerificationComplete = true;
+                    stopRexPolling();
+                stopRexCountdown();
+                syncLinkedWallet(result.wallet_address || '');
+                setWalletAddress(result.wallet_address || '', false, true);
+                syncProofMethodUI();
+                rexSetStatus('RexLink wallet verified. You can run eligibility check.', 'success');
+                if (rexSuccessMessage) {
+                    rexSuccessMessage.textContent = 'Wallet Linked "' + maskAddress(result.wallet_address || '') + '".';
+                }
+                rexSetStep('success');
+                connectRexRealtime().catch(() => {});
+                if (advanceToCheck && currentStep < 2) {
+                    showStep(2);
+                }
+                if (!silent) showToast('RexLink wallet verified.', 'success');
+                if (!silent && rexModal) {
+                    window.setTimeout(closeRexModal, 450);
+                }
+                return true;
+            }
+            if (['expired', 'revoked'].includes(status)) {
+                const currentPairingId = Number(requestPayload.pairing_id || 0);
+                if (currentPairingId > 0 && currentPairingId === Number(rexPairingId || 0)) {
+                    stopRexPolling();
+                    stopRexCountdown();
+                    rexSetStatus(status === 'expired' ? 'This QR expired. Generate a new QR.' : 'This pairing was cancelled. Generate a new QR.', 'error');
+                } else if (!silent) {
+                    rexSetStatus('Waiting for RexLink pairing.');
+                }
+            } else if (status === 'none') {
+                rexPollFailureCount += 1;
+                if (!silent) {
+                    rexSetStatus(rexPollFailureCount > 2
+                        ? 'Still waiting for RexLink. Checking session sync...'
+                        : 'Waiting for RexLink pairing.');
+                }
+            } else {
+                rexPollFailureCount = 0;
+                rexSetStatus(result.message || 'Waiting for RexLink pairing.');
+            }
+            return false;
+        } finally {
+            rexConfirmBusy = false;
+            if (rexConfirmQueuedPayload && !rexVerificationComplete) {
+                const nextPayload = rexConfirmQueuedPayload;
+                rexConfirmQueuedPayload = null;
+                window.setTimeout(() => {
+                    confirmRexLinkWallet(nextPayload).catch(() => {});
+                }, 0);
+            }
+        }
+    }
+
+    function pollRexLinkPairing() {
+        if (!rexPairingId) return;
+        confirmRexLinkWallet({ pairing_id: rexPairingId }).catch((error) => {
+            const message = String(error && error.message ? error.message : '');
+            const transient = /network|fetch|slow|timeout|temporar|unexpected server|unreachable|failed to fetch|load failed|session sync/i.test(message);
+            const duplicateWallet = /already have used to review the same project|already been used for a review/i.test(message);
+            if (transient) {
+                rexPollFailureCount += 1;
+                rexSetStatus(rexPollFailureCount > 2 ? 'Connection is slow. Still checking RexLink...' : 'Waiting for RexLink pairing.');
+                return;
+            }
+            if (duplicateWallet) {
+                stopRexPolling();
+                stopRexCountdown();
+                walletProofAction = 'replace';
+                rexPairingId = 0;
+                clearReviewWalletSession();
+                if (rexPairingCode) rexPairingCode.textContent = 'Switch wallet';
+                if (rexCopyCode) rexCopyCode.disabled = true;
+                if (rexRefresh) rexRefresh.textContent = 'Generate Fresh QR';
+                rexSetStatus(message || 'Could not verify RexLink wallet.', 'error');
+                return;
+            }
+            rexPollFailureCount += 1;
+            rexSetStatus(message ? message + ' Still checking until QR expiry.' : 'Could not verify yet. Still checking until QR expiry.', 'error');
+        });
+    }
+
+    async function restoreActiveRexLinkSession(options = {}) {
+        if (getProofMethod() === 'manual' || walletOwnershipVerified) return;
+        try {
+            await confirmRexLinkWallet({
+                silent: true,
+                advance_to_check: Boolean(options.advance_to_check),
+            });
+        } catch (error) {
+            // A missing review-scoped session should leave the page in the normal pairing state.
+        }
+    }
+
+    async function useActiveRexLinkSessionBeforePairing() {
+        if (getProofMethod() === 'manual' || walletOwnershipVerified) {
+            return walletOwnershipVerified;
+        }
+        if (walletQuestion) walletQuestion.hidden = true;
+        if (rexPairingBody) rexPairingBody.hidden = false;
+        rexSetStep('qr');
+        rexSetStatus('Checking existing RexLink session...');
+        if (rexPairingCode) rexPairingCode.textContent = 'Checking session';
+        if (rexQrPlaceholder) {
+            rexQrPlaceholder.hidden = false;
+            rexQrPlaceholder.classList.remove('is-rendered');
+            rexQrPlaceholder.innerHTML = '<span>Checking existing RexLink session...</span>';
+        }
+        try {
+            const connected = await confirmRexLinkWallet({ advance_to_check: true });
+            if (connected) {
+                return true;
+            }
+        } catch (error) {
+            // Normal pairing UI will be shown below.
+        }
+        rexVerificationComplete = false;
+        rexConfirmBusy = false;
+        rexPollFailureCount = 0;
+        return false;
+    }
+
+    function realtimeUrlWithToken(wsUrl, token) {
+        return String(wsUrl || '') + (String(wsUrl || '').includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token || '');
+    }
+
+    async function connectRexRealtime() {
+        if (!('WebSocket' in window)) return false;
+        if (rexRealtimeSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(rexRealtimeSocket.readyState)) return true;
+        try {
+            const data = await postJson(rexSignerRealtimeAuthUrl, {});
+            if (!data.success || !data.token) throw new Error(data.message || 'Realtime auth failed.');
+            const wsUrl = data.ws_url || rexSignerRealtimeWsUrl;
+            rexRealtimeSocket = new WebSocket(realtimeUrlWithToken(wsUrl, data.token));
+            rexRealtimeSocket.addEventListener('open', () => {
+                rexRealtimeConnected = true;
+                if (!walletOwnershipVerified) {
+                    rexSetStatus('Live pairing listener connected. Scan the QR now.');
+                }
+                window.clearInterval(rexRealtimePingTimer);
+                rexRealtimePingTimer = window.setInterval(() => {
+                    if (rexRealtimeSocket && rexRealtimeSocket.readyState === WebSocket.OPEN) {
+                        rexRealtimeSocket.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 25000);
+            });
+            rexRealtimeSocket.addEventListener('message', (message) => {
+                let event = null;
+                try { event = JSON.parse(message.data); } catch (error) {}
+                if (!event || ['realtime.ready', 'pong'].includes(String(event.type || ''))) return;
+                if (String(event.type || '') === 'session.connected') {
+                    confirmRexLinkWallet({ pairing_id: rexPairingId }).catch(() => {});
+                    return;
+                }
+                if (['session.revoked', 'session.expired'].includes(String(event.type || ''))) {
+                    const eventSessionId = Number((event.payload && event.payload.session_id) || event.session_id || 0);
+                    if (eventSessionId > 0 && activeRexSessionId > 0 && eventSessionId !== activeRexSessionId) return;
+                    clearReviewWalletSession();
+                    rexVerificationComplete = false;
+                    rexSetStatus(String(event.type || '') === 'session.revoked'
+                        ? 'RexLink session disconnected.'
+                        : 'RexLink session expired. Pair again.', 'error');
+                    showToast(String(event.type || '') === 'session.revoked'
+                        ? 'RexLink disconnected.'
+                        : 'RexLink session expired.', 'error');
+                }
+            });
+            rexRealtimeSocket.addEventListener('close', () => {
+                rexRealtimeConnected = false;
+                window.clearInterval(rexRealtimePingTimer);
+                rexRealtimePingTimer = null;
+            });
+            rexRealtimeSocket.addEventListener('error', () => {
+                rexRealtimeConnected = false;
+            });
+            return true;
+        } catch (error) {
+            rexRealtimeConnected = false;
+            return false;
+        }
+    }
+
+    async function createRexLinkPairing() {
+        if (rexPairingBusy) return;
+        const pairingStartedAt = (window.performance && performance.now) ? performance.now() : Date.now();
+        stopRexRestoreTimer();
+        rexPairingBusy = true;
+        stopRexPolling();
+        stopRexRealtime();
+        stopRexCountdown();
+        rexPairingId = 0;
+        resetRexQrState();
+        rexSetStatus('Creating RexLink pairing code...');
+        try {
+            const data = await postJson(rexSignerCreatePairingUrl, {
+                purpose: 'review_eligibility',
+                duration_minutes: 10,
+                dapp_name: 'CoinRex Review Eligibility',
+                dapp_url: rexSignerPublicBaseUrl,
+                requested_wallet_address: '',
+                force_new_pairing: walletProofAction === 'replace',
+            });
+            const pairingApiMs = Math.round(((window.performance && performance.now) ? performance.now() : Date.now()) - pairingStartedAt);
+            if (!data.success) throw new Error(data.message || 'Could not create RexLink pairing.');
+            walletProofAction = 'prove';
+            if (data.already_connected && data.session) {
+                activeRexSessionId = Number(data.session.id || data.session.session_id || 0);
+                rexSetStatus('Active RexLink session found. Verifying wallet...');
+                await confirmRexLinkWallet({ session_id: activeRexSessionId, advance_to_check: true });
+                return;
+            }
+            rexPairingId = Number(data.pairing_id || 0);
+            if (rexPairingCode) rexPairingCode.textContent = data.display_code || 'Code ready';
+            if (rexCopyCode) rexCopyCode.disabled = !data.display_code;
+            if (rexQrPlaceholder) {
+                rexQrPlaceholder.hidden = false;
+                rexQrPlaceholder.classList.remove('is-rendered');
+                rexQrPlaceholder.innerHTML = '<span>Generating QR. If it is slow, enter the code below.</span>';
+            }
+            if (data.qr_payload) {
+                const qrStartedAt = (window.performance && performance.now) ? performance.now() : Date.now();
+                const qrPayload = Object.assign({
+                    purpose: 'review_eligibility',
+                    coinrex_purpose: 'review_eligibility',
+                }, data.qr_payload || {});
+                renderRexQr(qrPayload).then(() => {
+                    const qrMs = Math.round(((window.performance && performance.now) ? performance.now() : Date.now()) - qrStartedAt);
+                    if (window.console && console.info) {
+                        console.info('[RexLink review pairing]', {
+                            apiMs: pairingApiMs,
+                            serverMs: data.server_timing_ms || null,
+                            qrMs,
+                            apiBaseUrl: qrPayload.api_base_url || '',
+                        });
+                    }
+                });
+            } else if (rexQrPlaceholder) {
+                rexQrPlaceholder.innerHTML = '<span>Use the code below to pair.</span>';
+            }
+            startRexCountdown(data.expires_in_seconds || 300, data.expires_at_unix || (data.qr_payload && data.qr_payload.expires_at_unix) || 0);
+            const qrApiBase = String((data.qr_payload && (data.qr_payload.api_base_url || data.qr_payload.base_url)) || rexSignerApiBaseUrl || '').replace(/\/+$/, '');
+            rexSetStatus('Open RexLink and pair with this QR or code. API ' + pairingApiMs + 'ms' + (data.server_timing_ms ? ' / server ' + data.server_timing_ms + 'ms' : '') + '. QR API: ' + qrApiBase);
+            rexWatcherStartTimer = window.setTimeout(startRexPairingWatchers, 100);
+        } catch (error) {
+            rexSetStatus(error.message || 'RexLink pairing could not start.', 'error');
+        } finally {
+            rexPairingBusy = false;
+        }
+    }
+
+    function openRexModal() {
+        if (!rexModal) return;
+        rexModal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeRexModal() {
+        stopRexPolling();
+        if (!walletOwnershipVerified) {
+            stopRexRealtime();
+        }
+        stopRexCountdown();
+        if (rexModal) rexModal.hidden = true;
+        document.body.style.overflow = '';
+    }
+
+    async function openWalletProofModal(mode) {
+        stopRexRestoreTimer();
+        walletProofMode = mode === 'external' ? 'external' : 'rexlink';
+        walletProofAction = 'prove';
+        stopRexPolling();
+        stopRexRealtime();
+        stopRexCountdown();
+        rexSetStep('qr');
+        if (rexModalTag) {
+            rexModalTag.innerHTML = walletProofMode === 'rexlink'
+                ? '<i class="fas fa-link"></i> RexLink'
+                : '<i class="fas fa-wallet"></i> External';
+        }
+        if (rexModalTitle) {
+            rexModalTitle.textContent = walletProofMode === 'rexlink'
+                ? 'RexLink Wallet Access'
+                : 'External Wallet Access';
+        }
+        if (walletQuestionCopy) {
+            walletQuestionCopy.textContent = 'Choose how you want to continue.';
+        }
+        if (walletQuestionAddress) {
+            const linkedWallet = currentAccountWallet || '';
+            walletQuestionAddress.hidden = !linkedWallet;
+            walletQuestionAddress.textContent = linkedWallet ? 'Linked Wallet: ' + linkedWallet : '';
+        }
+        if (walletQuestion) walletQuestion.hidden = false;
+        if (rexPairingBody) rexPairingBody.hidden = true;
+        resetRexQrState();
+        if (rexPairingCode) rexPairingCode.textContent = 'No code yet';
+        openRexModal();
+        if (walletProofMode === 'rexlink' && await useActiveRexLinkSessionBeforePairing()) {
+            return;
+        }
+        if (walletProofMode === 'rexlink') {
+            if (walletQuestion) walletQuestion.hidden = false;
+            if (rexPairingBody) rexPairingBody.hidden = true;
+            resetRexQrState();
+            if (rexPairingCode) rexPairingCode.textContent = 'No code yet';
+            rexSetStatus('Ready to create RexLink pairing.');
+        }
+    }
+
+    function continueWalletProof(action = 'prove') {
+        walletProofAction = action === 'replace' ? 'replace' : 'prove';
+        if (walletProofMode === 'external') {
+            closeRexModal();
+            connectExternalWallet();
+            return;
+        }
+        if (walletQuestion) walletQuestion.hidden = true;
+        if (rexPairingBody) rexPairingBody.hidden = false;
+        createRexLinkPairing();
+    }
+
+    btnSelectRexLinkWallet?.addEventListener('click', () => openWalletProofModal('rexlink'));
+    btnSelectExternalWallet?.addEventListener('click', () => openWalletProofModal('external'));
+    walletYesBtn?.addEventListener('click', () => continueWalletProof('prove'));
+    walletNoBtn?.addEventListener('click', () => continueWalletProof('replace'));
+    rexRefresh?.addEventListener('click', createRexLinkPairing);
+    [rexBackdrop, rexClose].forEach((el) => el?.addEventListener('click', closeRexModal));
+    rexCopyCode?.addEventListener('click', function() {
+        const code = rexPairingCode?.textContent.trim() || '';
+        if (!code || code === 'No code yet' || code === 'Creating code...') return;
+        if (rexPairing.copyText) {
+            rexPairing.copyText(code, rexCopyCode, 1200);
+            return;
+        }
+        rexCopyCode.innerHTML = '<i class="fas fa-check"></i>';
+        window.setTimeout(() => { rexCopyCode.innerHTML = '<i class="fas fa-copy"></i>'; }, 1200);
+    });
+
+    async function connectExternalWallet() {
+        try {
+            if (!window.ethereum || !window.ethereum.request) {
+                showToast('Browser wallet not found. Pair RexLink or install MetaMask.', 'error');
+                return;
+            }
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
             const wallet = String(accounts && accounts[0] ? accounts[0] : '').toLowerCase();
             if (!/^0x[a-f0-9]{40}$/.test(wallet)) throw new Error('No valid wallet returned.');
             const nonce = await postJson(eligibilityNonceUrl, { wallet_address: wallet });
             if (!nonce.success) throw new Error(nonce.message || 'Could not create wallet nonce.');
             const signature = await window.ethereum.request({ method: 'personal_sign', params: [nonce.message, wallet] });
-            const verify = await postJson(eligibilityVerifyUrl, { wallet_address: wallet, signature });
+            const verify = await postJson(eligibilityVerifyUrl, { wallet_address: wallet, signature, project_id: eligibilityProjectId });
             if (!verify.success) throw new Error(verify.message || 'Wallet verification failed.');
-            setWalletAddress(wallet, false);
+            syncLinkedWallet(verify.wallet_address || wallet);
+            setWalletAddress(verify.wallet_address || wallet, false, true);
+            syncProofMethodUI();
+            showToast('External wallet verified.', 'success');
         } catch (error) {
-            setEligibilityStatus(error.message || 'Wallet connection failed.', 'error');
-        } finally {
-            btnConnectBrowserWallet.disabled = false;
+            showToast(error.message || 'Wallet connection failed.', 'error');
         }
-    });
+    }
+
+    async function disconnectExternalWalletProvider() {
+        if (!window.ethereum || !window.ethereum.request) return false;
+        try {
+            await window.ethereum.request({
+                method: 'wallet_revokePermissions',
+                params: [{ eth_accounts: {} }],
+            });
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    async function refreshExternalWalletProviderState() {
+        if (walletProofMode !== 'external' || !walletOwnershipVerified || !window.ethereum || !window.ethereum.request) return;
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            const nextWallet = String(accounts && accounts[0] ? accounts[0] : '').toLowerCase();
+            const currentWallet = walletAddressInput?.value.trim().toLowerCase() || '';
+            if (!nextWallet || (currentWallet && nextWallet !== currentWallet)) {
+                clearReviewWalletSession();
+                showToast(nextWallet ? 'Wallet account changed. Verify the new wallet first.' : 'MetaMask disconnected from this site.', 'error');
+            }
+        } catch (error) {}
+    }
+
+    async function disconnectReviewWalletSession() {
+        const sessionId = Number(activeRexSessionId || 0);
+        const wasExternalWallet = walletProofMode === 'external';
+        clearReviewWalletSession();
+        window.dispatchEvent(new CustomEvent('rexlink:session-disconnected'));
+        const providerRevoked = wasExternalWallet ? await disconnectExternalWalletProvider() : false;
+        showToast(providerRevoked ? 'MetaMask permission revoked for this site.' : 'Wallet session disconnected on this website.', 'success');
+        if (sessionId <= 0) return;
+        try {
+            const result = await postJson(rexSignerRevokeSessionUrl, {
+                session_id: sessionId,
+                reason: 'Revoked from review eligibility page',
+            });
+            if (!result.success) {
+                showToast('Local session cleared. RexLink will refresh shortly.', 'error');
+            }
+        } catch (error) {
+            showToast('Local session cleared. RexLink will refresh shortly.', 'error');
+        }
+    }
 
     btnCheckEligibility?.addEventListener('click', async function() {
-        const wallet = walletAddressInput?.value.trim().toLowerCase() || '';
-        if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-            setEligibilityStatus('Connect a valid wallet first.', 'error');
+        if (getProofMethod() === 'manual') {
+            showToast('Manual mode does not run on-chain check. Add TX hash and screenshot instead.', 'error');
             return;
         }
-        btnCheckEligibility.disabled = true;
-        setEligibilityStatus('Checking project contracts on-chain...');
+        const wallet = walletAddressInput?.value.trim().toLowerCase() || '';
+        if (!walletOwnershipVerified || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+            openWalletProofModal('rexlink');
+            return;
+        }
+        setEligibilityChecking(true);
         try {
             const result = await postJson(eligibilityCheckUrl, { project_id: eligibilityProjectId, wallet_address: wallet });
             if (!result.success) throw new Error(result.message || 'Eligibility check failed.');
             eligibilityOk = result.status === 'eligible';
             if (eligibilityOk) {
-                setEligibilityStatus(result.reason || 'Eligibility verified. You can continue.', 'success');
                 showToast('Eligibility verified.', 'success');
             } else {
-                setEligibilityStatus(result.reason || 'Not eligible on supported project contracts.', 'error');
                 showToast(result.reason || 'Not eligible.', 'error');
             }
             saveDraft();
         } catch (error) {
             eligibilityOk = false;
-            setEligibilityStatus(error.message || 'Eligibility could not be verified. Recheck later.', 'error');
+            showToast(error.message || 'Eligibility could not be verified. Recheck later.', 'error');
         } finally {
-            btnCheckEligibility.disabled = false;
+            setEligibilityChecking(false);
+        }
+    });
+
+    btnDisconnectWallet?.addEventListener('click', function() {
+        disconnectReviewWalletSession();
+    });
+
+    if (window.ethereum && window.ethereum.on) {
+        window.ethereum.on('accountsChanged', function(accounts) {
+            const nextWallet = String(accounts && accounts[0] ? accounts[0] : '').toLowerCase();
+            const currentWallet = walletAddressInput?.value.trim().toLowerCase() || '';
+            if (!nextWallet || (currentWallet && nextWallet !== currentWallet)) {
+                clearReviewWalletSession();
+                eligibilityOk = false;
+                showToast(nextWallet ? 'Wallet account changed. Verify the new wallet first.' : 'MetaMask disconnected from this site.', 'error');
+            }
+        });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshExternalWalletProviderState();
+        }
+        if (!document.hidden && rexPairingId && !rexVerificationComplete) {
+            pollRexLinkPairing();
+        }
+    });
+
+    window.addEventListener('focus', () => {
+        refreshExternalWalletProviderState();
+        if (rexPairingId && !rexVerificationComplete) {
+            pollRexLinkPairing();
         }
     });
 
@@ -1302,6 +2262,23 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     holdingDays?.addEventListener('input', () => { updateRewardPreview(); saveDraft(); });
     reviewContent?.addEventListener('input', () => { updateRewardPreview(); saveDraft(); });
     walletTypeEls.forEach(el => el.addEventListener('change', () => { updateRewardPreview(); saveDraft(); }));
+    proofMethodEls.forEach(el => el.addEventListener('change', syncProofMethodUI));
+    walletAddressInput?.addEventListener('input', function() {
+        eligibilityOk = false;
+        walletOwnershipVerified = false;
+        renderWalletSessionState();
+        saveDraft();
+    });
+
+    manualWalletAddressInput?.addEventListener('input', function() {
+        const value = this.value.trim().toLowerCase();
+        if (getProofMethod() === 'manual' && walletAddressInput) {
+            walletAddressInput.value = value;
+        }
+        eligibilityOk = false;
+        walletOwnershipVerified = false;
+        saveDraft();
+    });
 
     document.querySelectorAll('.score-item input[type="range"]').forEach(slider => {
         slider.addEventListener('input', function() {
@@ -1310,7 +2287,7 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         });
     });
 
-    document.querySelectorAll('#review_title, #tx_hash, #wallet_address, textarea[name="pros"], textarea[name="cons"], #holdingAmount, #holdingDays').forEach((el) => {
+    document.querySelectorAll('#review_title, #tx_hash, #wallet_address, #manual_wallet_address, textarea[name="pros"], textarea[name="cons"], #holdingAmount, #holdingDays').forEach((el) => {
         el?.addEventListener('input', saveDraft);
     });
 
@@ -1359,11 +2336,24 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     });
 
     restoreDraft();
-    if (walletAddressInput?.value) {
-        setWalletAddress(walletAddressInput.value, eligibilityOk);
-    } else if (accountWallet) {
-        setWalletAddress(accountWallet, false);
+    syncProofMethodUI();
+    if (getProofMethod() === 'manual') {
+        if (manualWalletAddressInput?.value && walletAddressInput) {
+            walletAddressInput.value = manualWalletAddressInput.value.trim().toLowerCase();
+        }
+    } else if (walletAddressInput?.value) {
+        const restoredWallet = walletAddressInput.value.trim().toLowerCase();
+        setWalletAddress(restoredWallet, false, false);
+    } else if (currentAccountWallet) {
+        setWalletAddress(currentAccountWallet, false, false);
     }
+    syncProofMethodUI();
+    rexRestoreTimer = window.setTimeout(() => {
+        rexRestoreTimer = null;
+        if (!rexModal || rexModal.hidden) {
+            restoreActiveRexLinkSession({ advance_to_check: true });
+        }
+    }, 5000);
     paintStars(currentRating);
     renderRatingLabel(currentRating);
     if (reviewContent && charCount) {
@@ -1373,6 +2363,9 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     }
     updateRewardPreview();
     showStep(1);
+    if (getProofMethod() !== 'manual') {
+        restoreActiveRexLinkSession({ advance_to_check: true });
+    }
 })();
 </script>
 

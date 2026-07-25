@@ -337,13 +337,22 @@ foreach ($navigation_registry as $nav_item) {
     }
 }
 
-$navigation_slot_options = static function (array $registry, string $location, string $sectionKey, string $targetAudience, array $featureFlagsByKey): array {
+$navigation_slot_options = static function (array $registry, string $slotGroup, string $targetAudience, array $featureFlagsByKey): array {
     $options = [];
     foreach ($registry as $key => $item) {
-        if ((string) ($item['location'] ?? '') !== $location) {
-            continue;
+        $itemType = (string) ($item['item_type'] ?? 'link');
+        $itemLocation = (string) ($item['location'] ?? '');
+        $itemSection = (string) ($item['section_key'] ?? '');
+
+        $includeInSlotGroup = false;
+        if ($slotGroup === 'desktop') {
+            $includeInSlotGroup = $itemLocation === 'header'
+                || ($itemType === 'link' && $itemLocation === 'footer');
+        } elseif ($slotGroup === 'mobile') {
+            $includeInSlotGroup = $itemType === 'link';
         }
-        if ((string) ($item['section_key'] ?? '') !== $sectionKey) {
+
+        if (!$includeInSlotGroup) {
             continue;
         }
 
@@ -365,7 +374,7 @@ $navigation_slot_options = static function (array $registry, string $location, s
         $audience_label = $audience === 'member' ? 'signed-in' : ($audience === 'guest' ? 'guest' : 'all');
         $options[] = [
             'key' => (string) $key,
-            'label' => (string) ($item['label'] ?? 'Navigation item') . ' (' . $audience_label . ')' . $feature_note,
+            'label' => (string) ($item['label'] ?? 'Navigation item') . ' [' . (string) ($item['section_label'] ?? ($itemLocation . ' / ' . $itemSection)) . '] (' . $audience_label . ')' . $feature_note,
             'sort_order' => (int) ($item['sort_order'] ?? 0),
             'is_enabled' => !empty($item['is_enabled']),
         ];
@@ -447,10 +456,10 @@ $navigation_slot_values = static function (PDO $db, array $registry, string $slo
 
     return $values;
 };
-$desktop_guest_slot_options = $navigation_slot_options($navigation_registry, 'header', 'primary', 'guest', $feature_flags_by_key);
-$desktop_member_slot_options = $navigation_slot_options($navigation_registry, 'header', 'primary', 'member', $feature_flags_by_key);
-$mobile_guest_slot_options = $navigation_slot_options($navigation_registry, 'mobile', 'bottom', 'guest', $feature_flags_by_key);
-$mobile_member_slot_options = $navigation_slot_options($navigation_registry, 'mobile', 'bottom', 'member', $feature_flags_by_key);
+$desktop_guest_slot_options = $navigation_slot_options($navigation_registry, 'desktop', 'guest', $feature_flags_by_key);
+$desktop_member_slot_options = $navigation_slot_options($navigation_registry, 'desktop', 'member', $feature_flags_by_key);
+$mobile_guest_slot_options = $navigation_slot_options($navigation_registry, 'mobile', 'guest', $feature_flags_by_key);
+$mobile_member_slot_options = $navigation_slot_options($navigation_registry, 'mobile', 'member', $feature_flags_by_key);
 $desktop_guest_slot_values = $navigation_slot_values($db, $navigation_registry, 'desktop_guest', 'header', 'primary', 'guest', 6);
 $desktop_member_slot_values = $navigation_slot_values($db, $navigation_registry, 'desktop_member', 'header', 'primary', 'member', 6);
 $mobile_guest_slot_values = $navigation_slot_values($db, $navigation_registry, 'mobile_guest', 'mobile', 'bottom', 'guest', 5);

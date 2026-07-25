@@ -278,8 +278,39 @@ foreach ($header_resource_items as $header_resource_item) {
     .rexlink-session-chip i {
         color: currentColor;
     }
+    .rexlink-session-chip .rexlink-live-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, .55);
+        animation: rexlinkLivePulse 1.2s ease-out infinite;
+    }
     .rexlink-session-chip strong {
         color: #f8fafc;
+    }
+    .rexlink-session-chip button {
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 999px;
+        background: #dc2626;
+        color: #fff;
+        cursor: pointer;
+        display: inline-grid;
+        place-items: center;
+        font-size: 17px;
+        font-weight: 950;
+        line-height: 1;
+    }
+    .rexlink-session-chip button:disabled {
+        cursor: wait;
+        opacity: .72;
+    }
+    @keyframes rexlinkLivePulse {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, .55); }
+        70% { box-shadow: 0 0 0 9px rgba(34, 197, 94, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
     }
     @media (max-width: 768px) {
         .rexlink-session-chip {
@@ -497,8 +528,9 @@ foreach ($header_resource_items as $header_resource_item) {
 
 <?php if ($is_logged_in): ?>
 <div class="rexlink-session-chip" id="rexLinkSessionChip" hidden>
-    <i class="fas fa-link"></i>
-    <span>RexLink <strong id="rexLinkSessionChipTime">--:--</strong></span>
+    <span class="rexlink-live-dot" aria-hidden="true"></span>
+    <span>RexLink live <strong id="rexLinkSessionChipTime">--:--</strong></span>
+    <button type="button" id="rexLinkSessionChipDisconnect" aria-label="Disconnect RexLink wallet">×</button>
 </div>
 <?php endif; ?>
 
@@ -517,10 +549,18 @@ const userNotificationsList = document.getElementById('userNotificationsList');
 (function() {
     const chip = document.getElementById('rexLinkSessionChip');
     const chipTime = document.getElementById('rexLinkSessionChipTime');
-    const sessionsEndpoint = <?php echo json_encode(BASE_URL . '/api/rex-signer/sessions.php', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+    const chipDisconnect = document.getElementById('rexLinkSessionChipDisconnect');
+    const rexlinkApiBase = <?php echo json_encode(BASE_URL, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+    const sessionsEndpoint = rexlinkApiBase.replace(/\/+$/, '') + '/api/rex-signer/sessions.php';
+    const realtimeAuthEndpoint = rexlinkApiBase.replace(/\/+$/, '') + '/api/rex-signer/realtime_auth.php';
+    const revokeEndpoint = rexlinkApiBase.replace(/\/+$/, '') + '/api/rex-signer/revoke_session.php';
     let remainingSeconds = 0;
+    let activeSessionId = 0;
+    let activeExpiresAtMs = 0;
     let tickTimer = null;
     let pollTimer = null;
+    let realtimeSocket = null;
+    let realtimePingTimer = null;
     let expiryDispatched = false;
 
     function formatRexLinkTime(seconds) {
@@ -532,6 +572,8 @@ const userNotificationsList = document.getElementById('userNotificationsList');
 
     function hideRexLinkChip(dispatchExpired) {
         remainingSeconds = 0;
+        activeSessionId = 0;
+        activeExpiresAtMs = 0;
         if (chip) {
             chip.classList.remove('is-visible', 'is-warning');
             chip.hidden = true;
@@ -563,17 +605,18 @@ const userNotificationsList = document.getElementById('userNotificationsList');
             window.clearInterval(tickTimer);
         }
         tickTimer = window.setInterval(function() {
-            if (remainingSeconds > 0) {
-                remainingSeconds -= 1;
-            }
+            remainingSeconds = activeExpiresAtMs > 0
+                ? Math.max(0, Math.ceil((activeExpiresAtMs - Date.now()) / 1000))
+                : Math.max(0, remainingSeconds - 1);
             renderRexLinkChip();
         }, 1000);
     }
 
     function fetchRexLinkSession() {
         return fetch(sessionsEndpoint, {
-            credentials: 'same-origin',
-            headers: { 'Accept': 'application/json' }
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
         }).then(function(response) {
             return response.json();
         }).then(function(data) {
@@ -584,19 +627,107 @@ const userNotificationsList = document.getElementById('userNotificationsList');
             const nextRemaining = currentSession && currentSession.status === 'active'
                 ? Number(currentSession.remaining_seconds || 0)
                 : 0;
-            if (nextRemaining > 0) {
+        if (nextRemaining > 0) {
                 expiryDispatched = false;
                 remainingSeconds = nextRemaining;
+                activeSessionId = Number(currentSession.id || currentSession.session_id || 0);
+                activeExpiresAtMs = Number(currentSession.expires_at_unix || 0) > 0
+                    ? Number(currentSession.expires_at_unix) * 1000
+                    : Date.now() + nextRemaining * 1000;
                 renderRexLinkChip();
                 startRexLinkTick();
+                connectRexLinkRealtime();
             } else {
                 hideRexLinkChip(false);
             }
             return data;
         }).catch(function() {
-            hideRexLinkChip(false);
             return null;
         });
+    }
+
+    function realtimeUrlWithToken(wsUrl, token) {
+        return String(wsUrl || '') + (String(wsUrl || '').includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token || '');
+    }
+
+    function disconnectRexLinkSession() {
+        if (!activeSessionId) {
+            hideRexLinkChip(false);
+            return Promise.resolve(null);
+        }
+        if (chipDisconnect) {
+            chipDisconnect.disabled = true;
+        }
+        return fetch(revokeEndpoint, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            body: JSON.stringify({
+                session_id: activeSessionId,
+                reason: 'Disconnected from CoinRex universal footer',
+            }),
+        }).then(function(response) {
+            return response.json().catch(function() {
+                return {};
+            }).then(function(data) {
+                if (!response.ok || !data || data.success !== true) {
+                    throw new Error((data && data.message) || 'Could not disconnect RexLink.');
+                }
+                hideRexLinkChip(false);
+                window.dispatchEvent(new CustomEvent('rexlink:session-disconnected'));
+                return data;
+            });
+        }).finally(function() {
+            if (chipDisconnect) {
+                chipDisconnect.disabled = false;
+            }
+        });
+    }
+
+    function connectRexLinkRealtime() {
+        if (!('WebSocket' in window)) return;
+        if (realtimeSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(realtimeSocket.readyState)) return;
+        fetch(realtimeAuthEndpoint, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: '{}'
+        }).then(function(response) {
+            return response.json();
+        }).then(function(data) {
+            if (!data || data.success !== true || !data.ws_url || !data.token) return;
+            realtimeSocket = new WebSocket(realtimeUrlWithToken(data.ws_url, data.token));
+            realtimeSocket.addEventListener('open', function() {
+                if (realtimePingTimer) window.clearInterval(realtimePingTimer);
+                realtimePingTimer = window.setInterval(function() {
+                    if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+                        realtimeSocket.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 25000);
+            });
+            realtimeSocket.addEventListener('message', function(message) {
+                let event = null;
+                try { event = JSON.parse(String(message.data || '{}')); } catch (error) {}
+                const type = String(event && event.type || '');
+                if (!type || type === 'realtime.ready' || type === 'pong') return;
+                if (type === 'session.connected') {
+                    fetchRexLinkSession();
+                    return;
+                }
+                if (type === 'session.revoked' || type === 'session.expired') {
+                    const eventSessionId = Number((event.payload && event.payload.session_id) || event.session_id || 0);
+                    if (eventSessionId > 0 && activeSessionId > 0 && eventSessionId !== activeSessionId) return;
+                    hideRexLinkChip(type === 'session.expired');
+                    window.dispatchEvent(new CustomEvent('rexlink:session-disconnected'));
+                }
+            });
+            realtimeSocket.addEventListener('close', function() {
+                if (realtimePingTimer) window.clearInterval(realtimePingTimer);
+                realtimePingTimer = null;
+                realtimeSocket = null;
+            });
+        }).catch(function() {});
     }
 
     fetchRexLinkSession();
@@ -604,11 +735,19 @@ const userNotificationsList = document.getElementById('userNotificationsList');
         if (document.visibilityState === 'visible') {
             fetchRexLinkSession();
         }
-    }, 5000);
+    }, 2000);
+    chipDisconnect?.addEventListener('click', function() {
+        disconnectRexLinkSession().catch(function() {
+            fetchRexLinkSession();
+        });
+    });
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible') {
             fetchRexLinkSession();
         }
+    });
+    window.addEventListener('rexlink:session-disconnected', function() {
+        hideRexLinkChip(false);
     });
     window.addEventListener('beforeunload', function() {
         if (tickTimer) {
@@ -616,6 +755,12 @@ const userNotificationsList = document.getElementById('userNotificationsList');
         }
         if (pollTimer) {
             window.clearInterval(pollTimer);
+        }
+        if (realtimePingTimer) {
+            window.clearInterval(realtimePingTimer);
+        }
+        if (realtimeSocket) {
+            try { realtimeSocket.close(); } catch (error) {}
         }
     });
 })();

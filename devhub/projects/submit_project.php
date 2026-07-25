@@ -104,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
     if (!empty($bulk_rows)) {
         foreach ($bulk_rows as $bulk_row) {
             $contract_source['contract_network_name'][] = $bulk_row['network_name'];
+            $contract_source['contract_network_other'][] = '';
             $contract_source['contract_chain_id'][] = $bulk_row['chain_id'];
             $contract_source['contract_address_multi'][] = $bulk_row['contract_address'];
             $contract_source['contract_token_type'][] = $bulk_row['token_type'];
@@ -180,9 +181,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
             }
         }
         foreach ($contract_rows as $row) {
+            if (($row['token_type'] ?? '') === 'NATIVE') {
+                continue;
+            }
             $stmt = $db->prepare("SELECT project_id FROM project_contracts WHERE chain_id = ? AND contract_address = ? LIMIT 1");
-            $lookup_address = ($row['token_type'] ?? '') === 'NATIVE' ? '' : $row['contract_address'];
-            $stmt->execute([(int) $row['chain_id'], $lookup_address]);
+            $stmt->execute([(int) $row['chain_id'], $row['contract_address']]);
             if ($stmt->fetch()) {
                 $errors['contracts'] = 'One of these chain + contract pairs is already used by another project.';
                 break;
@@ -255,7 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
                 $form['website_url'],
                 $form['telegram_url'] !== '' ? $form['telegram_url'] : null,
                 $form['twitter_url'] !== '' ? $form['twitter_url'] : null,
-                $form['contract_address'] !== '' ? $form['contract_address'] : '',
+                $form['contract_address'] !== '' ? $form['contract_address'] : null,
                 $form['github_url'] !== '' ? $form['github_url'] : null,
                 $form['discord_url'] !== '' ? $form['discord_url'] : null,
                 $form['network'] !== '' ? $form['network'] : null,
@@ -527,12 +530,14 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <?php foreach (array_keys(reviewEligibilityKnownNetworks()) as $network): ?>
                                                     <option value="<?php echo $esc($network); ?>"><?php echo $esc($network); ?></option>
                                                 <?php endforeach; ?>
+                                                <option value="__other__">Others</option>
                                             </select></label>
+                                        <label class="contract-field contract-network-other-field" hidden><span>Network Name</span><input type="text" name="contract_network_other[]" data-network-other placeholder="Enter network name"></label>
                                         <label class="contract-field"><span>Chain ID</span><input type="number" name="contract_chain_id[]" data-chain-id placeholder="1"></label>
                                         <label class="contract-field contract-address-field"><span>Contract Address</span><input type="text" name="contract_address_multi[]" data-contract-address placeholder="0x..."></label>
                                         <label class="contract-field"><span>Token Type</span><select name="contract_token_type[]" data-token-type>
-                                                <option value="NATIVE">Native</option>
                                                 <option value="ERC20">ERC20</option>
+                                                <option value="NATIVE">Native Token</option>
                                                 <option value="ERC721">ERC721</option>
                                                 <option value="ERC1155">ERC1155</option>
                                             </select></label>
@@ -629,7 +634,9 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <aside class="wizard-preview">
                     <h3>Live Preview</h3>
-                    <div class="preview-logo-wrap"><img id="logoPreview" src="<?php echo BASE_URL; ?>/assets/images/favicon.png" alt="Project Logo Preview"></div>
+                    <div class="preview-logo-wrap has-logo-image" id="logoPreviewWrap" style="background-image: url('<?php echo BASE_URL; ?>/assets/images/favicon.png');">
+                        <img id="logoPreview" src="<?php echo BASE_URL; ?>/assets/images/favicon.png" alt="Project Logo Preview">
+                    </div>
                     <div class="preview-card">
                         <div class="preview-card-head">
                             <h4 id="previewName">Project Name</h4>
@@ -673,6 +680,7 @@ require_once __DIR__ . '/../includes/header.php';
     const logoInput = document.getElementById('logo');
     const socialHint = document.getElementById('socialHint');
     const logoPreview = document.getElementById('logoPreview');
+    const logoPreviewWrap = document.getElementById('logoPreviewWrap');
     const contractRows = document.getElementById('contractRows');
     const addContractRow = document.getElementById('addContractRow');
     const knownChains = <?php echo json_encode(reviewEligibilityKnownNetworks(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
@@ -711,8 +719,9 @@ require_once __DIR__ . '/../includes/header.php';
         const contractField = document.getElementById('contract_address');
         if (!row || !networkField || !contractField) return;
         const network = row.querySelector('[data-network-select]');
+        const networkOther = row.querySelector('[data-network-other]');
         const address = row.querySelector('[data-contract-address]');
-        networkField.value = network ? network.value : '';
+        networkField.value = network && network.value === '__other__' && networkOther ? networkOther.value.trim() : (network ? network.value : '');
         contractField.value = address ? address.value.trim() : '';
     }
 
@@ -730,14 +739,25 @@ require_once __DIR__ . '/../includes/header.php';
 
     function bindContractRow(row) {
         const network = row.querySelector('[data-network-select]');
+        const networkOther = row.querySelector('[data-network-other]');
+        const networkOtherField = row.querySelector('.contract-network-other-field');
         const chainId = row.querySelector('[data-chain-id]');
         const address = row.querySelector('[data-contract-address]');
+        const addressField = row.querySelector('.contract-address-field');
         const remove = row.querySelector('[data-remove-contract]');
         const radio = row.querySelector('input[name="primary_contract_index"]');
         const tokenType = row.querySelector('[data-token-type]');
+        function syncNetworkOtherState() {
+            if (!network || !networkOther || !networkOtherField) return;
+            const isOther = network.value === '__other__';
+            networkOtherField.hidden = !isOther;
+            networkOther.required = isOther;
+            if (!isOther) networkOther.value = '';
+        }
         function syncNativeAddressState() {
             if (!address || !tokenType) return;
             const isNative = tokenType.value === 'NATIVE';
+            if (addressField) addressField.classList.toggle('is-disabled', isNative);
             address.readOnly = isNative;
             address.placeholder = isNative ? 'Native balance uses chain only' : '0x...';
             if (isNative) address.value = '';
@@ -747,14 +767,15 @@ require_once __DIR__ . '/../includes/header.php';
                 if (knownChains[network.value] && chainId && !chainId.value) {
                     chainId.value = knownChains[network.value].chain_id;
                 }
+                syncNetworkOtherState();
                 syncPrimaryContractFields();
                 saveDraft();
             });
         }
-        [chainId, address, radio, tokenType].forEach(function(el) {
+        [chainId, address, radio, tokenType, networkOther].forEach(function(el) {
             if (!el) return;
             el.addEventListener('input', function() { syncNativeAddressState(); syncPrimaryContractFields(); saveDraft(); });
-            el.addEventListener('change', function() { syncNativeAddressState(); syncPrimaryContractFields(); saveDraft(); });
+            el.addEventListener('change', function() { syncNetworkOtherState(); syncNativeAddressState(); syncPrimaryContractFields(); saveDraft(); });
         });
         if (remove) {
             remove.addEventListener('click', function() {
@@ -764,6 +785,7 @@ require_once __DIR__ . '/../includes/header.php';
                 saveDraft();
             });
         }
+        syncNetworkOtherState();
         syncNativeAddressState();
     }
 
@@ -777,6 +799,8 @@ require_once __DIR__ . '/../includes/header.php';
             else if (input.matches('[data-token-type]')) input.value = 'ERC20';
             else input.value = '';
         });
+        const otherField = clone.querySelector('.contract-network-other-field');
+        if (otherField) otherField.hidden = true;
         contractRows.appendChild(clone);
         bindContractRow(clone);
         refreshContractIndexes();
@@ -786,10 +810,11 @@ require_once __DIR__ . '/../includes/header.php';
     function findEmptyContractRow() {
         return Array.from(document.querySelectorAll('[data-contract-row]')).find(function(row) {
         const network = row.querySelector('[data-network-select]');
+        const networkOther = row.querySelector('[data-network-other]');
         const address = row.querySelector('[data-contract-address]');
         const chainId = row.querySelector('[data-chain-id]');
         const tokenType = row.querySelector('[data-token-type]');
-        return (!network || !network.value) && (!address || !address.value.trim()) && (!chainId || !chainId.value) && (!tokenType || tokenType.value === 'ERC20');
+        return (!network || !network.value) && (!networkOther || !networkOther.value.trim()) && (!address || !address.value.trim()) && (!chainId || !chainId.value) && (!tokenType || tokenType.value === 'ERC20');
         }) || null;
     }
 
@@ -800,6 +825,7 @@ require_once __DIR__ . '/../includes/header.php';
         const chainId = row.querySelector('[data-chain-id]');
         if (network) network.value = networkName;
         if (chainId && knownChains[networkName]) chainId.value = knownChains[networkName].chain_id;
+        if (network) network.dispatchEvent(new Event('change'));
         syncPrimaryContractFields();
         saveDraft();
     }
@@ -853,7 +879,9 @@ require_once __DIR__ . '/../includes/header.php';
         if (step === 3) {
             const rows = Array.from(document.querySelectorAll('[data-contract-row]'));
             const activeRows = rows.filter(function(row) {
-                const network = row.querySelector('[data-network-select]')?.value.trim() || '';
+                const networkSelect = row.querySelector('[data-network-select]')?.value.trim() || '';
+                const networkOther = row.querySelector('[data-network-other]')?.value.trim() || '';
+                const network = networkSelect === '__other__' ? networkOther : networkSelect;
                 const chainId = row.querySelector('[data-chain-id]')?.value.trim() || '';
                 const address = row.querySelector('[data-contract-address]')?.value.trim() || '';
                 return network || chainId || address;
@@ -863,15 +891,19 @@ require_once __DIR__ . '/../includes/header.php';
                 valid = false;
             }
             activeRows.forEach(function(row) {
-                const network = row.querySelector('[data-network-select]')?.value.trim() || '';
+                const networkSelect = row.querySelector('[data-network-select]')?.value.trim() || '';
+                const networkOther = row.querySelector('[data-network-other]')?.value.trim() || '';
+                const network = networkSelect === '__other__' ? networkOther : networkSelect;
                 const chainId = row.querySelector('[data-chain-id]')?.value.trim() || '';
                 const address = row.querySelector('[data-contract-address]')?.value.trim() || '';
                 const tokenType = row.querySelector('[data-token-type]')?.value.trim() || 'ERC20';
-                if (!network || !/^\d+$/.test(chainId) || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-                    if (tokenType === 'NATIVE' && network && /^\d+$/.test(chainId)) {
-                        return;
-                    }
-                    alert('Every contract row needs network, positive chain ID, and valid 0x contract address.');
+                if (!network || !/^\d+$/.test(chainId)) {
+                    alert('Every contract row needs a network name and positive chain ID.');
+                    valid = false;
+                    return;
+                }
+                if (tokenType !== 'NATIVE' && !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+                    alert('ERC20, ERC721, and ERC1155 rows need a valid 0x contract address. Native token rows do not need an address.');
                     valid = false;
                 }
             });
@@ -941,7 +973,13 @@ require_once __DIR__ . '/../includes/header.php';
         const file = logoInput.files && logoInput.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(event) { logoPreview.src = event.target.result; };
+        reader.onload = function(event) {
+            logoPreview.src = event.target.result;
+            if (logoPreviewWrap) {
+                logoPreviewWrap.classList.add('has-logo-image');
+                logoPreviewWrap.style.backgroundImage = 'url("' + event.target.result + '")';
+            }
+        };
         reader.readAsDataURL(file);
     }
 

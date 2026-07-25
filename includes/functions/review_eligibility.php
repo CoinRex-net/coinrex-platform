@@ -5,7 +5,28 @@
 
 function reviewEligibilityEnv($key, $default = '') {
     $value = getenv((string) $key);
-    return is_string($value) && trim($value) !== '' ? trim($value) : $default;
+    if (is_string($value) && trim($value) !== '') {
+        return trim($value);
+    }
+
+    static $dotenv = null;
+    if ($dotenv === null) {
+        $dotenv = [];
+        $env_path = dirname(__DIR__, 2) . '/.env';
+        if (is_readable($env_path)) {
+            foreach (file($env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+                $line = trim((string) $line);
+                if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
+                    continue;
+                }
+                [$env_key, $env_value] = explode('=', $line, 2);
+                $dotenv[trim($env_key)] = trim($env_value, " \t\n\r\0\x0B\"'");
+            }
+        }
+    }
+
+    $file_value = $dotenv[(string) $key] ?? '';
+    return is_string($file_value) && trim($file_value) !== '' ? trim($file_value) : $default;
 }
 
 function ensureReviewEligibilitySchema(PDO $db = null) {
@@ -93,14 +114,62 @@ function ensureReviewEligibilitySchema(PDO $db = null) {
         $db->exec("ALTER TABLE reviews MODIFY tx_hash VARCHAR(255) NULL");
     } catch (Throwable $e) {}
     try {
-        $db->exec("UPDATE projects SET contract_address = '' WHERE contract_address IS NULL");
+        $db->exec("ALTER TABLE projects MODIFY contract_address VARCHAR(255) NULL");
+        $db->exec("UPDATE projects SET contract_address = NULL WHERE TRIM(COALESCE(contract_address, '')) = ''");
     } catch (Throwable $e) {}
     try {
-        $db->exec("UPDATE project_contracts SET contract_address = '' WHERE contract_address IS NULL");
-        $db->exec("ALTER TABLE project_contracts MODIFY contract_address VARCHAR(100) NOT NULL");
+        $db->exec("ALTER TABLE project_contracts MODIFY contract_address VARCHAR(100) NULL");
+        $db->exec("UPDATE project_contracts SET contract_address = NULL WHERE token_type = 'NATIVE' AND TRIM(COALESCE(contract_address, '')) = ''");
     } catch (Throwable $e) {}
 
     $ready = true;
+}
+
+function reviewEligibilityFindWalletReviewUsage(PDO $db, $wallet_address, $exclude_review_id = 0, $project_id = 0) {
+    $wallet_address = strtolower(trim((string) $wallet_address));
+    if (!preg_match('/^0x[a-f0-9]{40}$/', $wallet_address)) {
+        return null;
+    }
+
+    $conditions = [];
+    $params = [];
+
+    if (tableHasColumn('reviews', 'eligibility_wallet_address')) {
+        $conditions[] = 'LOWER(eligibility_wallet_address) = ?';
+        $params[] = $wallet_address;
+    }
+
+    if (tableHasColumn('reviews', 'wallet_address')) {
+        $conditions[] = 'LOWER(wallet_address) = ?';
+        $params[] = $wallet_address;
+    }
+
+    if (!$conditions) {
+        return null;
+    }
+
+    $sql = "
+        SELECT id, user_id, project_id, status, wallet_address, eligibility_wallet_address
+        FROM reviews
+        WHERE (" . implode(' OR ', $conditions) . ")
+    ";
+    if ((int) $exclude_review_id > 0) {
+        $sql .= " AND id <> ?";
+        $params[] = (int) $exclude_review_id;
+    }
+    if ((int) $project_id > 0) {
+        $sql .= " AND project_id = ?";
+        $params[] = (int) $project_id;
+    }
+    if (tableHasColumn('reviews', 'status')) {
+        $sql .= " AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'deleted', 'cancelled')";
+    }
+    $sql .= " ORDER BY id DESC LIMIT 1";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $row = $stmt->fetch();
+    return $row ?: null;
 }
 
 function reviewEligibilityNormalizeNetworkSlug($name) {
@@ -125,6 +194,7 @@ function reviewEligibilityNormalizeContractRows(array $source, array &$errors = 
     $rows = [];
     $networks = reviewEligibilityKnownNetworks();
     $names = $source['contract_network_name'] ?? [];
+    $other_names = $source['contract_network_other'] ?? [];
     $chain_ids = $source['contract_chain_id'] ?? [];
     $addresses = $source['contract_address_multi'] ?? [];
     $types = $source['contract_token_type'] ?? [];
@@ -135,9 +205,15 @@ function reviewEligibilityNormalizeContractRows(array $source, array &$errors = 
     if (!is_array($names)) {
         $names = [];
     }
+    if (!is_array($other_names)) {
+        $other_names = [];
+    }
     $count = max(count($names), is_array($addresses) ? count($addresses) : 0);
     for ($i = 0; $i < $count; $i++) {
         $network_name = trim((string) ($names[$i] ?? ''));
+        if ($network_name === '__other__') {
+            $network_name = trim((string) ($other_names[$i] ?? ''));
+        }
         $address = strtolower(trim((string) ($addresses[$i] ?? '')));
         $chain_id = (int) ($chain_ids[$i] ?? 0);
         $token_type = strtoupper(trim((string) ($types[$i] ?? 'ERC20')));
@@ -184,11 +260,13 @@ function reviewEligibilityNormalizeContractRows(array $source, array &$errors = 
     $primary_count = 0;
     foreach ($rows as $row) {
         if ((int) $row['is_active'] === 1) {
-            $key = $row['chain_id'] . ':' . ($row['token_type'] === 'NATIVE' ? 'native' : $row['contract_address']);
-            if (isset($seen[$key])) {
-                $errors['contracts'] = 'Duplicate chain + contract rows are not allowed.';
+            if ($row['token_type'] !== 'NATIVE') {
+                $key = $row['chain_id'] . ':' . $row['contract_address'];
+                if (isset($seen[$key])) {
+                    $errors['contracts'] = 'Duplicate chain + contract rows are not allowed.';
+                }
+                $seen[$key] = true;
             }
-            $seen[$key] = true;
             $primary_count += (int) $row['is_primary'] === 1 ? 1 : 0;
         }
     }
@@ -243,7 +321,7 @@ function reviewEligibilitySaveProjectContracts(PDO $db, $project_id, array $rows
             $row['network_name'],
             $row['network_slug'],
             (int) $row['chain_id'],
-            $row['token_type'] === 'NATIVE' ? '' : strtolower((string) $row['contract_address']),
+            $row['token_type'] === 'NATIVE' ? null : strtolower((string) $row['contract_address']),
             strtoupper((string) $row['token_type']),
             (int) $row['is_primary'],
             (int) $row['is_active'],
@@ -265,18 +343,25 @@ function reviewEligibilityGetProjectContracts(PDO $db, $project_id, $active_only
 
 function reviewEligibilityGetFreshCheck(PDO $db, $user_id, $project_id, $wallet_address, $required_status = 'eligible') {
     ensureReviewEligibilitySchema($db);
+    $status_clause = $required_status === null || $required_status === ''
+        ? ''
+        : "          AND status = ?\n";
     $stmt = $db->prepare("
         SELECT *
         FROM review_eligibility_checks
         WHERE user_id = ?
           AND project_id = ?
           AND wallet_address = ?
-          AND status = ?
+{$status_clause}
           AND (expires_at IS NULL OR expires_at > NOW())
         ORDER BY checked_at DESC, id DESC
         LIMIT 1
     ");
-    $stmt->execute([(int) $user_id, (int) $project_id, strtolower((string) $wallet_address), (string) $required_status]);
+    $params = [(int) $user_id, (int) $project_id, strtolower((string) $wallet_address)];
+    if ($status_clause !== '') {
+        $params[] = (string) $required_status;
+    }
+    $stmt->execute($params);
     return $stmt->fetch() ?: null;
 }
 
@@ -285,7 +370,7 @@ function reviewEligibilityExplorerRequest($base_url, array $params) {
     $context = stream_context_create([
         'http' => [
             'method' => 'GET',
-            'timeout' => 8,
+            'timeout' => 3,
             'header' => "Accept: application/json\r\nUser-Agent: CoinRexReviewEligibility/1.0\r\n",
         ],
     ]);
@@ -298,10 +383,274 @@ function reviewEligibilityExplorerRequest($base_url, array $params) {
         return ['ok' => false, 'status' => 'unavailable', 'message' => 'Explorer API returned invalid JSON.', 'raw' => $raw];
     }
     $message = strtolower((string) ($decoded['message'] ?? ''));
-    if (($decoded['status'] ?? '') === '0' && strpos($message, 'no transactions') === false && !isset($decoded['result'])) {
+    $result_text = strtolower(trim(is_scalar($decoded['result'] ?? null) ? (string) $decoded['result'] : ''));
+    $is_empty_txlist = strpos($message, 'no transactions') !== false || strpos($result_text, 'no transactions') !== false;
+    if (($decoded['status'] ?? '') === '0' && !$is_empty_txlist) {
         return ['ok' => false, 'status' => strpos($message, 'rate') !== false ? 'rate_limited' : 'unavailable', 'message' => (string) ($decoded['message'] ?? 'Explorer API error.'), 'raw' => $decoded];
     }
-    return ['ok' => true, 'status' => 'ok', 'message' => 'OK', 'raw' => $decoded, 'result' => $decoded['result'] ?? '0'];
+    return ['ok' => true, 'status' => 'ok', 'message' => 'OK', 'raw' => $decoded, 'result' => $is_empty_txlist ? [] : ($decoded['result'] ?? '0')];
+}
+
+function reviewEligibilityTokenSymbol(array $contract) {
+    $symbol = strtoupper(trim((string) ($contract['token_symbol'] ?? '')));
+    if ($symbol !== '') {
+        return $symbol;
+    }
+    $network = strtolower((string) ($contract['network_name'] ?? $contract['network_slug'] ?? ''));
+    if (strpos($network, 'plasma') !== false || (int) ($contract['chain_id'] ?? 0) === 9745) {
+        return 'XPL';
+    }
+    return strtoupper((string) ($contract['token_type'] ?? 'TOKEN')) === 'NATIVE' ? 'NATIVE' : 'TOKEN';
+}
+
+function reviewEligibilityDecimalToFloat($value, $decimals = 18) {
+    $value = preg_replace('/\D/', '', (string) $value);
+    if ($value === '') {
+        return 0.0;
+    }
+    $decimals = max(0, (int) $decimals);
+    if ($decimals === 0) {
+        return (float) $value;
+    }
+    $length = strlen($value);
+    if ($length <= $decimals) {
+        $value = str_pad($value, $decimals + 1, '0', STR_PAD_LEFT);
+        $length = strlen($value);
+    }
+    $whole = substr($value, 0, $length - $decimals);
+    $fraction = rtrim(substr($value, $length - $decimals), '0');
+    return (float) ($whole . ($fraction !== '' ? '.' . $fraction : ''));
+}
+
+function reviewEligibilityNativePriceUsd($symbol) {
+    $symbol = strtoupper(trim((string) $symbol));
+    $coin_ids = [
+        'XPL' => 'plasma',
+    ];
+    if (!isset($coin_ids[$symbol])) {
+        return ['price' => null, 'status' => 'unsupported'];
+    }
+    $url = 'https://api.coingecko.com/api/v3/simple/price?' . http_build_query([
+        'ids' => $coin_ids[$symbol],
+        'vs_currencies' => 'usd',
+        'include_last_updated_at' => 'true',
+    ]);
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 2,
+            'header' => "Accept: application/json\r\nUser-Agent: CoinRexReviewEligibility/1.0\r\n",
+        ],
+    ]);
+    $raw = @file_get_contents($url, false, $context);
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    $coin_id = $coin_ids[$symbol];
+    $price = is_array($decoded) ? ($decoded[$coin_id]['usd'] ?? null) : null;
+    if (!is_numeric($price)) {
+        return ['price' => null, 'status' => 'unavailable'];
+    }
+    return [
+        'price' => (float) $price,
+        'status' => 'ok',
+        'last_updated_at' => (int) ($decoded[$coin_id]['last_updated_at'] ?? 0),
+    ];
+}
+
+function reviewEligibilityAnalyzeNativeTransactions(array $transactions, $wallet_address, $current_balance_raw, $window_days) {
+    $wallet_address = strtolower((string) $wallet_address);
+    $window_days = max(1, (int) $window_days);
+    $now = time();
+    $window_start = $now - ($window_days * 86400);
+    $current_balance = reviewEligibilityDecimalToFloat($current_balance_raw, 18);
+    $running_balance = $current_balance;
+    $cursor = $now;
+    $weighted_seconds = 0.0;
+    $total_in = 0.0;
+    $total_out = 0.0;
+    $gas_paid = 0.0;
+    $tx_count = 0;
+
+    usort($transactions, static function ($a, $b) {
+        return (int) ($b['timeStamp'] ?? 0) <=> (int) ($a['timeStamp'] ?? 0);
+    });
+
+    foreach ($transactions as $tx) {
+        $timestamp = (int) ($tx['timeStamp'] ?? 0);
+        if ($timestamp <= 0 || $timestamp > $now) {
+            continue;
+        }
+        if ($timestamp < $window_start) {
+            break;
+        }
+        $duration = max(0, $cursor - $timestamp);
+        $weighted_seconds += $running_balance * $duration;
+        $cursor = $timestamp;
+
+        $from = strtolower((string) ($tx['from'] ?? ''));
+        $to = strtolower((string) ($tx['to'] ?? ''));
+        $is_sender = $from === $wallet_address;
+        $is_receiver = $to === $wallet_address;
+        if (!$is_sender && !$is_receiver) {
+            continue;
+        }
+
+        $value = reviewEligibilityDecimalToFloat((string) ($tx['value'] ?? '0'), 18);
+        $gas_fee = 0.0;
+        if ($is_sender) {
+            $gas_used = (string) ($tx['gasUsed'] ?? '0');
+            $gas_price = (string) ($tx['gasPrice'] ?? '0');
+            if (ctype_digit($gas_used) && ctype_digit($gas_price)) {
+                $gas_fee = ((float) $gas_used * (float) $gas_price) / 1000000000000000000;
+            }
+        }
+        $successful = (string) ($tx['isError'] ?? '0') !== '1' && (string) ($tx['txreceipt_status'] ?? '1') !== '0';
+        if ($is_receiver && $successful) {
+            $running_balance -= $value;
+            $total_in += $value;
+        }
+        if ($is_sender) {
+            if ($successful) {
+                $running_balance += $value;
+                $total_out += $value;
+            }
+            $running_balance += $gas_fee;
+            $gas_paid += $gas_fee;
+        }
+        $running_balance = max(0.0, $running_balance);
+        $tx_count++;
+    }
+
+    if ($cursor > $window_start) {
+        $weighted_seconds += $running_balance * ($cursor - $window_start);
+    }
+    $window_seconds = max(1, $now - $window_start);
+    return [
+        'current_balance' => $current_balance,
+        'average_balance' => $weighted_seconds / $window_seconds,
+        'total_in' => $total_in,
+        'total_out' => $total_out,
+        'gas_paid' => $gas_paid,
+        'tx_count' => $tx_count,
+        'window_start' => gmdate('c', $window_start),
+        'window_end' => gmdate('c', $now),
+    ];
+}
+
+function reviewEligibilityCheckNativeToken(PDO $db, array $contract, array $project, $wallet_address, $api_base, $api_key) {
+    $chain_id = (int) ($contract['chain_id'] ?? 0);
+    $symbol = reviewEligibilityTokenSymbol($contract);
+    $required_balance = max(0.0, (float) ($project['min_holding_amount'] ?? 0));
+    $window_days = max(1, (int) ($project['required_holding_days'] ?? 1));
+
+    $balance_response = reviewEligibilityExplorerRequest($api_base, [
+        'chainid' => $chain_id,
+        'module' => 'account',
+        'action' => 'balance',
+        'address' => $wallet_address,
+        'tag' => 'latest',
+        'apikey' => $api_key,
+    ]);
+    if (!$balance_response['ok']) {
+        return [
+            'blocked' => true,
+            'status' => $balance_response['status'],
+            'reason' => $balance_response['status'] === 'rate_limited' ? 'Explorer API is rate limited. Recheck later.' : 'Explorer API is unavailable. Recheck later.',
+            'result' => [
+                'contract_id' => (int) ($contract['id'] ?? 0),
+                'chain_id' => $chain_id,
+                'contract_address' => null,
+                'token_type' => 'NATIVE',
+                'api_status' => $balance_response['status'],
+            ],
+        ];
+    }
+
+    usleep(50000);
+    $tx_response = reviewEligibilityExplorerRequest($api_base, [
+        'chainid' => $chain_id,
+        'module' => 'account',
+        'action' => 'txlist',
+        'address' => $wallet_address,
+        'startblock' => 0,
+        'endblock' => 99999999,
+        'page' => 1,
+        'offset' => 10000,
+        'sort' => 'desc',
+        'apikey' => $api_key,
+    ]);
+    if (!$tx_response['ok']) {
+        return [
+            'blocked' => true,
+            'status' => $tx_response['status'],
+            'reason' => $tx_response['status'] === 'rate_limited' ? 'Explorer API is rate limited. Recheck later.' : 'Explorer API is unavailable. Recheck later.',
+            'result' => [
+                'contract_id' => (int) ($contract['id'] ?? 0),
+                'chain_id' => $chain_id,
+                'contract_address' => null,
+                'token_type' => 'NATIVE',
+                'api_status' => $tx_response['status'],
+                'balance_raw' => (string) ($balance_response['result'] ?? '0'),
+            ],
+        ];
+    }
+
+    $balance_raw = preg_replace('/\D/', '', (string) ($balance_response['result'] ?? '0'));
+    $transactions = is_array($tx_response['result'] ?? null) ? $tx_response['result'] : [];
+    $activity = reviewEligibilityAnalyzeNativeTransactions($transactions, $wallet_address, $balance_raw, $window_days);
+    $price = reviewEligibilityNativePriceUsd($symbol);
+    $price_value = is_numeric($price['price'] ?? null) ? (float) $price['price'] : null;
+    $eligible = $required_balance <= 0.0 || (float) $activity['average_balance'] >= $required_balance;
+    $balance_display = rtrim(rtrim(number_format((float) $activity['average_balance'], 8, '.', ''), '0'), '.');
+    if ($balance_display === '') {
+        $balance_display = '0';
+    }
+
+    return [
+        'blocked' => false,
+        'eligible' => $eligible,
+        'balance_raw' => $balance_raw,
+        'balance_display' => $balance_display . ' ' . $symbol . ' avg',
+        'reason' => $eligible
+            ? sprintf('Average %s balance %.8f meets required %.8f over %d day(s).', $symbol, (float) $activity['average_balance'], $required_balance, $window_days)
+            : sprintf('Average %s balance %.8f is below required %.8f over %d day(s).', $symbol, (float) $activity['average_balance'], $required_balance, $window_days),
+        'result' => [
+            'contract_id' => (int) ($contract['id'] ?? 0),
+            'chain_id' => $chain_id,
+            'contract_address' => null,
+            'token_type' => 'NATIVE',
+            'token_symbol' => $symbol,
+            'api_status' => 'ok',
+            'balance_raw' => $balance_raw,
+            'requirement' => [
+                'min_holding_amount' => $required_balance,
+                'required_holding_days' => $window_days,
+                'unit' => 'token',
+                'token_symbol' => $symbol,
+            ],
+            'balances' => [
+                'current_balance' => (float) $activity['current_balance'],
+                'average_balance' => (float) $activity['average_balance'],
+                'current_balance_usd' => $price_value !== null ? (float) $activity['current_balance'] * $price_value : null,
+                'average_balance_usd' => $price_value !== null ? (float) $activity['average_balance'] * $price_value : null,
+                'price_usd' => $price_value,
+                'price_status' => (string) ($price['status'] ?? 'unavailable'),
+            ],
+            'activity' => [
+                'total_in' => (float) $activity['total_in'],
+                'total_out' => (float) $activity['total_out'],
+                'gas_paid' => (float) $activity['gas_paid'],
+                'tx_count' => (int) $activity['tx_count'],
+                'window_start' => (string) $activity['window_start'],
+                'window_end' => (string) $activity['window_end'],
+            ],
+            'decision' => [
+                'status' => $eligible ? 'eligible' : 'not_eligible',
+                'required_balance' => $required_balance,
+                'average_balance' => (float) $activity['average_balance'],
+                'passed' => $eligible,
+            ],
+        ],
+    ];
 }
 
 function reviewEligibilityCheckProject(PDO $db, $user_id, $project_id, $wallet_address) {
@@ -310,10 +659,14 @@ function reviewEligibilityCheckProject(PDO $db, $user_id, $project_id, $wallet_a
     if (!preg_match('/^0x[a-f0-9]{40}$/', $wallet_address)) {
         throw new InvalidArgumentException('Valid EVM wallet address is required.');
     }
-    $cached = reviewEligibilityGetFreshCheck($db, $user_id, $project_id, $wallet_address, 'eligible');
+    $cached = reviewEligibilityGetFreshCheck($db, $user_id, $project_id, $wallet_address, null);
     if ($cached) {
-        return ['status' => 'eligible', 'cached' => true, 'check' => $cached];
+        return ['status' => (string) ($cached['status'] ?? 'not_eligible'), 'cached' => true, 'check' => $cached];
     }
+
+    $project_stmt = $db->prepare("SELECT id, name, min_holding_amount, required_holding_days FROM projects WHERE id = ? LIMIT 1");
+    $project_stmt->execute([(int) $project_id]);
+    $project = $project_stmt->fetch() ?: [];
 
     $contracts = reviewEligibilityGetProjectContracts($db, $project_id, true);
     if (empty($contracts)) {
@@ -336,40 +689,24 @@ function reviewEligibilityCheckProject(PDO $db, $user_id, $project_id, $wallet_a
     foreach ($contracts as $contract) {
         $token_type = strtoupper((string) ($contract['token_type'] ?? 'ERC20'));
         if ($token_type === 'NATIVE') {
-            usleep(350000);
-            $response = reviewEligibilityExplorerRequest($api_base, [
-                'chainid' => (int) $contract['chain_id'],
-                'module' => 'proxy',
-                'action' => 'eth_getBalance',
-                'address' => $wallet_address,
-                'tag' => 'latest',
-                'apikey' => $api_key,
-            ]);
-            $balance_raw = strtolower(trim((string) ($response['result'] ?? '0x0')));
-            $has_balance = reviewEligibilityHexGreaterThanZero($balance_raw);
-            $results[] = [
-                'contract_id' => (int) $contract['id'],
-                'chain_id' => (int) $contract['chain_id'],
-                'contract_address' => null,
-                'token_type' => $token_type,
-                'api_status' => $response['status'],
-                'balance_raw' => $balance_raw,
-            ];
-            if ($response['ok'] && $has_balance) {
+            usleep(50000);
+            $native_check = reviewEligibilityCheckNativeToken($db, $contract, $project, $wallet_address, $api_base, $api_key);
+            $results[] = $native_check['result'];
+            if (!empty($native_check['eligible'])) {
                 return reviewEligibilityStoreCheck($db, $user_id, $project_id, $wallet_address, [
                     'status' => 'eligible',
                     'matched_project_contract_id' => (int) $contract['id'],
                     'matched_chain_id' => (int) $contract['chain_id'],
-                    'balance_raw' => $balance_raw,
-                    'balance_display' => $balance_raw,
-                    'reason' => 'Native token balance found on ' . (string) $contract['network_name'] . '.',
+                    'balance_raw' => (string) ($native_check['balance_raw'] ?? '0'),
+                    'balance_display' => (string) ($native_check['balance_display'] ?? ''),
+                    'reason' => (string) ($native_check['reason'] ?? 'Native token balance requirement met.'),
                     'raw_result_json' => ['results' => $results],
                 ]);
             }
-            if (!$response['ok'] && in_array($response['status'], ['rate_limited', 'unavailable'], true)) {
+            if (!empty($native_check['blocked'])) {
                 return reviewEligibilityStoreCheck($db, $user_id, $project_id, $wallet_address, [
                     'status' => 'blocked',
-                    'reason' => $response['status'] === 'rate_limited' ? 'Explorer API is rate limited. Recheck later.' : 'Explorer API is unavailable. Recheck later.',
+                    'reason' => (string) ($native_check['reason'] ?? 'Explorer API is unavailable. Recheck later.'),
                     'raw_result_json' => ['results' => $results],
                 ]);
             }
@@ -379,7 +716,7 @@ function reviewEligibilityCheckProject(PDO $db, $user_id, $project_id, $wallet_a
             $results[] = ['contract_id' => (int) $contract['id'], 'status' => 'unsupported', 'reason' => 'ERC1155 requires token ID support.'];
             continue;
         }
-        usleep(350000);
+        usleep(50000);
         $balance_call_data = '0x70a08231' . str_pad(substr($wallet_address, 2), 64, '0', STR_PAD_LEFT);
         $response = reviewEligibilityExplorerRequest($api_base, [
             'chainid' => (int) $contract['chain_id'],

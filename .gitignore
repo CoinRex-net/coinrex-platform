@@ -4,8 +4,29 @@
 # Dependency directories
 /vendor/
 
-# Separate repository workspace
-/rex-wallet/
+# RexLink Expo app source for EAS builds
+/rex-wallet/*
+!/rex-wallet/
+!/rex-wallet/.easignore
+!/rex-wallet/.gitignore
+!/rex-wallet/App.js
+!/rex-wallet/app.json
+!/rex-wallet/eas.json
+!/rex-wallet/index.js
+!/rex-wallet/LICENSE
+!/rex-wallet/metro.config.js
+!/rex-wallet/package-lock.json
+!/rex-wallet/package.json
+!/rex-wallet/README.md
+!/rex-wallet/assets/
+!/rex-wallet/assets/**
+!/rex-wallet/src/
+!/rex-wallet/src/**
+/rex-wallet/node_modules/
+/rex-wallet/.npm-cache/
+/rex-wallet/.expo/
+/rex-wallet/android/
+/rex-wallet/ios/
 
 # Runtime uploads and user-generated content
 /uploads/
@@ -20,6 +41,26 @@
 # Runtime logs
 /devhub/logs/*.log
 /rexlink-service/*.log
+
+# Local / in-progress RexLink extraction files
+/api/rex-signer/
+/auth/rexlink_bridge.php
+/public/rex-signer.php
+/assets/images/rexlink-logo.png
+/rexlink-service/*.js
+/rexlink-service/*.bat
+/rexlink-service/*.ps1
+/assets/css/rexlink-*.css
+!/assets/css/rexlink-claims.css
+/assets/js/rexlink-*.js
+!/assets/js/rexlink-auth.js
+!/assets/js/rexlink-claims.js
+!/assets/js/rexlink-pairing.js
+/docs/REXLINK_ARCHITECTURE.md
+/config/rex-signer-networks.local.php*
+/rexlink-service/lib/
+/rexlink-service/routes/
+/rexlink-service/services/
 
 # OS / editor noise
 .DS_Store

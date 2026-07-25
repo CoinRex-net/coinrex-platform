@@ -8,9 +8,9 @@
     </div>
     <?php
         $activePage = (string) ($activePage ?? 'dashboard');
-        $corePages = ['dashboard', 'users', 'projects', 'reviews', 'developers', 'security-management', 'admins', 'blog', 'blog-create', 'blog-edit', 'blog-categories', 'blog-tags', 'blog-ads', 'sponsored-tokens', 'launch-control', 'roadmap'];
+        $corePages = ['dashboard', 'metrics', 'users', 'projects', 'reviews', 'developers', 'security-management', 'admins', 'blog', 'blog-create', 'blog-edit', 'blog-categories', 'blog-tags', 'blog-ads', 'sponsored-tokens', 'launch-control', 'roadmap'];
         $rewardPages = ['rewards', 'reward-ledger', 'reward-users', 'referrals', 'early-airdrop'];
-        $taskPages = ['task-management', 'quiz-manager', 'taskhub-review', 'boosthub-management', 'boosthub-evidence'];
+        $taskPages = ['task-management', 'quiz-manager', 'taskhub-review', 'boosthub-management', 'boosthub-evidence', 'inactive-learnhub-users'];
     ?>
     <nav class="admin-nav" id="adminNavGroups">
         <div class="admin-nav-group <?php echo in_array($activePage, $corePages, true) ? 'is-open' : ''; ?>">
@@ -20,6 +20,7 @@
             </button>
             <div class="admin-nav-group-links" data-nav-group-links>
                 <a href="<?php echo ADMIN_BASE_URL; ?>/dashboard.php" class="<?php echo $activePage === 'dashboard' ? 'active' : ''; ?>"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a>
+                <?php if (canCurrentAdmin('view_reports')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/metrics.php" class="<?php echo $activePage === 'metrics' ? 'active' : ''; ?>"><i class="fas fa-chart-line"></i><span>Metrics</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_users')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/users.php" class="<?php echo $activePage === 'users' ? 'active' : ''; ?>"><i class="fas fa-users"></i><span>Users</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_projects')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/projects.php" class="<?php echo $activePage === 'projects' ? 'active' : ''; ?>"><i class="fas fa-layer-group"></i><span>Projects</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_reviews')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/reviews.php" class="<?php echo $activePage === 'reviews' ? 'active' : ''; ?>"><i class="fas fa-clipboard-check"></i><span>Reviews</span></a><?php endif; ?>
@@ -58,6 +59,7 @@
                 <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/taskhub-review.php" class="<?php echo $activePage === 'taskhub-review' ? 'active' : ''; ?>"><i class="fas fa-clipboard-check"></i><span>LearnHub Review</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/boosthub.php" class="<?php echo $activePage === 'boosthub-management' ? 'active' : ''; ?>"><i class="fas fa-bolt"></i><span>BoostHub Management</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('moderate_tasks')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/boosthub-evidence.php" class="<?php echo $activePage === 'boosthub-evidence' ? 'active' : ''; ?>"><i class="fas fa-clipboard-list"></i><span>BoostHub Evidence Log</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('view_reports')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/inactive-learnhub-users.php" class="<?php echo $activePage === 'inactive-learnhub-users' ? 'active' : ''; ?>"><i class="fas fa-envelope-open-text"></i><span>Inactive Users Export</span></a><?php endif; ?>
             </div>
         </div>
     </nav>

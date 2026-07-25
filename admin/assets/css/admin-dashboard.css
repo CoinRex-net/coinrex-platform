@@ -233,6 +233,449 @@
     color: #f87171;
 }
 
+.investor-dashboard-header {
+    align-items: flex-start;
+}
+
+.investor-window-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.investor-window-tabs a {
+    min-width: 54px;
+    padding: 8px 12px;
+    border-radius: 9px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+}
+
+.investor-window-tabs a.active,
+.investor-window-tabs a:hover {
+    background: rgba(212, 175, 55, 0.14);
+    color: #f5d76e;
+}
+
+.investor-data-note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    color: #cbd5e1;
+    font-size: 13px;
+}
+
+.investor-data-note i {
+    color: #67e8f9;
+}
+
+.investor-metric-grid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+.investor-compact-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.investor-metric-card {
+    min-height: 128px;
+}
+
+.data-quality-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(6, 182, 212, 0.12);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    color: #67e8f9;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.metric-trend-note {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.metric-trend-note .metric-trend {
+    margin-top: 0;
+}
+
+.investor-funnel-panel,
+.investor-cohort-panel {
+    margin-top: 14px;
+}
+
+.learnhub-funnel {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(92px, 1fr));
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.funnel-step {
+    min-width: 92px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.funnel-step-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.funnel-step-top strong {
+    color: #e2e8f0;
+    font-size: 12px;
+}
+
+.funnel-step-top span {
+    color: #f5d76e;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.funnel-bar {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(51, 65, 85, 0.8);
+}
+
+.funnel-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #d4af37, #67e8f9);
+}
+
+.investor-section-split {
+    align-items: start;
+}
+
+.investor-section-split .dashboard-section-divider {
+    margin-top: 28px;
+}
+
+.investor-cohort-table span {
+    color: #64748b;
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+.investor-share-body {
+    min-height: 100vh;
+    background: #081120;
+}
+
+.investor-share-shell {
+    width: min(1440px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 28px 0 44px;
+}
+
+.investor-access-denied {
+    width: min(520px, 100%);
+    margin: 12vh auto 0;
+    text-align: center;
+}
+
+.investor-access-denied .dashboard-header-icon {
+    margin: 0 auto 18px;
+}
+
+.investor-access-denied h1 {
+    margin: 0 0 8px;
+    color: #f1f5f9;
+    font-size: 24px;
+}
+
+.investor-access-denied p {
+    margin: 0;
+    color: #94a3b8;
+}
+
+.investor-token-panel {
+    margin-bottom: 18px;
+}
+
+.investor-token-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.investor-token-form input[type="text"] {
+    flex: 1 1 260px;
+    min-width: 0;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.75);
+    color: #f1f5f9;
+    padding: 10px 12px;
+    font: inherit;
+}
+
+.investor-token-form input[type="text"]::placeholder {
+    color: #64748b;
+}
+
+.investor-token-message {
+    margin-top: 12px;
+    color: #cbd5e1;
+    font-size: 13px;
+}
+
+.investor-created-link {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.18);
+}
+
+.investor-created-link code {
+    flex: 1 1 320px;
+    min-width: 0;
+    color: #bbf7d0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.investor-token-table-wrap {
+    margin-top: 16px;
+}
+
+.data-quality-badge.is-active {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.22);
+    color: #86efac;
+}
+
+.data-quality-badge.is-revoked {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.22);
+    color: #fca5a5;
+}
+
+.investor-token-table .inline-form {
+    margin: 0;
+}
+
+.inactive-export-summary .dashboard-metric-card {
+    min-height: 118px;
+}
+
+.inactive-export-label {
+    font-size: 18px !important;
+    line-height: 1.15 !important;
+}
+
+.inactive-export-panel {
+    margin-top: 16px;
+}
+
+.inactive-export-filters {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.7fr) minmax(220px, 1.2fr);
+    gap: 12px;
+    align-items: end;
+}
+
+.inactive-export-filters label {
+    display: grid;
+    gap: 6px;
+}
+
+.inactive-export-filters label span {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.inactive-export-filters input,
+.inactive-export-filters select {
+    width: 100%;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 10px;
+    background-color: rgba(15, 23, 42, 0.75);
+    color: #f1f5f9;
+    padding: 10px 12px;
+    font: inherit;
+}
+
+.inactive-export-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.inactive-export-table strong {
+    color: #e2e8f0;
+}
+
+.investor-token-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.investor-token-actions .btn,
+.investor-token-actions .inline-form {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 1100px) {
+    .learnhub-funnel {
+        grid-template-columns: repeat(5, minmax(110px, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .investor-dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .investor-dashboard-header .dashboard-header-left {
+        align-items: flex-start;
+    }
+
+    .investor-section-split {
+        grid-template-columns: 1fr;
+    }
+
+    .investor-metric-grid,
+    .investor-compact-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .investor-token-actions {
+        justify-content: flex-start;
+    }
+
+    .inactive-export-filters {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .investor-share-shell {
+        width: min(100% - 20px, 1440px);
+        padding: 18px 0 32px;
+    }
+
+    .investor-dashboard-header .dashboard-header-left {
+        gap: 10px;
+    }
+
+    .investor-dashboard-header .dashboard-header-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        font-size: 18px;
+    }
+
+    .investor-dashboard-header .dashboard-header-text h1 {
+        font-size: 19px;
+        line-height: 1.2;
+    }
+
+    .investor-dashboard-header .dashboard-header-text p {
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .investor-metric-grid,
+    .investor-compact-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .investor-metric-card {
+        min-height: 112px;
+        padding: 14px;
+    }
+
+    .investor-token-form {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .investor-token-form input[type="text"],
+    .investor-token-form .btn {
+        width: 100%;
+    }
+
+    .investor-created-link {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .investor-created-link .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .investor-token-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .investor-token-actions .btn,
+    .investor-token-actions .inline-form,
+    .investor-token-actions .inline-form .btn,
+    .inactive-export-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .inactive-export-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .investor-window-tabs {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .investor-window-tabs a {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .learnhub-funnel {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* --- Section Panels --- */
 .dashboard-panel {
     background: linear-gradient(145deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.5));

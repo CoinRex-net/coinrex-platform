@@ -23,6 +23,7 @@ require_once __DIR__ . '/functions/referrals.php';
 require_once __DIR__ . '/functions/levels.php';
 require_once __DIR__ . '/functions/review_eligibility.php';
 require_once __DIR__ . '/functions/realtime.php';
+require_once __DIR__ . '/functions/metrics.php';
 require_once __DIR__ . '/functions/auth.php';
 require_once __DIR__ . '/functions/blog.php';
 require_once __DIR__ . '/functions/sponsored.php';

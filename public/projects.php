@@ -70,6 +70,24 @@ $sort_projects_by_rating = static function (array &$items): void {
 $sort_projects_by_rating($featured_projects);
 $sort_projects_by_rating($regular_projects);
 
+$render_project_contract_address = static function ($address, $extra_class = ''): string {
+    $address = trim((string) $address);
+    if ($address === '') {
+        return '';
+    }
+
+    $class = trim('project-contract-address ' . (string) $extra_class);
+    $escaped_address = htmlspecialchars($address, ENT_QUOTES, 'UTF-8');
+    $escaped_class = htmlspecialchars($class, ENT_QUOTES, 'UTF-8');
+
+    return '<button type="button" class="' . $escaped_class . '" title="Click to copy contract address" aria-label="Copy contract address ' . $escaped_address . '" data-contract-address="' . $escaped_address . '">'
+        . '<i class="fas fa-file-contract" aria-hidden="true"></i>'
+        . '<span class="project-contract-address__label">Contract Address</span>'
+        . '<code>' . $escaped_address . '</code>'
+        . '<span class="project-contract-address__copy"><i class="fas fa-copy" aria-hidden="true"></i><span>Copy</span></span>'
+        . '</button>';
+};
+
 // Determine which projects the current user has already reviewed
 $reviewed_project_ids = [];
 if ($current_user && $can_submit_review) {
@@ -80,7 +98,7 @@ $reviewed_project_ids_set = array_flip($reviewed_project_ids);
 $section_preview_limit = 3;
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/projects.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/projects.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/projects.css'); ?>">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/rating-badge.css">
 
 <main class="projects-main">
@@ -142,6 +160,8 @@ $section_preview_limit = 3;
                                     </div>
                                 </div>
 
+                                <?php echo $render_project_contract_address($project['contract_address'] ?? '', 'project-contract-address--sponsored'); ?>
+
                                 <p class="sponsored-mini-card__description"><?php echo htmlspecialchars(substr($project['description'] ?? 'No description available', 0, 95)); ?>...</p>
 
                                 <div class="sponsored-mini-card__stats">
@@ -196,68 +216,83 @@ $section_preview_limit = 3;
                     </button>
                 </div>
             <?php else: ?>
-                <div class="sponsored-fallback-grid">
-                    <article class="sponsored-mini-card sponsored-mini-card--fallback">
-                        <div class="sponsored-mini-card__top sponsored-mini-card__top--fallback">
-                            <div class="sponsored-mini-card__icon">
-                                <i class="fas fa-bullhorn"></i>
-                            </div>
-                            <div class="sponsored-mini-card__identity">
-                                <div class="sponsored-mini-card__title-row">
-                                    <h3>Premium Placement</h3>
-                                </div>
-                                <span class="badge category">Visibility</span>
-                            </div>
-                        </div>
-                        <p class="sponsored-mini-card__description">Put your project in front of active CoinRex visitors with above-the-fold sponsored exposure.</p>
-                        <div class="sponsored-mini-card__stats sponsored-mini-card__stats--fallback">
-                            <div class="sponsored-mini-card__feature-pill"><i class="fas fa-star"></i> Premium homepage section</div>
-                            <div class="sponsored-mini-card__feature-pill"><i class="fas fa-eye"></i> Higher discoverability</div>
-                        </div>
-                    </article>
+                <div class="sponsored-slider-shell sponsored-slider-shell--fallback">
+                    <button type="button" class="sponsored-slider-control sponsored-slider-control--prev" aria-label="Previous sponsor promotion" data-slider-prev>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
 
-                    <article class="sponsored-mini-card sponsored-mini-card--fallback">
-                        <div class="sponsored-mini-card__top sponsored-mini-card__top--fallback">
-                            <div class="sponsored-mini-card__icon">
-                                <i class="fas fa-chart-line"></i>
-                            </div>
-                            <div class="sponsored-mini-card__identity">
-                                <div class="sponsored-mini-card__title-row">
-                                    <h3>Better Engagement</h3>
+                    <div class="sponsored-slider" aria-label="Sponsor promotion slider" data-sponsored-slider>
+                        <div class="sponsored-track sponsored-track--fallback">
+                            <article class="sponsored-mini-card sponsored-mini-card--fallback">
+                                <div class="sponsored-mini-card__top sponsored-mini-card__top--fallback">
+                                    <div class="sponsored-mini-card__icon">
+                                        <i class="fas fa-bullhorn"></i>
+                                    </div>
+                                    <div class="sponsored-mini-card__identity">
+                                        <div class="sponsored-mini-card__title-row">
+                                            <h3>Premium Placement</h3>
+                                        </div>
+                                        <span class="badge category">Visibility</span>
+                                    </div>
                                 </div>
-                                <span class="badge category">Growth</span>
-                            </div>
-                        </div>
-                        <p class="sponsored-mini-card__description">Drive more review intent with a clear path from the showcase into the existing project detail and review flow.</p>
-                        <div class="sponsored-mini-card__stats sponsored-mini-card__stats--fallback">
-                            <div class="sponsored-mini-card__feature-pill"><i class="fas fa-pen-alt"></i> Review-ready audience</div>
-                            <div class="sponsored-mini-card__feature-pill"><i class="fas fa-bolt"></i> Stronger first impression</div>
-                        </div>
-                    </article>
 
-                    <article class="sponsored-mini-card sponsored-mini-card--fallback sponsored-mini-card--cta">
-                        <div class="sponsored-mini-card__top sponsored-mini-card__top--fallback">
-                            <div class="sponsored-mini-card__icon sponsored-mini-card__icon--accent">
-                                <i class="fas fa-paper-plane"></i>
-                            </div>
-                            <div class="sponsored-mini-card__identity">
-                                <div class="sponsored-mini-card__title-row">
-                                    <h3>Sponsor Your Project</h3>
+                                <p class="sponsored-mini-card__description">Put your project in front of active CoinRex visitors with above-the-fold sponsored exposure.</p>
+                                <div class="sponsored-mini-card__stats sponsored-mini-card__stats--fallback">
+                                    <div class="sponsored-mini-card__feature-pill"><i class="fas fa-star"></i> Premium homepage section</div>
+                                    <div class="sponsored-mini-card__feature-pill"><i class="fas fa-eye"></i> Higher discoverability</div>
                                 </div>
-                                <span class="badge category">Contact</span>
-                            </div>
+                            </article>
+
+                            <article class="sponsored-mini-card sponsored-mini-card--fallback">
+                                <div class="sponsored-mini-card__top sponsored-mini-card__top--fallback">
+                                    <div class="sponsored-mini-card__icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <div class="sponsored-mini-card__identity">
+                                        <div class="sponsored-mini-card__title-row">
+                                            <h3>Better Engagement</h3>
+                                        </div>
+                                        <span class="badge category">Growth</span>
+                                    </div>
+                                </div>
+
+                                <p class="sponsored-mini-card__description">Drive more review intent with a clear path from the showcase into the existing project detail and review flow.</p>
+                                <div class="sponsored-mini-card__stats sponsored-mini-card__stats--fallback">
+                                    <div class="sponsored-mini-card__feature-pill"><i class="fas fa-pen-alt"></i> Review-ready audience</div>
+                                    <div class="sponsored-mini-card__feature-pill"><i class="fas fa-bolt"></i> Stronger first impression</div>
+                                </div>
+                            </article>
+
+                            <article class="sponsored-mini-card sponsored-mini-card--fallback sponsored-mini-card--cta">
+                                <div class="sponsored-mini-card__top sponsored-mini-card__top--fallback">
+                                    <div class="sponsored-mini-card__icon sponsored-mini-card__icon--accent">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </div>
+                                    <div class="sponsored-mini-card__identity">
+                                        <div class="sponsored-mini-card__title-row">
+                                            <h3>Sponsor Your Project</h3>
+                                        </div>
+                                        <span class="badge category">Contact</span>
+                                    </div>
+                                </div>
+
+                                <p class="sponsored-mini-card__description">Talk to CoinRex about sponsored slots, premium reach, and the best placement plan for your project.</p>
+                                <div class="sponsored-mini-card__footer">
+                                    <div class="sponsored-mini-card__reward">
+                                        <i class="fas fa-gem"></i>
+                                        <span>Priority showcase access</span>
+                                    </div>
+                                    <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn-review sponsored-mini-card__cta">
+                                        <i class="fas fa-paper-plane"></i> Contact Now
+                                    </a>
+                                </div>
+                            </article>
                         </div>
-                        <p class="sponsored-mini-card__description">Talk to CoinRex about sponsored slots, premium reach, and the best placement plan for your project.</p>
-                        <div class="sponsored-mini-card__footer">
-                            <div class="sponsored-mini-card__reward">
-                                <i class="fas fa-gem"></i>
-                                <span>Priority showcase access</span>
-                            </div>
-                            <a href="<?php echo BASE_URL; ?>/public/contact.php" class="btn-review sponsored-mini-card__cta">
-                                <i class="fas fa-paper-plane"></i> Contact Now
-                            </a>
-                        </div>
-                    </article>
+                    </div>
+
+                    <button type="button" class="sponsored-slider-control sponsored-slider-control--next" aria-label="Next sponsor promotion" data-slider-next>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
                 </div>
             <?php endif; ?>
         </section>
@@ -288,10 +323,8 @@ $section_preview_limit = 3;
                     <div class="project-card <?php echo (int) $project['is_featured'] === 1 ? 'project-card-featured' : 'project-card-regular'; ?> <?php echo (int) ($project['is_sponsored'] ?? 0) === 1 ? 'project-card-sponsored' : ''; ?> <?php echo $project_index >= $section_preview_limit ? 'project-card--extra is-hidden' : ''; ?>">
                         
                         <div class="project-identity-grid">
-                            <div class="project-logo project-logo-inline">
-                                <?php if($project_logo_url !== ''): ?>
-                                    <img src="<?php echo htmlspecialchars($project_logo_url, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($project['name']); ?>">
-                                <?php else: ?>
+                            <div class="project-logo project-logo-inline<?php echo $project_logo_url !== '' ? ' has-logo-image' : ''; ?>"<?php if ($project_logo_url !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($project_logo_url, ENT_QUOTES, 'UTF-8'); ?>');" aria-label="<?php echo htmlspecialchars((string) $project['name'], ENT_QUOTES, 'UTF-8'); ?> logo"<?php endif; ?>>
+                                <?php if($project_logo_url === ''): ?>
                                     <div class="logo-placeholder">
                                         <?php echo strtoupper(substr($project['name'], 0, 2)); ?>
                                     </div>
@@ -320,6 +353,8 @@ $section_preview_limit = 3;
                                 </div>
                             </div>
                         </div>
+
+                        <?php echo $render_project_contract_address($project['contract_address'] ?? ''); ?>
                         
                         <p class="project-description"><?php echo htmlspecialchars(substr($project['description'] ?? 'No description available', 0, 90)); ?>...</p>
                         
@@ -416,10 +451,8 @@ $section_preview_limit = 3;
                     <div class="project-card <?php echo (int) $project['is_featured'] === 1 ? 'project-card-featured' : 'project-card-regular'; ?> <?php echo (int) ($project['is_sponsored'] ?? 0) === 1 ? 'project-card-sponsored' : ''; ?> <?php echo $project_index >= $section_preview_limit ? 'project-card--extra is-hidden' : ''; ?>">
                         
                         <div class="project-identity-grid">
-                            <div class="project-logo project-logo-inline">
-                                <?php if($project_logo_url !== ''): ?>
-                                    <img src="<?php echo htmlspecialchars($project_logo_url, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($project['name']); ?>">
-                                <?php else: ?>
+                            <div class="project-logo project-logo-inline<?php echo $project_logo_url !== '' ? ' has-logo-image' : ''; ?>"<?php if ($project_logo_url !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($project_logo_url, ENT_QUOTES, 'UTF-8'); ?>');" aria-label="<?php echo htmlspecialchars((string) $project['name'], ENT_QUOTES, 'UTF-8'); ?> logo"<?php endif; ?>>
+                                <?php if($project_logo_url === ''): ?>
                                     <div class="logo-placeholder">
                                         <?php echo strtoupper(substr($project['name'], 0, 2)); ?>
                                     </div>
@@ -442,6 +475,8 @@ $section_preview_limit = 3;
                                 </div>
                             </div>
                         </div>
+
+                        <?php echo $render_project_contract_address($project['contract_address'] ?? ''); ?>
                         
                         <p class="project-description"><?php echo htmlspecialchars(substr($project['description'] ?? 'No description available', 0, 90)); ?>...</p>
                         
@@ -532,57 +567,327 @@ document.addEventListener('DOMContentLoaded', function () {
     var prevButton = document.querySelector('[data-slider-prev]');
     var nextButton = document.querySelector('[data-slider-next]');
 
-    if (!slider || !prevButton || !nextButton) {
-        return;
-    }
-
-    var getStep = function () {
-        var firstCard = slider.querySelector('.sponsored-mini-card');
-        if (!firstCard) {
-            return slider.clientWidth;
+    var copyContractAddress = function (address) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(address);
         }
 
-        var cardWidth = firstCard.getBoundingClientRect().width;
-        var styles = window.getComputedStyle(slider.querySelector('.sponsored-track'));
-        var gap = parseFloat(styles.columnGap || styles.gap || 0);
+        return new Promise(function (resolve, reject) {
+            var input = document.createElement('textarea');
+            input.value = address;
+            input.setAttribute('readonly', '');
+            input.style.position = 'fixed';
+            input.style.left = '-9999px';
+            input.style.top = '0';
+            document.body.appendChild(input);
+            input.focus();
+            input.select();
 
-        return cardWidth + gap;
+            try {
+                if (document.execCommand('copy')) {
+                    resolve();
+                } else {
+                    reject(new Error('Copy command failed'));
+                }
+            } catch (error) {
+                reject(error);
+            } finally {
+                document.body.removeChild(input);
+            }
+        });
     };
 
-    var updateControls = function () {
-        var maxScroll = slider.scrollWidth - slider.clientWidth - 4;
-        prevButton.disabled = slider.scrollLeft <= 4;
-        nextButton.disabled = slider.scrollLeft >= maxScroll;
-    };
+    document.addEventListener('click', function (event) {
+        var contractButton = event.target.closest('[data-contract-address]');
+        if (!contractButton) {
+            return;
+        }
 
-    prevButton.addEventListener('click', function () {
-        slider.scrollBy({ left: -getStep(), behavior: 'smooth' });
+        var address = contractButton.getAttribute('data-contract-address') || '';
+        if (!address) {
+            return;
+        }
+
+        copyContractAddress(address).then(function () {
+            contractButton.classList.add('is-copied');
+            contractButton.setAttribute('title', 'Copied contract address');
+
+            var copyText = contractButton.querySelector('.project-contract-address__copy span');
+            if (copyText) {
+                copyText.textContent = 'Copied';
+            }
+
+            window.setTimeout(function () {
+                contractButton.classList.remove('is-copied');
+                contractButton.setAttribute('title', 'Click to copy contract address');
+
+                if (copyText) {
+                    copyText.textContent = 'Copy';
+                }
+            }, 1600);
+        }).catch(function () {
+            contractButton.classList.add('is-copy-failed');
+            window.setTimeout(function () {
+                contractButton.classList.remove('is-copy-failed');
+            }, 1600);
+        });
     });
 
-    nextButton.addEventListener('click', function () {
-        slider.scrollBy({ left: getStep(), behavior: 'smooth' });
-    });
+    if (slider && prevButton && nextButton) {
+        var track = slider.querySelector('.sponsored-track');
+        var sliderShell = slider.closest('.sponsored-slider-shell');
+        var originalCards = Array.prototype.slice.call(slider.querySelectorAll('.sponsored-mini-card'));
+        if (track && originalCards.length > 1) {
+            originalCards.forEach(function (card) {
+                track.appendChild(card.cloneNode(true));
+            });
+        }
 
-    slider.addEventListener('scroll', updateControls, { passive: true });
-    window.addEventListener('resize', updateControls);
-    updateControls();
+        var cards = Array.prototype.slice.call(slider.querySelectorAll('.sponsored-mini-card'));
+        var dots = [];
+        var autoTimer = null;
+        var autoDelay = 4200;
+        var currentIndex = 0;
+        var touchStartX = 0;
+        var touchStartY = 0;
+        var originalCount = originalCards.length;
+        var hasClonedLoop = originalCount > 1;
+        var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    document.querySelectorAll('[data-project-view-more]').forEach(function (button) {
-        button.addEventListener('click', function () {
-            var sectionName = button.getAttribute('data-project-view-more');
-            var grid = document.querySelector('[data-project-section-grid="' + sectionName + '"]');
-            if (!grid) {
+        if (sliderShell && originalCount > 1) {
+            var dotsNav = document.createElement('div');
+            dotsNav.className = 'sponsored-slider-nav';
+            dotsNav.setAttribute('aria-label', 'Sponsor slider pagination');
+
+            originalCards.forEach(function (card, index) {
+                var cardTitle = card.querySelector('h3');
+                var dot = document.createElement('button');
+                dot.type = 'button';
+                dot.className = 'sponsored-slider-dot';
+                dot.setAttribute('aria-label', 'Show sponsor slide ' + (index + 1) + (cardTitle ? ': ' + cardTitle.textContent.trim() : ''));
+                dot.addEventListener('click', function () {
+                    goToSlide(index);
+                    restartAutoSlide();
+                });
+                dotsNav.appendChild(dot);
+                dots.push(dot);
+            });
+
+            sliderShell.appendChild(dotsNav);
+        }
+
+        var getGap = function () {
+            if (!track) {
+                return 0;
+            }
+
+            var styles = window.getComputedStyle(track);
+            return parseFloat(styles.columnGap || styles.gap || 0) || 0;
+        };
+
+        var getStep = function () {
+            var firstCard = cards[0];
+            if (!firstCard) {
+                return slider.clientWidth;
+            }
+
+            var cardWidth = firstCard.getBoundingClientRect().width;
+            return cardWidth + getGap();
+        };
+
+        var getVisibleCount = function () {
+            if (!cards.length) {
+                return 1;
+            }
+
+            var step = getStep();
+            if (step <= 0) {
+                return 1;
+            }
+
+            return Math.max(1, Math.round((slider.clientWidth + getGap()) / step));
+        };
+
+        var getMaxIndex = function () {
+            if (hasClonedLoop) {
+                return originalCount;
+            }
+
+            return Math.max(0, cards.length - getVisibleCount());
+        };
+
+        var setActiveCard = function () {
+            var activeIndex = hasClonedLoop && originalCount > 0 ? currentIndex % originalCount : currentIndex;
+
+            cards.forEach(function (card, index) {
+                card.classList.toggle('is-slider-active', index % Math.max(1, originalCount) === activeIndex);
+            });
+
+            dots.forEach(function (dot, index) {
+                var isActive = index === activeIndex;
+                dot.classList.toggle('is-active', isActive);
+                dot.setAttribute('aria-current', isActive ? 'true' : 'false');
+            });
+        };
+
+        var applyTrackPosition = function (animate) {
+            if (!track || !cards.length) {
                 return;
             }
 
-            var hiddenCards = grid.querySelectorAll('.project-card--extra.is-hidden');
-            hiddenCards.forEach(function (card) {
-                card.classList.remove('is-hidden');
+            track.style.transitionDuration = !animate || prefersReducedMotion ? '0ms' : '';
+            track.style.transform = 'translate3d(-' + (currentIndex * getStep()) + 'px, 0, 0)';
+            setActiveCard();
+        };
+
+        var goToSlide = function (index) {
+            if (!track || !cards.length) {
+                return;
+            }
+
+            var maxIndex = getMaxIndex();
+
+            if (hasClonedLoop && index < 0) {
+                currentIndex = originalCount;
+                applyTrackPosition(false);
+
+                window.requestAnimationFrame(function () {
+                    currentIndex = originalCount - 1;
+                    applyTrackPosition(true);
+                });
+                return;
+            }
+
+            if (index > maxIndex) {
+                currentIndex = 0;
+            } else {
+                currentIndex = Math.max(0, index);
+            }
+
+            applyTrackPosition(true);
+        };
+
+        var updateControls = function () {
+            var hasScrollableCards = cards.length > 1;
+            prevButton.disabled = !hasScrollableCards;
+            nextButton.disabled = !hasScrollableCards;
+        };
+
+        var stopAutoSlide = function () {
+            if (autoTimer) {
+                window.clearInterval(autoTimer);
+                autoTimer = null;
+            }
+        };
+
+        var advanceSlide = function () {
+            if (cards.length <= 1) {
+                setActiveCard();
+                return;
+            }
+
+            goToSlide(currentIndex + 1);
+        };
+
+        var startAutoSlide = function () {
+            if (prefersReducedMotion || cards.length <= 1 || autoTimer) {
+                return;
+            }
+
+            autoTimer = window.setInterval(advanceSlide, autoDelay);
+        };
+
+        var restartAutoSlide = function () {
+            stopAutoSlide();
+            startAutoSlide();
+        };
+
+        prevButton.addEventListener('click', function () {
+            goToSlide(currentIndex - 1);
+            restartAutoSlide();
+        });
+
+        nextButton.addEventListener('click', function () {
+            goToSlide(currentIndex + 1);
+            restartAutoSlide();
+        });
+
+        slider.addEventListener('touchstart', function (event) {
+            if (!event.touches || !event.touches.length) {
+                return;
+            }
+
+            touchStartX = event.touches[0].clientX;
+            touchStartY = event.touches[0].clientY;
+            stopAutoSlide();
+        }, { passive: true });
+
+        slider.addEventListener('touchend', function (event) {
+            if (!event.changedTouches || !event.changedTouches.length) {
+                startAutoSlide();
+                return;
+            }
+
+            var deltaX = event.changedTouches[0].clientX - touchStartX;
+            var deltaY = event.changedTouches[0].clientY - touchStartY;
+
+            if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                goToSlide(deltaX < 0 ? currentIndex + 1 : currentIndex - 1);
+            }
+
+            startAutoSlide();
+        }, { passive: true });
+
+        if (sliderShell) {
+            sliderShell.addEventListener('mouseenter', stopAutoSlide);
+            sliderShell.addEventListener('mouseleave', startAutoSlide);
+            sliderShell.addEventListener('focusin', stopAutoSlide);
+            sliderShell.addEventListener('focusout', startAutoSlide);
+        }
+
+        window.addEventListener('resize', function () {
+            updateControls();
+            currentIndex = Math.min(currentIndex, getMaxIndex());
+            applyTrackPosition(false);
+            restartAutoSlide();
+        });
+
+        if (track) {
+            track.addEventListener('transitionend', function () {
+                if (hasClonedLoop && currentIndex === originalCount) {
+                    currentIndex = 0;
+                    applyTrackPosition(false);
+                }
+            });
+        }
+
+        updateControls();
+        goToSlide(0);
+        startAutoSlide();
+    }
+
+    document.querySelectorAll('[data-project-view-more]').forEach(function (button) {
+        var sectionName = button.getAttribute('data-project-view-more');
+        var grid = document.querySelector('[data-project-section-grid="' + sectionName + '"]');
+        var label = button.querySelector('span');
+
+        if (!grid || !label) {
+            return;
+        }
+
+        var collapsedText = label.textContent;
+        var expandedText = sectionName === 'regular' ? 'Show fewer regular projects' : 'Show fewer featured projects';
+        button.setAttribute('aria-expanded', 'false');
+
+        button.addEventListener('click', function () {
+            var isExpanded = button.classList.toggle('is-expanded');
+
+            grid.querySelectorAll('.project-card--extra').forEach(function (card) {
+                card.classList.toggle('is-hidden', !isExpanded);
             });
 
-            button.classList.add('is-expanded');
-            button.disabled = true;
-            button.querySelector('span').textContent = 'All projects shown';
+            button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+            label.textContent = isExpanded ? expandedText : collapsedText;
         });
     });
 });

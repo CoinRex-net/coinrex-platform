@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS project_contracts (
     network_name VARCHAR(100) NOT NULL,
     network_slug VARCHAR(80) NULL,
     chain_id INT UNSIGNED NOT NULL,
-    contract_address VARCHAR(100) NOT NULL,
+    contract_address VARCHAR(100) NULL,
     token_type VARCHAR(20) NOT NULL DEFAULT 'ERC20',
     token_name VARCHAR(120) NULL,
     token_symbol VARCHAR(40) NULL,
@@ -67,7 +67,7 @@ ALTER TABLE reviews
     ADD COLUMN IF NOT EXISTS eligibility_chain_id INT UNSIGNED NULL AFTER eligibility_wallet_address,
     ADD COLUMN IF NOT EXISTS eligibility_contract_address VARCHAR(100) NULL AFTER eligibility_chain_id;
 
-UPDATE project_contracts SET contract_address = '' WHERE contract_address IS NULL;
+UPDATE project_contracts SET contract_address = NULL WHERE token_type = 'NATIVE' AND TRIM(COALESCE(contract_address, '')) = '';
 
 ALTER TABLE project_contracts
-    MODIFY contract_address VARCHAR(100) NOT NULL;
+    MODIFY contract_address VARCHAR(100) NULL;

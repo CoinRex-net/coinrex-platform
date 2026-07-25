@@ -159,14 +159,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified && $can_edit_now) {
 
     if (empty($errors)) {
         foreach ($contract_rows as $row) {
+            if (($row['token_type'] ?? '') === 'NATIVE') {
+                continue;
+            }
             $stmt = $db->prepare("
                 SELECT project_id
                 FROM project_contracts
                 WHERE chain_id = ? AND contract_address = ? AND project_id <> ?
                 LIMIT 1
             ");
-            $lookup_address = ($row['token_type'] ?? '') === 'NATIVE' ? '' : $row['contract_address'];
-            $stmt->execute([(int) $row['chain_id'], $lookup_address, (int) $project['id']]);
+            $stmt->execute([(int) $row['chain_id'], $row['contract_address'], (int) $project['id']]);
             if ($stmt->fetch()) {
                 $errors['contracts'] = 'One of these chain + contract pairs is already used by another project.';
                 break;
@@ -243,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified && $can_edit_now) {
                 $form['github_url'] !== '' ? $form['github_url'] : null,
                 $form['discord_url'] !== '' ? $form['discord_url'] : null,
                 $form['network'] !== '' ? $form['network'] : null,
-                $form['contract_address'] !== '' ? $form['contract_address'] : '',
+                $form['contract_address'] !== '' ? $form['contract_address'] : null,
                 (int) $project['id'],
                 $user_id,
             ]);

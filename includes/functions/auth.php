@@ -265,6 +265,9 @@ function touchAuthenticatedUserActivity($user_id, PDO $db = null) {
     $stmt->execute([$_SERVER['REMOTE_ADDR'] ?? null, $user_id]);
 
     refreshRememberMeTokenIfPresent($user_id, $db);
+    if (function_exists('recordAuthenticatedUserMetrics')) {
+        recordAuthenticatedUserMetrics($user_id, 'web', $db);
+    }
     return true;
 }
 

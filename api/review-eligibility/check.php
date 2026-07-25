@@ -23,13 +23,41 @@ if (!preg_match('/^0x[a-f0-9]{40}$/', $wallet_address)) {
     apiErrorResponse(422, 'Connect a valid EVM wallet first.');
 }
 
-$user_wallet = strtolower(trim((string) ($actor['user']['wallet_address'] ?? '')));
-if ($user_wallet !== $wallet_address) {
-    apiErrorResponse(403, 'This wallet is not verified for your CoinRex account.');
-}
-
 $db = getDBConnection();
 ensureReviewEligibilitySchema($db);
+
+$session_wallet = $_SESSION['review_eligibility_verified_wallet'] ?? null;
+$has_review_wallet_session = is_array($session_wallet)
+    && (int) ($session_wallet['user_id'] ?? 0) === (int) $actor['user_id']
+    && strtolower((string) ($session_wallet['wallet_address'] ?? '')) === $wallet_address
+    && time() - (int) ($session_wallet['verified_at'] ?? 0) <= 900;
+
+if (!$has_review_wallet_session) {
+    $session_stmt = $db->prepare("
+        SELECT id
+        FROM rex_signer_sessions
+        WHERE user_id = ?
+          AND wallet_address = ?
+          AND status = 'active'
+          AND expires_at > NOW()
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $session_stmt->execute([(int) $actor['user_id'], $wallet_address]);
+    $has_review_wallet_session = (bool) $session_stmt->fetch();
+}
+
+if (!$has_review_wallet_session) {
+    apiErrorResponse(403, 'Pair or verify this wallet for the current review session first.');
+}
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
+$used_review = reviewEligibilityFindWalletReviewUsage($db, $wallet_address, 0, $project_id);
+if ($used_review) {
+    apiErrorResponse(409, 'This Wallet already have used to Review the Same Project, Please Switch to Fresh wallet to Check Eligibility');
+}
 
 $project_stmt = $db->prepare("SELECT id, name FROM projects WHERE id = ? AND approval_status = 'approved' LIMIT 1");
 $project_stmt->execute([$project_id]);
@@ -41,6 +69,22 @@ if (!$project) {
 try {
     $result = reviewEligibilityCheckProject($db, (int) $actor['user_id'], $project_id, $wallet_address);
     $check = $result['check'] ?? [];
+    $raw_result = [];
+    if (!empty($check['raw_result_json'])) {
+        $decoded_raw = json_decode((string) $check['raw_result_json'], true);
+        if (is_array($decoded_raw)) {
+            $raw_result = $decoded_raw;
+        }
+    }
+    $eligibility_detail = [];
+    foreach (($raw_result['results'] ?? []) as $candidate_detail) {
+        if (is_array($candidate_detail) && isset($candidate_detail['decision'])) {
+            $eligibility_detail = $candidate_detail;
+            break;
+        }
+    }
+    $balances = is_array($eligibility_detail['balances'] ?? null) ? $eligibility_detail['balances'] : [];
+    $requirement = is_array($eligibility_detail['requirement'] ?? null) ? $eligibility_detail['requirement'] : [];
     apiSuccessResponse([
         'status' => (string) ($result['status'] ?? 'not_eligible'),
         'cached' => !empty($result['cached']),
@@ -53,6 +97,12 @@ try {
         'reason' => (string) ($check['reason'] ?? ''),
         'checked_at' => (string) ($check['checked_at'] ?? ''),
         'expires_at' => (string) ($check['expires_at'] ?? ''),
+        'current_balance' => isset($balances['current_balance']) ? (float) $balances['current_balance'] : null,
+        'average_balance' => isset($balances['average_balance']) ? (float) $balances['average_balance'] : null,
+        'required_balance' => isset($requirement['min_holding_amount']) ? (float) $requirement['min_holding_amount'] : null,
+        'window_days' => isset($requirement['required_holding_days']) ? (int) $requirement['required_holding_days'] : null,
+        'balance_usd' => isset($balances['current_balance_usd']) ? (float) $balances['current_balance_usd'] : null,
+        'average_balance_usd' => isset($balances['average_balance_usd']) ? (float) $balances['average_balance_usd'] : null,
     ]);
 } catch (Throwable $e) {
     apiErrorResponse(422, $e->getMessage());

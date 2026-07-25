@@ -16,6 +16,7 @@ if (!is_array($body)) {
 
 $wallet_address = strtolower(trim((string) ($body['wallet_address'] ?? '')));
 $signature = trim((string) ($body['signature'] ?? ''));
+$project_id = (int) ($body['project_id'] ?? 0);
 $nonce_state = $_SESSION['review_eligibility_wallet_nonce'] ?? null;
 
 function verifyReviewEligibilityWalletSignature($wallet_address, $message, $signature) {
@@ -74,10 +75,15 @@ if (!preg_match('/^0x[a-fA-F0-9]{130}$/', $signature)) {
     apiErrorResponse(422, 'Valid wallet signature is required.');
 }
 
+$verified_nonce_message = (string) ($nonce_state['message'] ?? '');
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 try {
     verifyReviewEligibilityWalletSignature(
         $wallet_address,
-        (string) ($nonce_state['message'] ?? ''),
+        $verified_nonce_message,
         $signature
     );
 } catch (Throwable $e) {
@@ -87,27 +93,21 @@ try {
 $db = getDBConnection();
 ensureReviewEligibilitySchema($db);
 
-$owner = $db->prepare("SELECT id FROM users WHERE wallet_address = ? AND id <> ? LIMIT 1");
-$owner->execute([$wallet_address, (int) $actor['user_id']]);
-if ($owner->fetch()) {
-    apiErrorResponse(409, 'This wallet is already linked to another CoinRex account.');
+$used_review = $project_id > 0 ? reviewEligibilityFindWalletReviewUsage($db, $wallet_address, 0, $project_id) : null;
+if ($used_review) {
+    apiErrorResponse(409, 'This Wallet already have used to Review the Same Project, Please Switch to Fresh wallet to Check Eligibility');
 }
 
-$has_auth_provider = tableHasColumn('users', 'auth_provider');
-$has_wallet_verified_at = tableHasColumn('users', 'wallet_verified_at');
-$updates = ['wallet_address = ?', 'updated_at = NOW()'];
-$params = [$wallet_address];
-if ($has_wallet_verified_at) {
-    $updates[] = 'wallet_verified_at = NOW()';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
-if ($has_auth_provider) {
-    $updates[] = "auth_provider = CASE WHEN auth_provider = 'email' THEN 'hybrid' ELSE auth_provider END";
-}
-$params[] = (int) $actor['user_id'];
-$stmt = $db->prepare('UPDATE users SET ' . implode(', ', $updates) . ' WHERE id = ?');
-$stmt->execute($params);
-
 unset($_SESSION['review_eligibility_wallet_nonce']);
+$_SESSION['review_eligibility_verified_wallet'] = [
+    'user_id' => (int) $actor['user_id'],
+    'wallet_address' => $wallet_address,
+    'session_id' => 0,
+    'verified_at' => time(),
+];
 
 apiSuccessResponse([
     'wallet_address' => $wallet_address,

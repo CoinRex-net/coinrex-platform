@@ -270,12 +270,13 @@ body {
     font-size: 14px;
     font-weight: 700;
     flex-shrink: 0;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
 }
 
-.devhub-profile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.devhub-profile-avatar.has-avatar-image {
+    background-color: var(--dh-bg-elevated);
 }
 
 .devhub-profile-caret {

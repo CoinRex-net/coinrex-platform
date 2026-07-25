@@ -146,7 +146,7 @@ function getDefaultNavigationControls(): array {
             'location' => 'header',
             'section_key' => 'marketplace',
             'section_label' => 'Header Marketplace',
-            'label' => 'Project',
+            'label' => 'Projects',
             'route_key' => 'projects',
             'icon_class' => 'fas fa-chart-line',
             'badge_text' => '',
@@ -1127,6 +1127,37 @@ function coinrexNavigationItemIsActive(array $item, array $context = []): bool {
     return in_array($currentPage, is_array($activePages) ? $activePages : [], true);
 }
 
+function coinrexPrepareNavigationItem(array $item, array $context = []): ?array {
+    if (empty($item['is_enabled'])) {
+        return null;
+    }
+
+    $audience = (string) ($item['audience'] ?? 'all');
+    $isLoggedIn = !empty($context['is_logged_in']);
+    if ($audience === 'guest' && $isLoggedIn) {
+        return null;
+    }
+    if ($audience === 'member' && !$isLoggedIn) {
+        return null;
+    }
+
+    if (!coinrexNavigationCanRenderKey((string) ($item['nav_key'] ?? ''), $context)) {
+        return null;
+    }
+
+    $href = trim((string) ($item['custom_url'] ?? ''));
+    if ((string) ($item['item_type'] ?? 'link') === 'dropdown') {
+        $href = '#';
+    } elseif ($href === '') {
+        $href = coinrexNavigationRouteUrl((string) ($item['route_key'] ?? ''), $context);
+    }
+
+    $item['href'] = $href;
+    $item['is_active'] = coinrexNavigationItemIsActive($item, $context);
+
+    return $item;
+}
+
 function getManagedNavigationItems(string $location, string $sectionKey = '', array $context = []): array {
     $registry = getNavigationControlRegistry();
     $items = [];
@@ -1138,33 +1169,10 @@ function getManagedNavigationItems(string $location, string $sectionKey = '', ar
         if ($sectionKey !== '' && (string) ($item['section_key'] ?? '') !== $sectionKey) {
             continue;
         }
-        if (empty($item['is_enabled'])) {
-            continue;
+        $item = coinrexPrepareNavigationItem($item, $context);
+        if ($item !== null) {
+            $items[] = $item;
         }
-
-        $audience = (string) ($item['audience'] ?? 'all');
-        $isLoggedIn = !empty($context['is_logged_in']);
-        if ($audience === 'guest' && $isLoggedIn) {
-            continue;
-        }
-        if ($audience === 'member' && !$isLoggedIn) {
-            continue;
-        }
-
-        if (!coinrexNavigationCanRenderKey((string) ($item['nav_key'] ?? ''), $context)) {
-            continue;
-        }
-
-        $href = trim((string) ($item['custom_url'] ?? ''));
-        if ((string) ($item['item_type'] ?? 'link') === 'dropdown') {
-            $href = '#';
-        } elseif ($href === '') {
-            $href = coinrexNavigationRouteUrl((string) ($item['route_key'] ?? ''), $context);
-        }
-
-        $item['href'] = $href;
-        $item['is_active'] = coinrexNavigationItemIsActive($item, $context);
-        $items[] = $item;
     }
 
     usort($items, static function (array $a, array $b): int {
@@ -1217,14 +1225,10 @@ function getFixedMobileBottomNavigationItems(array $context = []): array {
         if (!is_array($item)) {
             continue;
         }
-
-        $href = trim((string) ($item['custom_url'] ?? ''));
-        if ($href === '') {
-            $href = coinrexNavigationRouteUrl((string) ($item['route_key'] ?? ''), $context);
+        $item = coinrexPrepareNavigationItem($item, $context);
+        if ($item !== null) {
+            $items[] = $item;
         }
-        $item['href'] = $href;
-        $item['is_active'] = coinrexNavigationItemIsActive($item, $context);
-        $items[] = $item;
     }
 
     return array_slice($items, 0, 5);
@@ -1256,15 +1260,17 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
         return array_slice(getManagedNavigationItems($location, $sectionKey, $context), 0, $limit);
     }
 
-    $available = [];
-    foreach (getManagedNavigationItems($location, $sectionKey, $context) as $item) {
-        $available[(string) ($item['nav_key'] ?? '')] = $item;
-    }
-
+    $registry = getNavigationControlRegistry();
+    $defaults = getDefaultNavigationControls();
     $items = [];
     foreach ($slotKeys as $slotKey) {
-        if (isset($available[$slotKey])) {
-            $items[] = $available[$slotKey];
+        $item = $registry[$slotKey] ?? ($defaults[$slotKey] ?? null);
+        if (!is_array($item)) {
+            continue;
+        }
+        $item = coinrexPrepareNavigationItem($item, $context);
+        if ($item !== null) {
+            $items[] = $item;
         }
     }
 

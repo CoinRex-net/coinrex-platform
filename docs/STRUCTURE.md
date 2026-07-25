@@ -1,6 +1,6 @@
 # CoinRex Repository Structure
 
-This document describes the main CoinRex platform repository. The `rex-wallet/` directory is intentionally ignored here because the wallet app is planned for a separate repository.
+This document describes the main CoinRex platform repository, including the in-repo RexLink wallet app and Node service layout.
 
 ## Top-Level Layout
 
@@ -19,6 +19,8 @@ This document describes the main CoinRex platform repository. The `rex-wallet/` 
 |-- includes/               # Shared config, helpers, services, and components
 |-- public/                 # Public-facing route files
 |-- realtime/               # Node realtime/WebSocket server
+|-- rex-wallet/             # Expo React Native RexLink wallet app
+|-- rexlink-service/        # Node API for RexLink pairing, sessions, approvals
 |-- scripts/                # Deployment and maintenance scripts
 |-- src/                    # PSR-4 classes under the CoinRex namespace
 |-- test/                   # Smart-contract test workspace
@@ -86,6 +88,14 @@ Contains shared API bootstraps, user/task/reward endpoints, learning endpoints, 
 
 Contains login, registration, logout, password reset, and email verification flows.
 
+RexLink-specific auth UI is split between page markup in `auth/auth.php`, shared auth styling in `assets/css/auth.css`, and extracted RexLink modal assets in:
+
+```text
+assets/
+|-- css/rexlink-auth.css
+`-- js/rexlink-auth.js
+```
+
 ### `devhub/` - Developer Hub
 
 Contains developer/project-owner application flows, project management, reviews, notifications, widget documentation, DevHub assets, and DevHub-specific includes.
@@ -111,6 +121,46 @@ assets/
 |-- images/
 |-- js/
 `-- uploads/                # Runtime media, ignored by Git
+```
+
+RexLink-specific extracted assets now live here instead of large inline page blocks:
+
+```text
+assets/
+|-- css/rexlink-auth.css
+|-- css/rexlink-claims.css
+|-- js/rexlink-auth.js
+`-- js/rexlink-claims.js
+```
+
+### `rex-wallet/` - Mobile RexLink Wallet
+
+```text
+rex-wallet/
+|-- App.js                  # Thin root wrapper
+|-- src/app/                # Root RexLink app composition/bootstrap
+|-- src/components/         # Shared React Native UI components
+|-- src/storage/            # Secure/local storage helpers
+|-- src/theme/              # Shared wallet theme tokens
+`-- src/wallet/             # Wallet creation/import helpers
+```
+
+The current safe split moves the giant root app implementation into `src/app/RexSignerApp.js` so future feature extraction can continue inside `src/app/` and `src/features/`.
+
+### `rexlink-service/` - Node RexLink API
+
+```text
+rexlink-service/
+|-- server.js               # Express bootstrap, middleware, service wiring
+|-- routes/                 # Route registration modules
+|-- services/               # Pairing, approvals, auth-session, assets, monitor logic
+|-- lib/                    # Async route wrapper and response payload mappers
+|-- auth.js                 # Shared actor/session auth helpers
+|-- claims.js               # Claim/snapshot integration
+|-- config.js               # RexLink service configuration
+|-- db.js                   # MySQL access helpers
+|-- realtime.js             # Realtime publish/attach helpers
+`-- util.js                 # Shared low-level utility helpers
 ```
 
 ### `database/` - Schema and Migrations
@@ -153,7 +203,7 @@ database/
 - Root-level PHP should be limited to stable entry points such as `index.php`.
 - Public route files should live under `public/` where clean URL compatibility allows.
 - Repeatable maintenance and deployment automation belongs in `scripts/`; one-off local diagnostics should stay untracked.
-- Runtime uploads, generated artifacts, dependency folders, local secrets, and `rex-wallet/` must stay out of Git.
+- Runtime uploads, generated artifacts, dependency folders, and local secrets must stay out of Git.
 - Legacy compatibility files may remain when they protect an ongoing migration, but new logic should prefer modular helpers or PSR-4 classes.
 
 ## Cleanup History

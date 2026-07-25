@@ -41,7 +41,7 @@ $canonical_url = $seo_base_url . '/public/project-detail.php?id=' . $project_id;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/project-detail.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/project-detail.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/project-detail.css'); ?>">
 
 <main class="project-detail-main">
     <div class="detail-container">
@@ -53,7 +53,7 @@ require_once __DIR__ . '/../includes/header.php';
         
         <!-- Project Header -->
         <div class="project-header animate-fade-up">
-            <div class="project-logo-large">
+            <div class="project-logo-large<?php echo $project_logo_url !== '' ? ' has-logo-image' : ''; ?>"<?php if ($project_logo_url !== ''): ?> style="background-image: url('<?php echo htmlspecialchars($project_logo_url, ENT_QUOTES, 'UTF-8'); ?>');" aria-label="<?php echo htmlspecialchars((string) $project['name'], ENT_QUOTES, 'UTF-8'); ?> logo"<?php endif; ?>>
                 <?php if($project_logo_url !== ''): ?>
                     <img src="<?php echo htmlspecialchars($project_logo_url, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $project['name'], ENT_QUOTES, 'UTF-8'); ?>">
                 <?php else: ?>
@@ -117,43 +117,43 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>1. Proof of Transaction Required</strong>
-                        <p>You must provide a valid transaction hash (TX Hash) from a blockchain explorer showing your interaction with the project.</p>
+                        <strong>1. Fresh Wallet Pairing Required</strong>
+                        <p>For connected-wallet reviews, you must start a new RexLink or external wallet pairing session during submission. A saved wallet address alone is not enough.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>2. Screenshot Evidence</strong>
-                        <p>A clear screenshot showing your wallet balance or transaction is mandatory. Edited or fake screenshots will lead to immediate rejection.</p>
+                        <strong>2. Eligibility Check</strong>
+                        <p>After pairing, CoinRex checks the linked wallet against this project’s supported contracts. You can continue only when the eligibility check passes.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>3. Honest & Detailed Review</strong>
-                        <p>Reviews must be at least 150 characters and provide genuine insights. AI-generated or copied reviews will be rejected.</p>
+                        <strong>3. Manual Proof Fallback</strong>
+                        <p>If you cannot pair a wallet, use manual address proof with wallet address, TX hash, and screenshot. Manual proof goes to moderation.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>4. Wallet Type Impact on Rewards</strong>
-                        <p>Non-custodial wallets (Metamask, Trust Wallet, etc.) receive full rewards. Custodial/exchange wallets (Binance, OKX, Coinbase) receive 50% of the calculated reward.</p>
+                        <strong>4. Honest & Detailed Review</strong>
+                        <p>Reviews must be at least 150 characters and based on your real experience. Copied, fake, or low-effort reviews will be rejected.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>5. Manual Verification</strong>
-                        <p>All reviews and proofs are manually verified by our team. This process takes 24-48 hours.</p>
+                        <strong>5. Security & Moderation</strong>
+                        <p>Never upload seed phrases, private keys, or recovery phrases. CoinRex may manually verify proof and review quality before rewards are finalized.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
                         <strong>6. One Review Per Project</strong>
-                        <p>You can submit only one quality review per project. Multiple reviews may be rejected.</p>
+                        <p>Each account can submit only one quality review per project. Duplicate reviews may be rejected.</p>
                     </div>
                 </div>
             </div>

@@ -120,7 +120,7 @@ CREATE TABLE projects (
     website_url VARCHAR(255) NOT NULL,
     telegram_url VARCHAR(255) NULL,
     twitter_url VARCHAR(255) NULL,
-    contract_address VARCHAR(255) NOT NULL,
+    contract_address VARCHAR(255) NULL,
     github_url VARCHAR(255) NULL,
     discord_url VARCHAR(255) NULL,
     network VARCHAR(100) NULL,
