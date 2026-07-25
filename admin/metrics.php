@@ -142,6 +142,16 @@ function investorMetricCard($label, $value, $icon = 'fa-chart-simple', $iconClas
     echo '</div>';
 }
 
+function investorSnapshotStat($label, $value, $note = ''): void {
+    echo '<div class="investor-snapshot-stat">';
+    echo '<span>' . htmlspecialchars((string) $label, ENT_QUOTES, 'UTF-8') . '</span>';
+    echo '<strong>' . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '</strong>';
+    if ($note !== '') {
+        echo '<small>' . htmlspecialchars((string) $note, ENT_QUOTES, 'UTF-8') . '</small>';
+    }
+    echo '</div>';
+}
+
 function investorWindowUrl($window): string {
     global $isInvestorShareRequest, $shareToken;
     $params = ['window' => (string) $window];
@@ -202,17 +212,49 @@ if ($isInvestorShareRequest):
 </head>
 <body data-admin-theme="dark" class="investor-share-body">
 <main class="admin-main investor-share-shell">
+<div class="investor-share-brand">
+    <div class="investor-share-brand-left">
+        <img src="<?php echo BASE_URL; ?>/assets/images/favicon.png" alt="CoinRex">
+        <div>
+            <strong>AdminHub</strong>
+            <span>by CoinRex</span>
+        </div>
+    </div>
+    <span class="investor-share-brand-badge"><i class="fas fa-lock"></i> Metrics Access</span>
+</div>
 <?php else: ?>
 <?php require_once __DIR__ . '/includes/header.php'; ?>
 <?php endif; ?>
 
+<?php if ($isInvestorShareRequest): ?>
+<section class="investor-share-hero">
+    <div class="investor-share-hero-copy">
+        <span class="investor-eyebrow"><i class="fas fa-shield-halved"></i> Read-only investor report</span>
+        <h1>CoinRex Investor Metrics</h1>
+        <p>Traction, retention, onboarding, product usage, and economy health in one token-gated view.</p>
+        <div class="investor-report-meta">
+            <span><i class="fas fa-calendar-days"></i> <?php echo htmlspecialchars($windowLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+            <span><i class="fas fa-clock"></i> Generated <?php echo htmlspecialchars(date('M j, Y H:i'), ENT_QUOTES, 'UTF-8'); ?></span>
+            <span><i class="fas fa-database"></i> <?php echo htmlspecialchars((string) $activityQuality, ENT_QUOTES, 'UTF-8'); ?> activity data</span>
+        </div>
+    </div>
+    <div class="investor-snapshot-grid" aria-label="Investor snapshot">
+        <?php
+        investorSnapshotStat('Registered Users', investorMetricFormatNumber($metrics['growth']['total_users']), 'Community base');
+        investorSnapshotStat('Monthly Active', investorMetricFormatNumber($metrics['growth']['mau']), 'Rolling 30 days');
+        investorSnapshotStat('D7 Retention', investorMetricDisplayPercent($metrics['retention']['day7'], 'No mature cohort'), (string) $retentionQuality);
+        investorSnapshotStat('REX Earned', investorMetricFormatRex($metrics['economy']['earned']), 'Reward economy');
+        ?>
+    </div>
+</section>
+<?php endif; ?>
 
 <div class="dashboard-header investor-dashboard-header">
     <div class="dashboard-header-left">
         <div class="dashboard-header-icon"><i class="fas fa-chart-line"></i></div>
         <div class="dashboard-header-text">
-            <h1>CoinRex Metrics</h1>
-            <p>Investor dashboard for traction, retention, onboarding, and economy health.</p>
+            <h1><?php echo $isInvestorShareRequest ? 'Detailed Metrics' : 'CoinRex Metrics'; ?></h1>
+            <p><?php echo $isInvestorShareRequest ? 'Windowed view by growth, onboarding, engagement, retention, and economy.' : 'Investor dashboard for traction, retention, onboarding, and economy health.'; ?></p>
         </div>
     </div>
     <?php if ($isInvestorShareRequest): ?>
