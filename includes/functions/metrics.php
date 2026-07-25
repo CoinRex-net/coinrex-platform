@@ -409,9 +409,27 @@ function getAdminInvestorMetrics(PDO $db, string $window = '30d'): array {
         ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL 5 MINUTE)", [], 0)
         : 0;
 
-    $dau = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE activity_date = CURDATE()", [], 0) : 0;
-    $wau = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE activity_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)", [], 0) : 0;
-    $mau = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE activity_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)", [], 0) : 0;
+    $tracked_dau = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE activity_date = CURDATE()", [], 0) : 0;
+    $tracked_wau = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE activity_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)", [], 0) : 0;
+    $tracked_mau = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE activity_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)", [], 0) : 0;
+    $fallback_dau = coinrexMetricsColumnExists('users', 'last_active')
+        ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= CURDATE()", [], 0)
+        : 0;
+    $fallback_wau = coinrexMetricsColumnExists('users', 'last_active')
+        ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL 7 DAY)", [], 0)
+        : 0;
+    $fallback_mau = coinrexMetricsColumnExists('users', 'last_active')
+        ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL 30 DAY)", [], 0)
+        : 0;
+    $dau = max($tracked_dau, $fallback_dau);
+    $wau = max($tracked_wau, $fallback_wau);
+    $mau = max($tracked_mau, $fallback_mau);
+    $activity_quality = $analytics_has_data ? 'Tracked' : 'Live';
+    $active_window = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE {$window_activity_condition}", [], 0) : 0;
+    if (coinrexMetricsColumnExists('users', 'last_active')) {
+        $window_last_active_condition = $window === 'all' ? 'last_active IS NOT NULL' : "last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL {$window_days} DAY)";
+        $active_window = max($active_window, (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE {$window_last_active_condition}", [], 0));
+    }
 
     $learnhub_starts = coinrexMetricsTableExists('taskhub_learning_sessions')
         ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM taskhub_learning_sessions", [], 0)
@@ -486,11 +504,12 @@ function getAdminInvestorMetrics(PDO $db, string $window = '30d'): array {
             'dau' => $dau,
             'wau' => $wau,
             'mau' => $mau,
+            'activity_quality' => $activity_quality,
             'new_today' => (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE created_at >= CURDATE()", [], 0),
             'new_7d' => (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE created_at >= (NOW() - INTERVAL 7 DAY)", [], 0),
             'new_30d' => (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE created_at >= (NOW() - INTERVAL 30 DAY)", [], 0),
             'new_window' => (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE {$window_user_condition}", [], 0),
-            'active_window' => $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT user_id) FROM user_activity_days WHERE {$window_activity_condition}", [], 0) : 0,
+            'active_window' => $active_window,
             'growth_7d' => coinrexMetricsGrowthForWindow($db, 7),
             'growth_30d' => coinrexMetricsGrowthForWindow($db, 30),
         ],

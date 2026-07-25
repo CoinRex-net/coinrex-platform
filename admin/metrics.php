@@ -145,6 +145,7 @@ function investorWindowUrl($window): string {
 }
 
 $analyticsQuality = !empty($metrics['analytics_has_data']) ? 'Tracked' : 'New';
+$activityQuality = (string) ($metrics['growth']['activity_quality'] ?? $analyticsQuality);
 
 if ($isInvestorShareRequest && !$shareAccess):
 ?>
@@ -305,7 +306,7 @@ if ($isInvestorShareRequest):
 <?php if (empty($metrics['analytics_has_data'])): ?>
 <div class="dashboard-panel investor-data-note">
     <i class="fas fa-circle-info"></i>
-    <span>Retention and session metrics start becoming reliable after the new analytics tables collect activity. Existing product, reward, review, LearnHub, BoostHub, and RexLink totals are live now.</span>
+    <span>Activity headline cards use live <code>last_active</code> fallback while cohort retention and session-duration history continue collecting. Product, reward, review, LearnHub, BoostHub, and RexLink totals are live.</span>
 </div>
 <?php endif; ?>
 
@@ -316,15 +317,11 @@ if ($isInvestorShareRequest):
     <?php
     investorMetricCard('Total Registered Users', investorMetricFormatNumber($metrics['growth']['total_users']), 'fa-users', 'is-blue');
     investorMetricCard('Active Users Now', investorMetricFormatNumber($metrics['growth']['active_now']), 'fa-circle-play', 'is-green', 'Last 5 minutes');
-    investorMetricCard('Daily Active Users', investorMetricFormatNumber($metrics['growth']['dau']), 'fa-bolt', 'is-gold', '', $analyticsQuality);
-    investorMetricCard('7 Day Active Users', investorMetricFormatNumber($metrics['growth']['wau']), 'fa-calendar-week', 'is-cyan', '', $analyticsQuality);
-    investorMetricCard('Monthly Active Users', investorMetricFormatNumber($metrics['growth']['mau']), 'fa-calendar-days', 'is-purple', '', $analyticsQuality);
-    investorMetricCard('Active Users in Window', investorMetricFormatNumber($metrics['growth']['active_window']), 'fa-filter', 'is-orange', $windowLabel, $analyticsQuality);
-    investorMetricCard('New Users in Window', investorMetricFormatNumber($metrics['growth']['new_window']), 'fa-user-clock', 'is-purple', $windowLabel);
-    investorMetricCard('New Users Today', investorMetricFormatNumber($metrics['growth']['new_today']), 'fa-user-plus', 'is-green');
-    investorMetricCard('New Users This Week', investorMetricFormatNumber($metrics['growth']['new_7d']), 'fa-users-rays', 'is-cyan');
-    investorMetricCard('New Users 30 Days', investorMetricFormatNumber($metrics['growth']['new_30d']), 'fa-chart-simple', 'is-blue');
-    investorMetricCard('Growth 7D / 30D', investorMetricFormatPercent($metrics['growth']['growth_7d']) . ' / ' . investorMetricFormatPercent($metrics['growth']['growth_30d']), 'fa-arrow-trend-up', 'is-orange', investorMetricTrend($metrics['growth']['growth_7d']));
+    investorMetricCard('Daily Active Users', investorMetricFormatNumber($metrics['growth']['dau']), 'fa-bolt', 'is-gold', 'Today', $activityQuality);
+    investorMetricCard('7 Day Active Users', investorMetricFormatNumber($metrics['growth']['wau']), 'fa-calendar-week', 'is-cyan', 'Rolling 7 days', $activityQuality);
+    investorMetricCard('Monthly Active Users', investorMetricFormatNumber($metrics['growth']['mau']), 'fa-calendar-days', 'is-purple', 'Rolling 30 days', $activityQuality);
+    investorMetricCard('New Users', investorMetricFormatNumber($metrics['growth']['new_window']), 'fa-user-plus', 'is-green', $windowLabel);
+    investorMetricCard('Growth 7D / 30D', investorMetricFormatPercent($metrics['growth']['growth_7d']) . ' / ' . investorMetricFormatPercent($metrics['growth']['growth_30d']), 'fa-arrow-trend-up', 'is-orange', 'New-user momentum');
     ?>
 </div>
 

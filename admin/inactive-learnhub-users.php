@@ -2,7 +2,7 @@
 $page_title = 'Inactive Users Export';
 $activePage = 'inactive-learnhub-users';
 $export_format = strtolower(trim((string) ($_GET['export'] ?? '')));
-$is_export_request = in_array($export_format, ['txt', 'xls'], true);
+$is_export_request = in_array($export_format, ['txt', 'xls', 'xlsx'], true);
 
 if ($is_export_request) {
     require_once __DIR__ . '/includes/config.php';
@@ -144,7 +144,10 @@ function inactiveLearnHubStreamTxt(array $rows, string $filter): void {
     header('Content-Disposition: attachment; filename="' . inactiveLearnHubExportFilename($filter, 'txt') . '"');
     header('X-Content-Type-Options: nosniff');
     foreach (inactiveLearnHubExportableRows($rows) as $row) {
-        echo trim((string) $row['email']) . "\r\n";
+        $email = trim((string) ($row['email'] ?? ''));
+        $username = trim((string) ($row['username'] ?? ''));
+        $full_name = trim((string) ($row['full_name'] ?? ''));
+        echo $email . ' | ' . $username . ' | ' . $full_name . "\r\n";
     }
     exit;
 }
@@ -171,10 +174,86 @@ function inactiveLearnHubStreamXls(array $rows, string $filter, int $total_days)
     exit;
 }
 
+function inactiveLearnHubXml($value): string {
+    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+}
+
+function inactiveLearnHubExcelColumn(int $index): string {
+    $name = '';
+    while ($index > 0) {
+        $index--;
+        $name = chr(65 + ($index % 26)) . $name;
+        $index = intdiv($index, 26);
+    }
+    return $name;
+}
+
+function inactiveLearnHubStreamXlsx(array $rows, string $filter, int $total_days): void {
+    if (!class_exists('ZipArchive')) {
+        inactiveLearnHubStreamXls($rows, $filter, $total_days);
+    }
+
+    $headers = ['Email', 'Username', 'Full Name', 'Status', 'LearnHub Stage', 'Completed Days', 'Last Active', 'Registered Date'];
+    $sheet_rows = [$headers];
+    foreach (inactiveLearnHubExportableRows($rows) as $row) {
+        $sheet_rows[] = [
+            (string) ($row['email'] ?? ''),
+            (string) ($row['username'] ?? ''),
+            (string) ($row['full_name'] ?? ''),
+            (string) ($row['status'] ?? ''),
+            inactiveLearnHubStageLabel($row, $total_days),
+            (string) ((int) ($row['completed_days'] ?? 0)),
+            (string) ($row['last_active'] ?? ''),
+            (string) ($row['created_at'] ?? ''),
+        ];
+    }
+
+    $sheet_xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        . '<sheetViews><sheetView workbookViewId="0"/></sheetViews>'
+        . '<sheetFormatPr defaultRowHeight="15"/>'
+        . '<sheetData>';
+    foreach ($sheet_rows as $row_index => $row) {
+        $excel_row = $row_index + 1;
+        $sheet_xml .= '<row r="' . $excel_row . '">';
+        foreach ($row as $col_index => $value) {
+            $cell_ref = inactiveLearnHubExcelColumn($col_index + 1) . $excel_row;
+            $sheet_xml .= '<c r="' . $cell_ref . '" t="inlineStr"><is><t>' . inactiveLearnHubXml($value) . '</t></is></c>';
+        }
+        $sheet_xml .= '</row>';
+    }
+    $sheet_xml .= '</sheetData></worksheet>';
+
+    $tmp = tempnam(sys_get_temp_dir(), 'coinrex_xlsx_');
+    $zip = new ZipArchive();
+    if ($tmp === false || $zip->open($tmp, ZipArchive::OVERWRITE) !== true) {
+        inactiveLearnHubStreamXls($rows, $filter, $total_days);
+    }
+
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+    $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Inactive LearnHub" sheetId="1" r:id="rId1"/></sheets></workbook>');
+    $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>');
+    $zip->addFromString('xl/worksheets/sheet1.xml', $sheet_xml);
+    $zip->close();
+
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . inactiveLearnHubExportFilename($filter, 'xlsx') . '"');
+    header('Content-Length: ' . filesize($tmp));
+    header('X-Content-Type-Options: nosniff');
+    readfile($tmp);
+    @unlink($tmp);
+    exit;
+}
+
 if ($is_export_request) {
     $export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days);
     if ($export_format === 'txt') {
         inactiveLearnHubStreamTxt($export_rows, $learnhub_filter);
+    }
+    if ($export_format === 'xlsx') {
+        inactiveLearnHubStreamXlsx($export_rows, $learnhub_filter, $total_days);
     }
     inactiveLearnHubStreamXls($export_rows, $learnhub_filter, $total_days);
 }
@@ -195,7 +274,7 @@ if ($search !== '') {
     $base_params['q'] = $search;
 }
 $txt_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(array_merge($base_params, ['export' => 'txt']));
-$xls_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(array_merge($base_params, ['export' => 'xls']));
+$xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(array_merge($base_params, ['export' => 'xlsx']));
 ?>
 
 <div class="dashboard-header">
@@ -265,7 +344,7 @@ $xls_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(a
             <button type="submit" class="btn btn-secondary"><i class="fas fa-filter"></i> Apply</button>
             <a href="<?php echo ADMIN_BASE_URL; ?>/inactive-learnhub-users.php" class="btn btn-secondary"><i class="fas fa-xmark"></i> Clear</a>
             <a href="<?php echo htmlspecialchars($txt_url, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><i class="fas fa-file-lines"></i> Export TXT</a>
-            <a href="<?php echo htmlspecialchars($xls_url, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><i class="fas fa-file-excel"></i> Export XLS</a>
+            <a href="<?php echo htmlspecialchars($xlsx_url, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><i class="fas fa-file-excel"></i> Export XLSX</a>
         </div>
     </form>
 </div>
