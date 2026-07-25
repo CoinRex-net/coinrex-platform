@@ -430,6 +430,21 @@ function getAdminInvestorMetrics(PDO $db, string $window = '30d'): array {
         $window_last_active_condition = $window === 'all' ? 'last_active IS NOT NULL' : "last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL {$window_days} DAY)";
         $active_window = max($active_window, (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE {$window_last_active_condition}", [], 0));
     }
+    $returning_24h_count = $analytics_ready
+        ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT uad.user_id) FROM user_activity_days uad INNER JOIN users u ON u.id = uad.user_id WHERE uad.activity_date >= CURDATE() AND u.created_at < CURDATE()", [], 0)
+        : 0;
+    $returning_7d_count = $analytics_ready
+        ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT uad.user_id) FROM user_activity_days uad INNER JOIN users u ON u.id = uad.user_id WHERE uad.activity_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) AND u.created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)", [], 0)
+        : 0;
+    $returning_30d_count = $analytics_ready
+        ? (int) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT uad.user_id) FROM user_activity_days uad INNER JOIN users u ON u.id = uad.user_id WHERE uad.activity_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND u.created_at < DATE_SUB(CURDATE(), INTERVAL 29 DAY)", [], 0)
+        : 0;
+    if (coinrexMetricsColumnExists('users', 'last_active')) {
+        $returning_24h_count = max($returning_24h_count, (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= CURDATE() AND created_at < CURDATE()", [], 0));
+        $returning_7d_count = max($returning_7d_count, (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL 7 DAY) AND created_at < (NOW() - INTERVAL 7 DAY)", [], 0));
+        $returning_30d_count = max($returning_30d_count, (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM users WHERE last_active IS NOT NULL AND last_active >= (NOW() - INTERVAL 30 DAY) AND created_at < (NOW() - INTERVAL 30 DAY)", [], 0));
+    }
+    $session_count = $analytics_ready ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM user_sessions WHERE duration_seconds > 0", [], 0) : 0;
 
     $learnhub_starts = coinrexMetricsTableExists('taskhub_learning_sessions')
         ? (int) coinrexMetricsScalar($db, "SELECT COUNT(*) FROM taskhub_learning_sessions", [], 0)
@@ -564,22 +579,15 @@ function getAdminInvestorMetrics(PDO $db, string $window = '30d'): array {
             'valid_referrals' => (int) coinrexMetricsScalar($db, "SELECT COALESCE(SUM(valid_referrals), 0) FROM users", [], 0),
         ],
         'retention' => [
-            'day1' => $analytics_ready ? coinrexMetricsRetentionRate($db, 1) : 0.0,
-            'day7' => $analytics_ready ? coinrexMetricsRetentionRate($db, 7) : 0.0,
-            'day30' => $analytics_ready ? coinrexMetricsRetentionRate($db, 30) : 0.0,
-            'returning_24h' => $analytics_ready ? coinrexMetricsPercent(
-                (float) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT uad.user_id) FROM user_activity_days uad INNER JOIN users u ON u.id = uad.user_id WHERE uad.activity_date >= CURDATE() AND u.created_at < CURDATE()", [], 0),
-                (float) max(1, $dau)
-            ) : 0.0,
-            'returning_7d' => $analytics_ready ? coinrexMetricsPercent(
-                (float) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT uad.user_id) FROM user_activity_days uad INNER JOIN users u ON u.id = uad.user_id WHERE uad.activity_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) AND u.created_at < DATE_SUB(CURDATE(), INTERVAL 6 DAY)", [], 0),
-                (float) max(1, $wau)
-            ) : 0.0,
-            'returning_30d' => $analytics_ready ? coinrexMetricsPercent(
-                (float) coinrexMetricsScalar($db, "SELECT COUNT(DISTINCT uad.user_id) FROM user_activity_days uad INNER JOIN users u ON u.id = uad.user_id WHERE uad.activity_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND u.created_at < DATE_SUB(CURDATE(), INTERVAL 29 DAY)", [], 0),
-                (float) max(1, $mau)
-            ) : 0.0,
-            'avg_session_seconds' => $analytics_ready ? (int) round((float) coinrexMetricsScalar($db, "SELECT COALESCE(AVG(duration_seconds), 0) FROM user_sessions WHERE duration_seconds > 0", [], 0)) : 0,
+            'cohort_ready' => $analytics_has_data,
+            'session_ready' => $session_count > 0,
+            'day1' => $analytics_has_data ? coinrexMetricsRetentionRate($db, 1) : null,
+            'day7' => $analytics_has_data ? coinrexMetricsRetentionRate($db, 7) : null,
+            'day30' => $analytics_has_data ? coinrexMetricsRetentionRate($db, 30) : null,
+            'returning_24h' => $dau > 0 ? coinrexMetricsPercent((float) $returning_24h_count, (float) $dau) : null,
+            'returning_7d' => $wau > 0 ? coinrexMetricsPercent((float) $returning_7d_count, (float) $wau) : null,
+            'returning_30d' => $mau > 0 ? coinrexMetricsPercent((float) $returning_30d_count, (float) $mau) : null,
+            'avg_session_seconds' => $session_count > 0 ? (int) round((float) coinrexMetricsScalar($db, "SELECT COALESCE(AVG(duration_seconds), 0) FROM user_sessions WHERE duration_seconds > 0", [], 0)) : null,
         ],
         'cohorts' => $analytics_ready ? coinrexMetricsRows($db, "
             SELECT
