@@ -386,7 +386,7 @@ function coinrexMetricsRetentionRate(PDO $db, int $offset_days): float {
         FROM users u
         INNER JOIN user_activity_days uad
             ON uad.user_id = u.id
-           AND uad.activity_date = DATE_ADD(DATE(u.created_at), INTERVAL {$offset_days} DAY)
+           AND uad.activity_date >= DATE_ADD(DATE(u.created_at), INTERVAL {$offset_days} DAY)
         WHERE DATE(u.created_at) <= DATE_SUB(CURDATE(), INTERVAL {$offset_days} DAY)
     ", [], 0);
 
