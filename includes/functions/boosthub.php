@@ -284,18 +284,29 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
     // ── 4. Check 24h cooldown from last completed task ──
     // TESTING_MODE: Skip 24h cooldown between BoostHub tasks
     if (!defined('TESTING_MODE') || !TESTING_MODE) {
-        $last_completed_stmt = $db->prepare("
-            SELECT MAX(COALESCE(utl.task_completed_at, utl.completed_at)) AS completed_at
+        $last_activity_stmt = $db->prepare("
+            SELECT utl.status, utl.completed_at, utl.task_completed_at, utl.metadata
             FROM user_task_logs utl
             INNER JOIN mini_tasks mt ON mt.id = utl.task_id
             WHERE utl.user_id = ?
-              AND utl.status = 'completed'
+              AND utl.status IN ('submitted', 'completed')
               AND mt.task_group = 'boosthub'
+            ORDER BY COALESCE(utl.task_completed_at, utl.completed_at) DESC, utl.id DESC
+            LIMIT 1
         ");
-        $last_completed_stmt->execute([$user_id]);
-        $last_completed_at = (string) ($last_completed_stmt->fetch()['completed_at'] ?? '');
-        if ($last_completed_at !== '') {
-            $unlock_ts = strtotime($last_completed_at . ' +24 hours');
+        $last_activity_stmt->execute([$user_id]);
+        $last_activity = $last_activity_stmt->fetch();
+        if ($last_activity) {
+            $last_activity_meta = !empty($last_activity['metadata'])
+                ? (json_decode((string) $last_activity['metadata'], true) ?: [])
+                : [];
+            $cooldown_anchor_at = (string) ($last_activity_meta['submitted_at'] ?? '');
+            if ($cooldown_anchor_at === '') {
+                $cooldown_anchor_at = (string) ($last_activity['task_completed_at'] ?? $last_activity['completed_at'] ?? '');
+            }
+
+            $cooldown_anchor_ts = $cooldown_anchor_at !== '' ? strtotime($cooldown_anchor_at) : false;
+            $unlock_ts = $cooldown_anchor_ts ? strtotime('+24 hours', $cooldown_anchor_ts) : false;
             if ($unlock_ts > time()) {
                 return [
                     'status' => 'locked',

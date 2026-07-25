@@ -1917,11 +1917,14 @@ function reviewTaskHubSubmission($log_id, $approve, PDO $db = null, array $optio
     }
 
     $completed_at = date('Y-m-d H:i:s');
+    $existing_metadata = !empty($row['metadata']) ? (json_decode((string) $row['metadata'], true) ?: []) : [];
+    $existing_metadata['reviewed_at'] = $completed_at;
+    $existing_metadata['review_outcome'] = 'approved';
     taskHubUpdateLog((int) $row['id'], [
         'status' => 'completed',
         'completed_at' => $completed_at,
         'task_completed_at' => $completed_at,
-        'metadata' => ['reviewed_at' => $completed_at, 'review_outcome' => 'approved'],
+        'metadata' => $existing_metadata,
     ], $db);
 
     $entry = addRewardLedgerEntry(
