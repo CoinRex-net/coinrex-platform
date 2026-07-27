@@ -16,6 +16,7 @@ $db = getDBConnection();
 $total_days = defined('TASKHUB_TOTAL_DAYS') ? (int) TASKHUB_TOTAL_DAYS : 10;
 $inactive_days = 3;
 $learnhub_filter = inactiveLearnHubNormalizeFilter((string) ($_GET['learnhub'] ?? 'not_started'), $total_days);
+$user_level_filter = inactiveLearnHubNormalizeUserLevelFilter((string) ($_GET['user_level'] ?? 'all'), $learnhub_filter, $total_days);
 $status_filter = inactiveLearnHubNormalizeStatus((string) ($_GET['status'] ?? 'active'));
 $search = trim((string) ($_GET['q'] ?? ''));
 
@@ -39,6 +40,19 @@ function inactiveLearnHubNormalizeStatus(string $value): string {
     return in_array($value, ['active', 'suspended', 'all'], true) ? $value : 'active';
 }
 
+function inactiveLearnHubIsFinalDayFilter(string $filter, int $total_days): bool {
+    return $filter === 'day_' . str_pad((string) $total_days, 2, '0', STR_PAD_LEFT);
+}
+
+function inactiveLearnHubNormalizeUserLevelFilter(string $value, string $learnhub_filter, int $total_days): string {
+    if (!inactiveLearnHubIsFinalDayFilter($learnhub_filter, $total_days)) {
+        return 'all';
+    }
+
+    $value = strtolower(trim($value));
+    return in_array($value, ['all', 'beginner', 'pro'], true) ? $value : 'all';
+}
+
 function inactiveLearnHubFilterLabel(string $filter): string {
     if ($filter === 'not_started') {
         return 'Not Started LearnHub';
@@ -59,7 +73,21 @@ function inactiveLearnHubStageLabel(array $row, int $total_days): string {
     return 'Day ' . str_pad((string) $current_day, 2, '0', STR_PAD_LEFT);
 }
 
-function inactiveLearnHubBuildQuery(string $filter, string $status, string $search, int $total_days, int $inactive_days, bool $count_only = false): array {
+function inactiveLearnHubUserLevelLabel(string $filter): string {
+    $filter = strtolower(trim($filter));
+    if ($filter === 'beginner') {
+        return 'Beginner';
+    }
+    if (in_array($filter, ['pro', 'premium'], true)) {
+        return 'PRO';
+    }
+    if ($filter === 'expert') {
+        return 'Expert';
+    }
+    return 'All Levels';
+}
+
+function inactiveLearnHubBuildQuery(string $filter, string $user_level_filter, string $status, string $search, int $total_days, int $inactive_days, bool $count_only = false): array {
     $inactive_days = max(1, (int) $inactive_days);
     $completed_expr = "GREATEST(
         COALESCE(log_stats.completed_days, 0),
@@ -68,7 +96,7 @@ function inactiveLearnHubBuildQuery(string $filter, string $status, string $sear
 
     $select = $count_only
         ? "COUNT(*) AS total"
-        : "u.id, u.email, u.username, u.full_name, u.status, u.current_day, u.last_active, u.created_at, {$completed_expr} AS completed_days";
+        : "u.id, u.email, u.username, u.full_name, u.status, u.level, u.current_day, u.last_active, u.created_at, {$completed_expr} AS completed_days";
 
     $sql = "
         SELECT {$select}
@@ -106,6 +134,14 @@ function inactiveLearnHubBuildQuery(string $filter, string $status, string $sear
         $params[] = $day;
     }
 
+    if (inactiveLearnHubIsFinalDayFilter($filter, $total_days)) {
+        if ($user_level_filter === 'beginner') {
+            $sql .= " AND LOWER(TRIM(COALESCE(u.level, 'beginner'))) = 'beginner' ";
+        } elseif ($user_level_filter === 'pro') {
+            $sql .= " AND LOWER(TRIM(COALESCE(u.level, 'beginner'))) IN ('pro', 'premium') ";
+        }
+    }
+
     if (!$count_only) {
         $sql .= " ORDER BY u.id DESC ";
     }
@@ -113,8 +149,8 @@ function inactiveLearnHubBuildQuery(string $filter, string $status, string $sear
     return [$sql, $params];
 }
 
-function inactiveLearnHubFetchRows(PDO $db, string $filter, string $status, string $search, int $total_days, int $inactive_days, ?int $limit = null): array {
-    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $status, $search, $total_days, $inactive_days, false);
+function inactiveLearnHubFetchRows(PDO $db, string $filter, string $user_level_filter, string $status, string $search, int $total_days, int $inactive_days, ?int $limit = null): array {
+    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $user_level_filter, $status, $search, $total_days, $inactive_days, false);
     if ($limit !== null) {
         $sql .= " LIMIT " . max(1, (int) $limit);
     }
@@ -123,8 +159,8 @@ function inactiveLearnHubFetchRows(PDO $db, string $filter, string $status, stri
     return $stmt->fetchAll() ?: [];
 }
 
-function inactiveLearnHubCountRows(PDO $db, string $filter, string $status, string $search, int $total_days, int $inactive_days): int {
-    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $status, $search, $total_days, $inactive_days, true);
+function inactiveLearnHubCountRows(PDO $db, string $filter, string $user_level_filter, string $status, string $search, int $total_days, int $inactive_days): int {
+    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $user_level_filter, $status, $search, $total_days, $inactive_days, true);
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     return (int) $stmt->fetchColumn();
@@ -160,13 +196,14 @@ function inactiveLearnHubStreamXls(array $rows, string $filter, int $total_days)
     header('Content-Disposition: attachment; filename="' . inactiveLearnHubExportFilename($filter, 'xls') . '"');
     header('X-Content-Type-Options: nosniff');
     echo "<table border=\"1\">\n";
-    echo "<thead><tr><th>Email</th><th>Username</th><th>Full Name</th><th>Status</th><th>LearnHub Stage</th><th>Completed Days</th><th>Last Active</th><th>Registered Date</th></tr></thead>\n<tbody>\n";
+    echo "<thead><tr><th>Email</th><th>Username</th><th>Full Name</th><th>Status</th><th>Level</th><th>LearnHub Stage</th><th>Completed Days</th><th>Last Active</th><th>Registered Date</th></tr></thead>\n<tbody>\n";
     foreach (inactiveLearnHubExportableRows($rows) as $row) {
         echo '<tr>';
         echo '<td>' . htmlspecialchars((string) $row['email'], ENT_QUOTES, 'UTF-8') . '</td>';
         echo '<td>' . htmlspecialchars((string) $row['username'], ENT_QUOTES, 'UTF-8') . '</td>';
         echo '<td>' . htmlspecialchars((string) $row['full_name'], ENT_QUOTES, 'UTF-8') . '</td>';
         echo '<td>' . htmlspecialchars((string) $row['status'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td>' . htmlspecialchars(inactiveLearnHubUserLevelLabel(strtolower((string) ($row['level'] ?? 'beginner'))), ENT_QUOTES, 'UTF-8') . '</td>';
         echo '<td>' . htmlspecialchars(inactiveLearnHubStageLabel($row, $total_days), ENT_QUOTES, 'UTF-8') . '</td>';
         echo '<td>' . number_format((int) ($row['completed_days'] ?? 0)) . '</td>';
         echo '<td>' . htmlspecialchars((string) ($row['last_active'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
@@ -196,7 +233,7 @@ function inactiveLearnHubStreamXlsx(array $rows, string $filter, int $total_days
         inactiveLearnHubStreamXls($rows, $filter, $total_days);
     }
 
-    $headers = ['Email', 'Username', 'Full Name', 'Status', 'LearnHub Stage', 'Completed Days', 'Last Active', 'Registered Date'];
+    $headers = ['Email', 'Username', 'Full Name', 'Status', 'Level', 'LearnHub Stage', 'Completed Days', 'Last Active', 'Registered Date'];
     $sheet_rows = [$headers];
     foreach (inactiveLearnHubExportableRows($rows) as $row) {
         $sheet_rows[] = [
@@ -204,6 +241,7 @@ function inactiveLearnHubStreamXlsx(array $rows, string $filter, int $total_days
             (string) ($row['username'] ?? ''),
             (string) ($row['full_name'] ?? ''),
             (string) ($row['status'] ?? ''),
+            inactiveLearnHubUserLevelLabel(strtolower((string) ($row['level'] ?? 'beginner'))),
             inactiveLearnHubStageLabel($row, $total_days),
             (string) ((int) ($row['completed_days'] ?? 0)),
             (string) ($row['last_active'] ?? ''),
@@ -251,7 +289,7 @@ function inactiveLearnHubStreamXlsx(array $rows, string $filter, int $total_days
 }
 
 if ($is_export_request) {
-    $export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days);
+    $export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $user_level_filter, $status_filter, $search, $total_days, $inactive_days);
     if ($export_format === 'txt') {
         inactiveLearnHubStreamTxt($export_rows, $learnhub_filter);
     }
@@ -261,11 +299,11 @@ if ($is_export_request) {
     inactiveLearnHubStreamXls($export_rows, $learnhub_filter, $total_days);
 }
 
-$total_matches = inactiveLearnHubCountRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days);
-$preview_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days, 100);
+$total_matches = inactiveLearnHubCountRows($db, $learnhub_filter, $user_level_filter, $status_filter, $search, $total_days, $inactive_days);
+$preview_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $user_level_filter, $status_filter, $search, $total_days, $inactive_days, 100);
 $exportable_count = count(inactiveLearnHubExportableRows($preview_rows));
 if ($total_matches > count($preview_rows)) {
-    $all_export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days);
+    $all_export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $user_level_filter, $status_filter, $search, $total_days, $inactive_days);
     $exportable_count = count(inactiveLearnHubExportableRows($all_export_rows));
 }
 
@@ -275,6 +313,9 @@ $base_params = [
 ];
 if ($search !== '') {
     $base_params['q'] = $search;
+}
+if (inactiveLearnHubIsFinalDayFilter($learnhub_filter, $total_days) && $user_level_filter !== 'all') {
+    $base_params['user_level'] = $user_level_filter;
 }
 $txt_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(array_merge($base_params, ['export' => 'txt']));
 $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(array_merge($base_params, ['export' => 'xlsx']));
@@ -305,7 +346,7 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
     <div class="dashboard-metric-card">
         <div class="metric-top"><span class="metric-icon is-gold"><i class="fas fa-filter"></i></span></div>
         <strong class="metric-value inactive-export-label"><?php echo htmlspecialchars(inactiveLearnHubFilterLabel($learnhub_filter), ENT_QUOTES, 'UTF-8'); ?></strong>
-        <span class="metric-label">Selected Filter</span>
+        <span class="metric-label"><?php echo inactiveLearnHubIsFinalDayFilter($learnhub_filter, $total_days) ? htmlspecialchars(inactiveLearnHubUserLevelLabel($user_level_filter), ENT_QUOTES, 'UTF-8') : 'Selected Filter'; ?></span>
     </div>
     <div class="dashboard-metric-card">
         <div class="metric-top"><span class="metric-icon is-purple"><i class="fas fa-clock"></i></span></div>
@@ -340,6 +381,14 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
             </select>
         </label>
         <label>
+            <span>Day 10 Level</span>
+            <select name="user_level">
+                <option value="all" <?php echo $user_level_filter === 'all' ? 'selected' : ''; ?>>All Levels</option>
+                <option value="beginner" <?php echo $user_level_filter === 'beginner' ? 'selected' : ''; ?>>Beginner</option>
+                <option value="pro" <?php echo $user_level_filter === 'pro' ? 'selected' : ''; ?>>PRO</option>
+            </select>
+        </label>
+        <label>
             <span>Search</span>
             <input type="text" name="q" value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Name, username, email">
         </label>
@@ -364,6 +413,7 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
                     <th>Email</th>
                     <th>User</th>
                     <th>Status</th>
+                    <th>Level</th>
                     <th>LearnHub Stage</th>
                     <th>Completed Days</th>
                     <th>Last Active</th>
@@ -372,7 +422,7 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
             </thead>
             <tbody>
                 <?php if (empty($preview_rows)): ?>
-                    <tr><td colspan="7" class="dashboard-empty"><i class="fas fa-inbox"></i>No users found for this filter.</td></tr>
+                    <tr><td colspan="8" class="dashboard-empty"><i class="fas fa-inbox"></i>No users found for this filter.</td></tr>
                 <?php else: ?>
                     <?php foreach ($preview_rows as $row): ?>
                         <tr>
@@ -382,6 +432,7 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
                                 <span class="muted"><?php echo htmlspecialchars((string) ($row['full_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                             </td>
                             <td data-label="Status"><?php echo htmlspecialchars((string) ($row['status'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td data-label="Level"><?php echo htmlspecialchars(inactiveLearnHubUserLevelLabel((string) ($row['level'] ?? 'beginner')), ENT_QUOTES, 'UTF-8'); ?></td>
                             <td data-label="LearnHub Stage"><?php echo htmlspecialchars(inactiveLearnHubStageLabel($row, $total_days), ENT_QUOTES, 'UTF-8'); ?></td>
                             <td data-label="Completed Days"><?php echo number_format((int) ($row['completed_days'] ?? 0)); ?>/<?php echo number_format($total_days); ?></td>
                             <td data-label="Last Active"><?php echo htmlspecialchars((string) ($row['last_active'] ?? 'Never'), ENT_QUOTES, 'UTF-8'); ?></td>
