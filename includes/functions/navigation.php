@@ -818,16 +818,29 @@ function coinrexEnsureNavigationSlotsSchema(PDO $db): void {
             location VARCHAR(40) NOT NULL,
             section_key VARCHAR(60) NOT NULL,
             audience VARCHAR(20) NOT NULL DEFAULT 'all',
+            user_level VARCHAR(20) NOT NULL DEFAULT 'all',
             slot_number INT NOT NULL,
             nav_key VARCHAR(120) NOT NULL DEFAULT '',
             updated_by INT UNSIGNED NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            UNIQUE KEY uq_navigation_slots_group_slot (slot_group, slot_number),
-            KEY idx_navigation_slots_lookup (location, section_key, audience)
+            UNIQUE KEY uq_navigation_slots_group_slot_level (slot_group, slot_number, user_level),
+            KEY idx_navigation_slots_lookup (location, section_key, audience, user_level)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+
+    coinrexEnsureNavigationSlotColumn($db, 'user_level', "ALTER TABLE navigation_slots ADD COLUMN user_level VARCHAR(20) NOT NULL DEFAULT 'all' AFTER audience");
+
+    try {
+        $db->exec("ALTER TABLE navigation_slots DROP INDEX uq_navigation_slots_group_slot");
+    } catch (Throwable $e) {
+    }
+
+    try {
+        $db->exec("ALTER TABLE navigation_slots ADD UNIQUE KEY uq_navigation_slots_group_slot_level (slot_group, slot_number, user_level)");
+    } catch (Throwable $e) {
+    }
 }
 
 function coinrexEnsureNavigationColumn(PDO $db, string $column, string $ddl): void {
@@ -845,6 +858,31 @@ function coinrexEnsureNavigationColumn(PDO $db, string $column, string $ddl): vo
     }
 
     $db->exec($ddl);
+}
+
+function coinrexEnsureNavigationSlotColumn(PDO $db, string $column, string $ddl): void {
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'navigation_slots'
+          AND COLUMN_NAME = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$column]);
+    if ($stmt->fetch()) {
+        return;
+    }
+
+    $db->exec($ddl);
+}
+
+function coinrexLevelSlotGroup(string $baseSlotGroup, string $level): string {
+    $level = normalizeUserLevel($level);
+    if ($level === 'beginner' || $level === '') {
+        $level = 'beginner';
+    }
+    return $baseSlotGroup . '_' . $level;
 }
 
 function seedDefaultNavigationControls(PDO $db = null, bool $resetPresentation = false, bool $resetEnabled = false): void {
@@ -1240,9 +1278,14 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
         return array_slice(getManagedNavigationItems($location, $sectionKey, $context), 0, $limit);
     }
 
+    $userLevel = normalizeUserLevel((string) ($context['user_level'] ?? 'beginner'));
+
+    $slotKeys = [];
     try {
         $db = getDBConnection();
         ensureNavigationControlsSchema($db);
+
+        $levelSlotGroup = coinrexLevelSlotGroup($slotGroup, $userLevel);
         $stmt = $db->prepare("
             SELECT nav_key
             FROM navigation_slots
@@ -1250,8 +1293,20 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
             ORDER BY slot_number ASC
             LIMIT " . (int) $limit
         );
-        $stmt->execute([$slotGroup]);
+        $stmt->execute([$levelSlotGroup]);
         $slotKeys = array_values(array_filter(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [])));
+
+        if (!$slotKeys) {
+            $stmt = $db->prepare("
+                SELECT nav_key
+                FROM navigation_slots
+                WHERE slot_group = ?
+                ORDER BY slot_number ASC
+                LIMIT " . (int) $limit
+            );
+            $stmt->execute([$slotGroup]);
+            $slotKeys = array_values(array_filter(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [])));
+        }
     } catch (Throwable $e) {
         $slotKeys = [];
     }
@@ -1276,4 +1331,3 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
 
     return $items;
 }
-?>

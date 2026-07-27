@@ -14,6 +14,11 @@ $current_tab = (string) ($_GET['tab'] ?? $_POST['current_tab'] ?? 'features');
 if (!in_array($current_tab, ['features', 'navigation'], true)) {
     $current_tab = 'features';
 }
+$current_level = (string) ($_GET['level'] ?? $_POST['current_level'] ?? 'visitor');
+$allowed_levels = ['visitor', 'beginner', 'pro', 'expert'];
+if (!in_array($current_level, $allowed_levels, true)) {
+    $current_level = 'visitor';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireAdminCsrf((string) ($_POST['csrf_token'] ?? ''));
@@ -69,21 +74,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? 'MVP defaults restored, including fallback messages.'
                 : 'MVP defaults restored. Custom fallback messages were preserved.';
         } elseif ($action === 'save_navigation_slots') {
-            $slot_groups = [
-                'desktop_guest_slots' => ['slot_group' => 'desktop_guest', 'location' => 'header', 'section_key' => 'primary', 'audience' => 'guest', 'limit' => 6],
-                'desktop_member_slots' => ['slot_group' => 'desktop_member', 'location' => 'header', 'section_key' => 'primary', 'audience' => 'member', 'limit' => 6],
-                'mobile_guest_slots' => ['slot_group' => 'mobile_guest', 'location' => 'mobile', 'section_key' => 'bottom', 'audience' => 'guest', 'limit' => 5],
-                'mobile_member_slots' => ['slot_group' => 'mobile_member', 'location' => 'mobile', 'section_key' => 'bottom', 'audience' => 'member', 'limit' => 5],
+            $submit_level = (string) ($_POST['current_level'] ?? 'visitor');
+            if (!in_array($submit_level, ['visitor', 'beginner', 'pro', 'expert'], true)) {
+                $submit_level = 'visitor';
+            }
+            $level_audience_map = ['visitor' => 'guest', 'beginner' => 'member', 'pro' => 'member', 'expert' => 'member'];
+            $submit_audience = (string) ($level_audience_map[$submit_level] ?? 'guest');
+
+            $desktop_limit = 6;
+            $mobile_limit = 5;
+
+            $desktop_slot_group = 'desktop_' . $submit_level;
+            $mobile_slot_group = 'mobile_' . $submit_level;
+
+            $desktop_slots = $_POST['desktop_slots'] ?? [];
+            if (!is_array($desktop_slots)) {
+                $desktop_slots = [];
+            }
+            $mobile_slots = $_POST['mobile_slots'] ?? [];
+            if (!is_array($mobile_slots)) {
+                $mobile_slots = [];
+            }
+
+            $configs = [
+                [$desktop_slots, $desktop_slot_group, 'header', 'primary', $submit_audience, $desktop_limit],
+                [$mobile_slots, $mobile_slot_group, 'mobile', 'bottom', $submit_audience, $mobile_limit],
             ];
 
-            foreach ($slot_groups as $field => $slot_group) {
-                $posted_slots = $_POST[$field] ?? [];
-                if (!is_array($posted_slots)) {
-                    $posted_slots = [];
-                }
-
-                for ($slot = 1; $slot <= (int) $slot_group['limit']; $slot++) {
-                    $selected_key = trim((string) ($posted_slots[$slot] ?? ''));
+            foreach ($configs as [$slots, $slot_group, $loc, $sec, $aud, $limit]) {
+                for ($slot = 1; $slot <= (int) $limit; $slot++) {
+                    $selected_key = trim((string) ($slots[$slot] ?? ''));
                     if ($selected_key !== '') {
                         $db->prepare("UPDATE navigation_controls SET is_enabled = 1, updated_by = ?, updated_at = NOW() WHERE nav_key = ?")
                             ->execute([
@@ -93,8 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $db->prepare("
                         INSERT INTO navigation_slots (
-                            slot_group, location, section_key, audience, slot_number, nav_key, updated_by
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                            slot_group, location, section_key, audience, user_level, slot_number, nav_key, updated_by
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         ON DUPLICATE KEY UPDATE
                             location = VALUES(location),
                             section_key = VALUES(section_key),
@@ -104,10 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             updated_at = NOW()
                     ")
                         ->execute([
-                            (string) $slot_group['slot_group'],
-                            (string) $slot_group['location'],
-                            (string) $slot_group['section_key'],
-                            (string) $slot_group['audience'],
+                            (string) $slot_group,
+                            (string) $loc,
+                            (string) $sec,
+                            (string) $aud,
+                            (string) $submit_level,
                             $slot,
                             $selected_key,
                             $current_admin_id > 0 ? $current_admin_id : null,
@@ -116,7 +137,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             getNavigationControlRegistry(true);
-            $success_message = 'Header slots updated successfully.';
+            $level_labels = ['visitor' => 'Visitor', 'beginner' => 'Beginner', 'pro' => 'Pro', 'expert' => 'Expert'];
+            $success_message = ($level_labels[$submit_level] ?? $submit_level) . ' navigation slots updated successfully.';
         } elseif ($action === 'save_navigation') {
             $registry = getNavigationControlRegistry();
             foreach ($registry as $key => $default_item) {
@@ -814,28 +836,62 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
 
 <section class="launch-tab-panel" <?php echo $current_tab === 'navigation' ? '' : 'hidden'; ?>>
     <div class="launch-panel">
+        <?php
+        $level_labels = ['visitor' => 'Visitor', 'beginner' => 'Beginner', 'pro' => 'Pro', 'expert' => 'Expert'];
+        $level_icons = ['visitor' => 'fas fa-eye', 'beginner' => 'fas fa-seedling', 'pro' => 'fas fa-fire', 'expert' => 'fas fa-crown'];
+        $level_audience_map = ['visitor' => 'guest', 'beginner' => 'member', 'pro' => 'member', 'expert' => 'member'];
+
+        $filtered_level = $current_level;
+        $filtered_audience = $level_audience_map[$filtered_level] ?? 'guest';
+
+        $desktop_slot_group = 'desktop_' . $filtered_level;
+        $mobile_slot_group = 'mobile_' . $filtered_level;
+
+        $desktop_options = $navigation_slot_options($navigation_registry, 'desktop', $filtered_audience, $feature_flags_by_key);
+        $mobile_options = $navigation_slot_options($navigation_registry, 'mobile', $filtered_audience, $feature_flags_by_key);
+
+        $desktop_location = $filtered_level === 'visitor' ? 'header' : 'header';
+        $desktop_section = 'primary';
+        $mobile_location = 'mobile';
+        $mobile_section = 'bottom';
+
+        $desktop_values = $navigation_slot_values($db, $navigation_registry, $desktop_slot_group, $desktop_location, $desktop_section, $filtered_audience, 6);
+        $mobile_values = $navigation_slot_values($db, $navigation_registry, $mobile_slot_group, $mobile_location, $mobile_section, $filtered_audience, 5);
+        ?>
+
+        <nav class="launch-tabs" style="margin-bottom: 4px;" aria-label="Level filter">
+            <?php foreach ($allowed_levels as $lvl): ?>
+                <a href="<?php echo htmlspecialchars(ADMIN_BASE_URL . '/launch-control.php?tab=navigation&level=' . $lvl, ENT_QUOTES, 'UTF-8'); ?>"
+                   class="launch-tab <?php echo $current_level === $lvl ? 'is-active' : ''; ?>">
+                    <i class="<?php echo $level_icons[$lvl]; ?>"></i>
+                    <span><?php echo $level_labels[$lvl]; ?><small><?php echo $lvl === 'visitor' ? 'Unauthenticated' : 'Signed-in'; ?></small></span>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+
         <form method="POST" action="" class="launch-slot-card">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" name="action" value="save_navigation_slots">
             <input type="hidden" name="current_tab" value="navigation">
+            <input type="hidden" name="current_level" value="<?php echo htmlspecialchars($current_level, ENT_QUOTES, 'UTF-8'); ?>">
             <div class="launch-slot-head">
                 <div>
-                    <h3><i class="fas fa-table-cells-large"></i> Simple Navigation Slots</h3>
-                    <p>Select links for guest and signed-in users. Desktop header has 6 slots; mobile bottom has 5 slots.</p>
+                    <h3><i class="fas fa-table-cells-large"></i> <?php echo $level_labels[$current_level]; ?> Navigation Display</h3>
+                    <p>Configure the Desktop Nav (6 slots) and Mobile Bottom Navigation (5 slots) for <?php echo $level_labels[$current_level]; ?> users.</p>
                 </div>
-                <button type="submit" class="btn btn-primary">Save Header Slots</button>
+                <button type="submit" class="btn btn-primary">Save <?php echo $level_labels[$current_level]; ?> Slots</button>
             </div>
             <div class="launch-slot-groups">
                 <div class="launch-slot-group">
-                    <h4>Desktop Header - Guest</h4>
+                    <h4><i class="fas fa-desktop"></i> Desktop Nav (<?php echo $level_labels[$current_level]; ?>)</h4>
                     <div class="launch-slot-grid">
                         <?php for ($slot = 1; $slot <= 6; $slot++): ?>
                             <label>
                                 Slot <?php echo (int) $slot; ?>
-                                <select name="desktop_guest_slots[<?php echo (int) $slot; ?>]">
+                                <select name="desktop_slots[<?php echo (int) $slot; ?>]">
                                     <option value="">Empty slot</option>
-                                    <?php foreach ($desktop_guest_slot_options as $option): ?>
-                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $desktop_guest_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
+                                    <?php foreach ($desktop_options as $option): ?>
+                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) ($desktop_values[$slot] ?? '') === (string) $option['key'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -845,51 +901,15 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                     </div>
                 </div>
                 <div class="launch-slot-group">
-                    <h4>Desktop Header - Signed-in</h4>
-                    <div class="launch-slot-grid">
-                        <?php for ($slot = 1; $slot <= 6; $slot++): ?>
-                            <label>
-                                Slot <?php echo (int) $slot; ?>
-                                <select name="desktop_member_slots[<?php echo (int) $slot; ?>]">
-                                    <option value="">Empty slot</option>
-                                    <?php foreach ($desktop_member_slot_options as $option): ?>
-                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $desktop_member_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                        <?php endfor; ?>
-                    </div>
-                </div>
-                <div class="launch-slot-group">
-                    <h4>Mobile Bottom - Guest</h4>
+                    <h4><i class="fas fa-mobile-screen-button"></i> Mobile Bottom Nav (<?php echo $level_labels[$current_level]; ?>)</h4>
                     <div class="launch-slot-grid">
                         <?php for ($slot = 1; $slot <= 5; $slot++): ?>
                             <label>
                                 Slot <?php echo (int) $slot; ?>
-                                <select name="mobile_guest_slots[<?php echo (int) $slot; ?>]">
+                                <select name="mobile_slots[<?php echo (int) $slot; ?>]">
                                     <option value="">Empty slot</option>
-                                    <?php foreach ($mobile_guest_slot_options as $option): ?>
-                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $mobile_guest_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                        <?php endfor; ?>
-                    </div>
-                </div>
-                <div class="launch-slot-group">
-                    <h4>Mobile Bottom - Signed-in</h4>
-                    <div class="launch-slot-grid">
-                        <?php for ($slot = 1; $slot <= 5; $slot++): ?>
-                            <label>
-                                Slot <?php echo (int) $slot; ?>
-                                <select name="mobile_member_slots[<?php echo (int) $slot; ?>]">
-                                    <option value="">Empty slot</option>
-                                    <?php foreach ($mobile_member_slot_options as $option): ?>
-                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) $mobile_member_slot_values[$slot] === (string) $option['key'] ? 'selected' : ''; ?>>
+                                    <?php foreach ($mobile_options as $option): ?>
+                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) ($mobile_values[$slot] ?? '') === (string) $option['key'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -899,7 +919,7 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                     </div>
                 </div>
             </div>
-            <p class="launch-mobile-note">Feature Access still controls whether a selected page is live during MVP launch.</p>
+            <p class="launch-mobile-note">Feature Access still controls whether a selected page is live during MVP launch. Select <strong>Empty slot</strong> to leave a position unset.</p>
         </form>
 
         <section class="launch-create-card">
