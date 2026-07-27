@@ -14,6 +14,7 @@ if ($is_export_request) {
 
 $db = getDBConnection();
 $total_days = defined('TASKHUB_TOTAL_DAYS') ? (int) TASKHUB_TOTAL_DAYS : 10;
+$inactive_days = 3;
 $learnhub_filter = inactiveLearnHubNormalizeFilter((string) ($_GET['learnhub'] ?? 'not_started'), $total_days);
 $status_filter = inactiveLearnHubNormalizeStatus((string) ($_GET['status'] ?? 'active'));
 $search = trim((string) ($_GET['q'] ?? ''));
@@ -58,7 +59,8 @@ function inactiveLearnHubStageLabel(array $row, int $total_days): string {
     return 'Day ' . str_pad((string) $current_day, 2, '0', STR_PAD_LEFT);
 }
 
-function inactiveLearnHubBuildQuery(string $filter, string $status, string $search, int $total_days, bool $count_only = false): array {
+function inactiveLearnHubBuildQuery(string $filter, string $status, string $search, int $total_days, int $inactive_days, bool $count_only = false): array {
+    $inactive_days = max(1, (int) $inactive_days);
     $completed_expr = "GREATEST(
         COALESCE(log_stats.completed_days, 0),
         LEAST({$total_days}, GREATEST(0, COALESCE(u.current_day, 1) - 1))
@@ -79,6 +81,7 @@ function inactiveLearnHubBuildQuery(string $filter, string $status, string $sear
             GROUP BY user_id
         ) log_stats ON log_stats.user_id = u.id
         WHERE 1 = 1
+          AND COALESCE(u.last_active, u.created_at) <= (NOW() - INTERVAL {$inactive_days} DAY)
     ";
     $params = [];
 
@@ -110,8 +113,8 @@ function inactiveLearnHubBuildQuery(string $filter, string $status, string $sear
     return [$sql, $params];
 }
 
-function inactiveLearnHubFetchRows(PDO $db, string $filter, string $status, string $search, int $total_days, ?int $limit = null): array {
-    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $status, $search, $total_days, false);
+function inactiveLearnHubFetchRows(PDO $db, string $filter, string $status, string $search, int $total_days, int $inactive_days, ?int $limit = null): array {
+    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $status, $search, $total_days, $inactive_days, false);
     if ($limit !== null) {
         $sql .= " LIMIT " . max(1, (int) $limit);
     }
@@ -120,8 +123,8 @@ function inactiveLearnHubFetchRows(PDO $db, string $filter, string $status, stri
     return $stmt->fetchAll() ?: [];
 }
 
-function inactiveLearnHubCountRows(PDO $db, string $filter, string $status, string $search, int $total_days): int {
-    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $status, $search, $total_days, true);
+function inactiveLearnHubCountRows(PDO $db, string $filter, string $status, string $search, int $total_days, int $inactive_days): int {
+    [$sql, $params] = inactiveLearnHubBuildQuery($filter, $status, $search, $total_days, $inactive_days, true);
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     return (int) $stmt->fetchColumn();
@@ -248,7 +251,7 @@ function inactiveLearnHubStreamXlsx(array $rows, string $filter, int $total_days
 }
 
 if ($is_export_request) {
-    $export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days);
+    $export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days);
     if ($export_format === 'txt') {
         inactiveLearnHubStreamTxt($export_rows, $learnhub_filter);
     }
@@ -258,11 +261,11 @@ if ($is_export_request) {
     inactiveLearnHubStreamXls($export_rows, $learnhub_filter, $total_days);
 }
 
-$total_matches = inactiveLearnHubCountRows($db, $learnhub_filter, $status_filter, $search, $total_days);
-$preview_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days, 100);
+$total_matches = inactiveLearnHubCountRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days);
+$preview_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days, 100);
 $exportable_count = count(inactiveLearnHubExportableRows($preview_rows));
 if ($total_matches > count($preview_rows)) {
-    $all_export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days);
+    $all_export_rows = inactiveLearnHubFetchRows($db, $learnhub_filter, $status_filter, $search, $total_days, $inactive_days);
     $exportable_count = count(inactiveLearnHubExportableRows($all_export_rows));
 }
 
@@ -282,7 +285,7 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
         <div class="dashboard-header-icon"><i class="fas fa-envelope-open-text"></i></div>
         <div class="dashboard-header-text">
             <h1>Inactive Users Export</h1>
-            <p>Extract LearnHub-specific inactive user emails for targeted outreach.</p>
+            <p>Extract LearnHub users who reached a stage and have been inactive for <?php echo number_format($inactive_days); ?>+ days.</p>
         </div>
     </div>
     <span class="dashboard-header-badge"><i class="fas fa-lock"></i> Admin Only</span>
@@ -292,7 +295,7 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
     <div class="dashboard-metric-card">
         <div class="metric-top"><span class="metric-icon is-blue"><i class="fas fa-users"></i></span></div>
         <strong class="metric-value"><?php echo number_format($total_matches); ?></strong>
-        <span class="metric-label">Matching Users</span>
+        <span class="metric-label"><?php echo number_format($inactive_days); ?>+ Days Inactive</span>
     </div>
     <div class="dashboard-metric-card">
         <div class="metric-top"><span class="metric-icon is-green"><i class="fas fa-at"></i></span></div>
@@ -314,7 +317,7 @@ $xlsx_url = ADMIN_BASE_URL . '/inactive-learnhub-users.php?' . http_build_query(
 <div class="dashboard-panel inactive-export-panel">
     <div class="dashboard-panel-header">
         <h3><i class="fas fa-sliders"></i> Filters</h3>
-        <span class="panel-badge">LearnHub stage</span>
+        <span class="panel-badge"><?php echo number_format($inactive_days); ?>+ days inactive</span>
     </div>
     <form method="GET" class="inactive-export-filters">
         <label>
