@@ -878,6 +878,11 @@ function coinrexEnsureNavigationSlotColumn(PDO $db, string $column, string $ddl)
 }
 
 function coinrexLevelSlotGroup(string $baseSlotGroup, string $level): string {
+    $level = strtolower(trim($level));
+    if ($level === 'visitor') {
+        return $baseSlotGroup . '_visitor';
+    }
+
     $level = normalizeUserLevel($level);
     if ($level === 'beginner' || $level === '') {
         $level = 'beginner';
@@ -1278,25 +1283,22 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
         return array_slice(getManagedNavigationItems($location, $sectionKey, $context), 0, $limit);
     }
 
-    $userLevel = normalizeUserLevel((string) ($context['user_level'] ?? 'beginner'));
+    $isLoggedIn = !empty($context['is_logged_in']);
+    $userLevel = $isLoggedIn ? normalizeUserLevel((string) ($context['user_level'] ?? 'beginner')) : 'visitor';
+    $legacySlotGroup = $slotGroup . '_' . ($isLoggedIn ? 'member' : 'guest');
 
     $slotKeys = [];
     try {
         $db = getDBConnection();
         ensureNavigationControlsSchema($db);
 
-        $levelSlotGroup = coinrexLevelSlotGroup($slotGroup, $userLevel);
-        $stmt = $db->prepare("
-            SELECT nav_key
-            FROM navigation_slots
-            WHERE slot_group = ?
-            ORDER BY slot_number ASC
-            LIMIT " . (int) $limit
-        );
-        $stmt->execute([$levelSlotGroup]);
-        $slotKeys = array_values(array_filter(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [])));
+        $slotGroups = array_values(array_unique([
+            coinrexLevelSlotGroup($slotGroup, $userLevel),
+            $legacySlotGroup,
+            $slotGroup,
+        ]));
 
-        if (!$slotKeys) {
+        foreach ($slotGroups as $candidateSlotGroup) {
             $stmt = $db->prepare("
                 SELECT nav_key
                 FROM navigation_slots
@@ -1304,8 +1306,11 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
                 ORDER BY slot_number ASC
                 LIMIT " . (int) $limit
             );
-            $stmt->execute([$slotGroup]);
+            $stmt->execute([$candidateSlotGroup]);
             $slotKeys = array_values(array_filter(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [])));
+            if ($slotKeys) {
+                break;
+            }
         }
     } catch (Throwable $e) {
         $slotKeys = [];
@@ -1318,6 +1323,7 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
     $registry = getNavigationControlRegistry();
     $defaults = getDefaultNavigationControls();
     $items = [];
+    $usedKeys = [];
     foreach ($slotKeys as $slotKey) {
         $item = $registry[$slotKey] ?? ($defaults[$slotKey] ?? null);
         if (!is_array($item)) {
@@ -1326,8 +1332,23 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
         $item = coinrexPrepareNavigationItem($item, $context);
         if ($item !== null) {
             $items[] = $item;
+            $usedKeys[(string) ($item['nav_key'] ?? $slotKey)] = true;
         }
     }
 
-    return $items;
+    if (count($items) < $limit) {
+        foreach (getManagedNavigationItems($location, $sectionKey, $context) as $fallbackItem) {
+            $fallbackKey = (string) ($fallbackItem['nav_key'] ?? '');
+            if ($fallbackKey === '' || isset($usedKeys[$fallbackKey])) {
+                continue;
+            }
+            $items[] = $fallbackItem;
+            $usedKeys[$fallbackKey] = true;
+            if (count($items) >= $limit) {
+                break;
+            }
+        }
+    }
+
+    return array_slice($items, 0, $limit);
 }

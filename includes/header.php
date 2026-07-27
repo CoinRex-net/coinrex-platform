@@ -169,10 +169,9 @@ $navigation_context = [
     'user_level' => $user_level_for_nav,
     'taskhub_mission_completed' => $taskhub_mission_completed_for_nav,
 ];
-$header_slot_group = $is_logged_in ? 'desktop_member' : 'desktop_guest';
-$header_primary_items = getManagedNavigationSlotItems($header_slot_group, 'header', 'primary', 6, $navigation_context);
+$header_primary_items = getManagedNavigationSlotItems('desktop', 'header', 'primary', 6, $navigation_context);
 $header_resource_items = getManagedNavigationItems('header', 'resources', $navigation_context);
-$mobile_navigation_items = getFixedMobileBottomNavigationItems($navigation_context);
+$mobile_navigation_items = getManagedNavigationSlotItems('mobile', 'mobile', 'bottom', 5, $navigation_context);
 $resources_active = false;
 foreach ($header_resource_items as $header_resource_item) {
     if (!empty($header_resource_item['is_active'])) {
