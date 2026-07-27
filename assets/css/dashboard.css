@@ -305,7 +305,7 @@
    ============================================= */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 14px;
     margin-bottom: 18px;
 }
@@ -350,6 +350,55 @@
 
 .stat-card--balance .stat-card-value {
     color: var(--color-text-heading);
+}
+
+.stat-card--rexrank {
+    display: grid;
+    gap: 6px;
+}
+
+.stat-card-subline {
+    color: var(--color-text-caption-alt);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.dashboard-rr-convert {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.dashboard-rr-convert input,
+.dashboard-rr-convert button {
+    min-width: 0;
+    height: 32px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    font-size: 12px;
+}
+
+.dashboard-rr-convert input {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--color-input-text);
+    padding: 0 8px;
+}
+
+.dashboard-rr-convert button {
+    padding: 0 10px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: var(--color-text-inverse);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.dashboard-rr-convert input:disabled,
+.dashboard-rr-convert button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* =============================================

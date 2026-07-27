@@ -12,8 +12,20 @@ if (!isLoggedIn()) {
 
 $db = getDBConnection();
 ensureRewardClaimSchema($db);
+ensureRexRankSchema($db);
 
 $user = getCurrentUser();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireAppCsrf((string) ($_POST['csrf_token'] ?? ''));
+    $action = trim((string) ($_POST['action'] ?? ''));
+    if ($action === 'convert_rexrank') {
+        $result = convertRexRankToRex((int) $user['id'], (float) ($_POST['amount_rr'] ?? 0), $db);
+        setFlashMessage('dashboard_success', (string) ($result['message'] ?? 'Unable to convert RexRank.'));
+        redirect(BASE_URL . '/public/dashboard.php');
+    }
+}
+
 $level_state = syncUserLevelStatus((int) $user['id'], $db) ?: getUserLevelState($user, $db);
 $airdrop_unlock_state = unlockPendingEarlyAirdropForUser((int) $user['id'], $db);
 $user = getUserById((int) $user['id']) ?: $user;
@@ -34,6 +46,7 @@ $claim_eligibility = getClaimEligibility((int) $user['id'], $db);
 $stmt = $db->prepare("SELECT COUNT(*) AS total_votes FROM review_reactions WHERE user_id = ?");
 $stmt->execute([(int) $user['id']]);
 $user['total_votes'] = (int) (($stmt->fetch()['total_votes'] ?? 0));
+$rexrank_stats = getUserRexRankStats((int) $user['id'], $db);
 
 $recent_reviews = [];
 try {
@@ -563,6 +576,18 @@ require_once __DIR__ . '/../includes/header.php';
                 <strong class="stat-card-value"><?php echo number_format((int) ($user['total_votes'] ?? 0)); ?></strong>
                 <span class="stat-card-label">Votes Cast</span>
             </div>
+            <div class="stat-card stat-card--rexrank">
+                <span class="stat-card-icon">RR</span>
+                <strong class="stat-card-value"><?php echo number_format((float) ($rexrank_stats['balance'] ?? 0), 0); ?></strong>
+                <span class="stat-card-label">RexRank</span>
+                <span class="stat-card-subline"><?php echo number_format((float) ($rexrank_stats['convertible_rr'] ?? 0), 0); ?> convertible · <?php echo (int) ($rexrank_stats['daily_votes'] ?? 0); ?>/<?php echo (int) ($rexrank_stats['daily_vote_limit'] ?? 10); ?> votes</span>
+                <form method="POST" class="dashboard-rr-convert">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(appCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+                    <input type="hidden" name="action" value="convert_rexrank">
+                    <input type="number" name="amount_rr" min="10" step="10" max="<?php echo (int) ($rexrank_stats['convertible_rr'] ?? 0); ?>" value="10" <?php echo (float) ($rexrank_stats['convertible_rr'] ?? 0) < 10 ? 'disabled' : ''; ?>>
+                    <button type="submit" <?php echo (float) ($rexrank_stats['convertible_rr'] ?? 0) < 10 ? 'disabled' : ''; ?>>Convert</button>
+                </form>
+            </div>
         </div>
 
         <!-- ===== ACTIONS + LEVEL ===== -->
@@ -577,6 +602,10 @@ require_once __DIR__ . '/../includes/header.php';
                         <a href="<?php echo BASE_URL; ?>/public/submit-review.php" class="action-icon-btn" title="Write Review">
                             <span class="action-icon-btn-icon">✍️</span>
                             <span class="action-icon-btn-label">Review</span>
+                        </a>
+                        <a href="<?php echo BASE_URL; ?>/public/my-reviews.php" class="action-icon-btn" title="My Reviews">
+                            <span class="action-icon-btn-icon">RR</span>
+                            <span class="action-icon-btn-label">My Reviews</span>
                         </a>
                     <?php elseif ($show_reviews_feature): ?>
                         <span class="action-icon-btn action-icon-btn--locked" title="Unlocks at Pro level">

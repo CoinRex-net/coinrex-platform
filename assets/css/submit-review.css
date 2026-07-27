@@ -1412,6 +1412,49 @@
 .stars i { color: var(--color-accent); font-size: 28px; cursor: pointer; text-shadow: 0 0 12px rgba(212,175,55,0.18); }
 .rating-text { color: var(--color-text-primary); font-weight: 700; }
 .char-count { float: right; color: var(--color-text-secondary); font-size: 12px; font-weight: 700; }
+.char-count.is-ready { color: var(--color-accent-light); }
+
+.review-prompt-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 12px;
+}
+
+.review-prompt-chips button {
+    border: 1px solid var(--theme-glass-border);
+    background: var(--theme-glass-bg);
+    color: var(--color-text-secondary);
+    border-radius: 999px;
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.review-prompt-chips button:hover {
+    color: var(--color-text-primary);
+    border-color: rgba(212, 175, 55, 0.28);
+}
+
+.review-quality-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.review-quality-row span:first-child {
+    color: var(--color-text-primary);
+}
+
+.review-quality-row span:first-child.is-ready {
+    color: var(--color-accent-light);
+}
 
 .scores-grid {
     display: grid;

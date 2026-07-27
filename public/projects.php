@@ -17,6 +17,12 @@ $has_featured_column = tableHasColumn('projects', 'is_featured');
 $has_sponsored_column = tableHasColumn('projects', 'is_sponsored');
 $featured_select = $has_featured_column ? 'COALESCE(p.is_featured, 0)' : '0';
 $sponsored_select = $has_sponsored_column ? 'COALESCE(p.is_sponsored, 0)' : '0';
+$project_filter = strtolower(trim((string) ($_GET['filter'] ?? 'all')));
+$valid_project_filters = ['all', 'top_rated', 'featured', 'regular', 'already_reviewed'];
+if (!in_array($project_filter, $valid_project_filters, true)) {
+    $project_filter = 'all';
+}
+$search_query = trim((string) ($_GET['q'] ?? ''));
 $stmt = $db->prepare("
     SELECT
         p.*,
@@ -40,6 +46,74 @@ $stmt = $db->prepare("
 $stmt->execute();
 $projects = $stmt->fetchAll();
 
+// Determine which projects the current user has already reviewed
+$reviewed_project_ids = [];
+if ($current_user && $can_submit_review) {
+    $reviewed_project_ids = getUserReviewedProjectIds((int) $current_user['id'], $db);
+}
+$reviewed_project_ids_set = array_flip($reviewed_project_ids);
+
+if ($can_submit_review) {
+    if ($project_filter === 'already_reviewed') {
+        $projects = array_values(array_filter($projects, static function ($project) use ($reviewed_project_ids_set) {
+            return isset($reviewed_project_ids_set[(int) ($project['id'] ?? 0)]);
+        }));
+    } else {
+        $projects = array_values(array_filter($projects, static function ($project) use ($reviewed_project_ids_set) {
+            return !isset($reviewed_project_ids_set[(int) ($project['id'] ?? 0)]);
+        }));
+    }
+}
+
+if ($project_filter === 'top_rated') {
+    $projects = array_values(array_filter($projects, static function ($project) {
+        return (float) ($project['avg_rating'] ?? 0) >= 3.5;
+    }));
+} elseif ($project_filter === 'featured') {
+    $projects = array_values(array_filter($projects, static function ($project) {
+        return (int) ($project['is_featured'] ?? 0) === 1;
+    }));
+} elseif ($project_filter === 'regular') {
+    $projects = array_values(array_filter($projects, static function ($project) {
+        return (int) ($project['is_featured'] ?? 0) !== 1;
+    }));
+}
+
+if ($search_query !== '') {
+    $needle = mb_strtolower($search_query, 'UTF-8');
+    $projects = array_values(array_filter($projects, static function ($project) use ($needle) {
+        $haystack = mb_strtolower(implode(' ', [
+            (string) ($project['name'] ?? ''),
+            (string) ($project['category'] ?? ''),
+            (string) ($project['description'] ?? ''),
+            (string) ($project['contract_address'] ?? ''),
+            (string) ($project['network'] ?? ''),
+        ]), 'UTF-8');
+        return strpos($haystack, $needle) !== false;
+    }));
+}
+
+$sort_projects = static function (array &$items): void {
+    usort($items, static function ($a, $b) {
+        $featured_compare = ((int) ($b['is_featured'] ?? 0)) <=> ((int) ($a['is_featured'] ?? 0));
+        if ($featured_compare !== 0) {
+            return $featured_compare;
+        }
+
+        $rating_compare = ((float) ($b['avg_rating'] ?? 0)) <=> ((float) ($a['avg_rating'] ?? 0));
+        if ($rating_compare !== 0) {
+            return $rating_compare;
+        }
+
+        $reviews_compare = ((int) ($b['total_reviews'] ?? 0)) <=> ((int) ($a['total_reviews'] ?? 0));
+        if ($reviews_compare !== 0) {
+            return $reviews_compare;
+        }
+
+        return strtotime((string) ($b['created_at'] ?? '')) <=> strtotime((string) ($a['created_at'] ?? ''));
+    });
+};
+
 $sponsored_projects = array_values(array_filter($projects, static function ($project) {
     return (int) ($project['is_sponsored'] ?? 0) === 1;
 }));
@@ -56,19 +130,9 @@ $regular_projects = array_values(array_filter($grid_projects, static function ($
     return (int) ($project['is_featured'] ?? 0) !== 1;
 }));
 
-$sort_projects_by_rating = static function (array &$items): void {
-    usort($items, static function ($a, $b) {
-        $rating_compare = ((float) ($b['avg_rating'] ?? 0)) <=> ((float) ($a['avg_rating'] ?? 0));
-        if ($rating_compare !== 0) {
-            return $rating_compare;
-        }
-
-        return ((int) ($b['total_reviews'] ?? 0)) <=> ((int) ($a['total_reviews'] ?? 0));
-    });
-};
-
-$sort_projects_by_rating($featured_projects);
-$sort_projects_by_rating($regular_projects);
+$sort_projects($sponsored_projects);
+$sort_projects($featured_projects);
+$sort_projects($regular_projects);
 
 $render_project_contract_address = static function ($address, $extra_class = ''): string {
     $address = trim((string) $address);
@@ -88,14 +152,70 @@ $render_project_contract_address = static function ($address, $extra_class = '')
         . '</button>';
 };
 
-// Determine which projects the current user has already reviewed
-$reviewed_project_ids = [];
-if ($current_user && $can_submit_review) {
-    $reviewed_project_ids = getUserReviewedProjectIds((int) $current_user['id'], $db);
-}
-$reviewed_project_ids_set = array_flip($reviewed_project_ids);
+$render_project_asset_marker = static function (array $project, $extra_class = '') use ($render_project_contract_address): string {
+    $contract_markup = $render_project_contract_address((string) ($project['contract_address'] ?? ''), $extra_class);
+    if ($contract_markup !== '') {
+        return $contract_markup;
+    }
+
+    $category = strtolower(trim((string) ($project['category'] ?? '')));
+    $network = trim((string) ($project['network'] ?? ''));
+    $label = 'Project Token';
+    if ($network !== '' || strpos($category, 'chain') !== false || strpos($category, 'blockchain') !== false || strpos($category, 'layer') !== false) {
+        $label = 'Blockchain Native Token';
+    } elseif (strpos($category, 'economy') !== false) {
+        $label = 'Economy Token';
+    } elseif (strpos($category, 'utility') !== false) {
+        $label = 'Utility Token';
+    } elseif ($category !== '') {
+        $label = ucwords(str_replace(['-', '_'], ' ', $category)) . ' Token';
+    }
+
+    $class = trim('project-contract-address project-contract-address--placeholder ' . (string) $extra_class);
+    return '<div class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '">'
+        . '<i class="fas fa-cube" aria-hidden="true"></i>'
+        . '<span class="project-contract-address__label">Asset Type</span>'
+        . '<code>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</code>'
+        . '<span class="project-contract-address__copy"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Native</span></span>'
+        . '</div>';
+};
 
 $section_preview_limit = 3;
+
+$build_projects_url = static function (array $overrides = []) use ($project_filter, $search_query): string {
+    $params = [
+        'filter' => $project_filter,
+        'q' => $search_query,
+    ];
+    foreach ($overrides as $key => $value) {
+        if ($value === null || $value === '') {
+            unset($params[$key]);
+        } else {
+            $params[$key] = $value;
+        }
+    }
+    if (($params['filter'] ?? 'all') === 'all') {
+        unset($params['filter']);
+    }
+    if (trim((string) ($params['q'] ?? '')) === '') {
+        unset($params['q']);
+    }
+    $query = http_build_query($params);
+    return BASE_URL . '/public/projects.php' . ($query !== '' ? '?' . $query : '');
+};
+
+$review_readiness_meta = static function (array $project) use ($current_user, $can_submit_review, $reviewed_project_ids_set): array {
+    if ($can_submit_review && isset($reviewed_project_ids_set[(int) ($project['id'] ?? 0)])) {
+        return ['label' => 'Reviewed', 'class' => 'reviewed', 'icon' => 'fas fa-check-circle'];
+    }
+    if ($can_submit_review) {
+        return ['label' => 'Ready', 'class' => 'ready', 'icon' => 'fas fa-bolt'];
+    }
+    if (!$current_user) {
+        return ['label' => 'Sign in', 'class' => 'signin', 'icon' => 'fas fa-lock'];
+    }
+    return ['label' => 'Unlock Pro', 'class' => 'locked', 'icon' => 'fas fa-lock'];
+};
 ?>
 
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/projects.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/projects.css'); ?>">
@@ -106,10 +226,6 @@ $section_preview_limit = 3;
         
         <!-- Header -->
         <div class="page-header animate-fade-up">
-            <div class="header-badge">
-                <i class="fas fa-rocket"></i>
-                <span>Browse & Review</span>
-            </div>
             <h1>Crypto <span class="gradient-text">Projects</span></h1>
             <p>Explore listed projects publicly. Sign in and level up to submit quality reviews and earn $REX rewards.</p>
         </div>
@@ -129,7 +245,10 @@ $section_preview_limit = 3;
                     <div class="sponsored-slider" aria-label="Sponsored projects slider" data-sponsored-slider>
                         <div class="sponsored-track">
                         <?php foreach ($sponsored_projects as $project): ?>
-                            <?php $project_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] ?? '')); ?>
+                            <?php
+                            $project_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] ?? ''));
+                            $readiness = $review_readiness_meta($project);
+                            ?>
                             <article class="sponsored-mini-card <?php echo (int) $project['is_featured'] === 1 ? 'featured' : 'regular'; ?>">
                                 <div class="sponsored-mini-card__top">
                                     <div class="project-logo sponsored-mini-card__logo">
@@ -160,7 +279,7 @@ $section_preview_limit = 3;
                                     </div>
                                 </div>
 
-                                <?php echo $render_project_contract_address($project['contract_address'] ?? '', 'project-contract-address--sponsored'); ?>
+                                <?php echo $render_project_asset_marker($project, 'project-contract-address--sponsored'); ?>
 
                                 <p class="sponsored-mini-card__description"><?php echo htmlspecialchars(substr($project['description'] ?? 'No description available', 0, 95)); ?>...</p>
 
@@ -187,6 +306,10 @@ $section_preview_limit = 3;
                                         <i class="fas fa-coins"></i>
                                         <span>Up to <?php echo $project['max_reward_rex']; ?> $REX</span>
                                     </div>
+                                    <span class="review-ready-chip <?php echo htmlspecialchars($readiness['class'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <i class="<?php echo htmlspecialchars($readiness['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                        <?php echo htmlspecialchars($readiness['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
 
                                     <?php if ($can_submit_review && isset($reviewed_project_ids_set[$project['id']])): ?>
                                         <a href="<?php echo BASE_URL; ?>/public/my-reviews.php" class="btn-review btn-review-done sponsored-mini-card__cta">
@@ -194,7 +317,7 @@ $section_preview_limit = 3;
                                         </a>
                                     <?php elseif ($can_submit_review): ?>
                                         <a href="<?php echo BASE_URL; ?>/public/project-detail.php?id=<?php echo $project['id']; ?>" class="btn-review sponsored-mini-card__cta">
-                                            <i class="fas fa-pen-alt"></i> Review
+                                            <i class="fas fa-pen-alt"></i> Write Review
                                         </a>
                                     <?php elseif (!$current_user): ?>
                                         <a href="<?php echo AUTH_URL; ?>/auth.php" class="btn-review btn-review-locked sponsored-mini-card__cta">
@@ -296,6 +419,42 @@ $section_preview_limit = 3;
                 </div>
             <?php endif; ?>
         </section>
+
+        <section class="project-compact-filters" aria-label="Project review filters">
+            <form class="project-search-form" method="GET" action="<?php echo BASE_URL; ?>/public/projects.php">
+                <?php if ($project_filter !== 'all'): ?>
+                    <input type="hidden" name="filter" value="<?php echo htmlspecialchars($project_filter, ENT_QUOTES, 'UTF-8'); ?>">
+                <?php endif; ?>
+                <label class="project-search-box" for="projectSearch">
+                    <i class="fas fa-search"></i>
+                    <input type="search" id="projectSearch" name="q" value="<?php echo htmlspecialchars($search_query, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Search projects">
+                </label>
+                <?php if ($search_query !== ''): ?>
+                    <a class="project-filter-reset" href="<?php echo htmlspecialchars($build_projects_url(['q' => '']), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Clear project search">
+                        <i class="fas fa-times"></i>
+                    </a>
+                <?php endif; ?>
+            </form>
+            <div class="project-filter-tabs">
+                <?php
+                $project_filter_labels = [
+                    'all' => ['All', 'fas fa-layer-group'],
+                    'top_rated' => ['Top Rated', 'fas fa-star'],
+                    'featured' => ['Featured', 'fas fa-gem'],
+                    'regular' => ['Regular', 'fas fa-circle-check'],
+                ];
+                if ($can_submit_review) {
+                    $project_filter_labels['already_reviewed'] = ['Already reviewed', 'fas fa-check-double'];
+                }
+                foreach ($project_filter_labels as $filter_key => $filter_data):
+                ?>
+                    <a class="project-filter-chip <?php echo $project_filter === $filter_key ? 'is-active' : ''; ?>" href="<?php echo htmlspecialchars($build_projects_url(['filter' => $filter_key]), ENT_QUOTES, 'UTF-8'); ?>">
+                        <i class="<?php echo htmlspecialchars($filter_data[1], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                        <span><?php echo htmlspecialchars($filter_data[0], ENT_QUOTES, 'UTF-8'); ?></span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </section>
         
         <!-- Projects Sections -->
         <?php if(empty($grid_projects)): ?>
@@ -311,15 +470,18 @@ $section_preview_limit = 3;
             <section class="project-list-section project-list-section--featured animate-fade-up delay-2">
                 <div class="project-list-section__head">
                     <div>
-                        <span class="project-list-section__eyebrow"><i class="fas fa-gem"></i> Featured</span>
-                        <h2>Featured Projects</h2>
+                        <span class="project-list-section__eyebrow"><i class="fas fa-gem"></i> Priority</span>
+                        <h2>Featured</h2>
                     </div>
-                    <p>Hand-picked projects with elevated visibility and stronger discovery priority.</p>
+                    <p><?php echo number_format(count($featured_projects)); ?> projects</p>
                 </div>
 
                 <div class="projects-grid projects-grid--featured" data-project-section-grid="featured">
                 <?php foreach($featured_projects as $project_index => $project): ?>
-                    <?php $project_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] ?? '')); ?>
+                    <?php
+                    $project_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] ?? ''));
+                    $readiness = $review_readiness_meta($project);
+                    ?>
                     <div class="project-card <?php echo (int) $project['is_featured'] === 1 ? 'project-card-featured' : 'project-card-regular'; ?> <?php echo (int) ($project['is_sponsored'] ?? 0) === 1 ? 'project-card-sponsored' : ''; ?> <?php echo $project_index >= $section_preview_limit ? 'project-card--extra is-hidden' : ''; ?>">
                         
                         <div class="project-identity-grid">
@@ -350,11 +512,15 @@ $section_preview_limit = 3;
 
                                 <div class="project-meta-row project-meta-row-bottom">
                                     <span class="badge category"><?php echo ucfirst($project['category']); ?></span>
+                                    <span class="review-ready-chip <?php echo htmlspecialchars($readiness['class'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <i class="<?php echo htmlspecialchars($readiness['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                        <?php echo htmlspecialchars($readiness['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
-                        <?php echo $render_project_contract_address($project['contract_address'] ?? ''); ?>
+                        <?php echo $render_project_asset_marker($project); ?>
                         
                         <p class="project-description"><?php echo htmlspecialchars(substr($project['description'] ?? 'No description available', 0, 90)); ?>...</p>
                         
@@ -409,7 +575,7 @@ $section_preview_limit = 3;
                             </a>
                         <?php elseif ($can_submit_review): ?>
                             <a href="<?php echo BASE_URL; ?>/public/project-detail.php?id=<?php echo $project['id']; ?>" class="btn-review">
-                                <i class="fas fa-pen-alt"></i> Post Quality Review
+                                <i class="fas fa-pen-alt"></i> Write Review
                             </a>
                         <?php elseif (!$current_user): ?>
                             <a href="<?php echo AUTH_URL; ?>/auth.php" class="btn-review btn-review-locked">
@@ -439,15 +605,18 @@ $section_preview_limit = 3;
             <section class="project-list-section project-list-section--regular animate-fade-up delay-3">
                 <div class="project-list-section__head">
                     <div>
-                        <span class="project-list-section__eyebrow"><i class="fas fa-circle-check"></i> Regular</span>
-                        <h2>Regular Projects</h2>
+                        <span class="project-list-section__eyebrow"><i class="fas fa-circle-check"></i> Approved</span>
+                        <h2>Regular</h2>
                     </div>
-                    <p>Explore approved CoinRex projects available for public discovery and review activity.</p>
+                    <p><?php echo number_format(count($regular_projects)); ?> projects</p>
                 </div>
 
                 <div class="projects-grid projects-grid--regular" data-project-section-grid="regular">
                 <?php foreach($regular_projects as $project_index => $project): ?>
-                    <?php $project_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] ?? '')); ?>
+                    <?php
+                    $project_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] ?? ''));
+                    $readiness = $review_readiness_meta($project);
+                    ?>
                     <div class="project-card <?php echo (int) $project['is_featured'] === 1 ? 'project-card-featured' : 'project-card-regular'; ?> <?php echo (int) ($project['is_sponsored'] ?? 0) === 1 ? 'project-card-sponsored' : ''; ?> <?php echo $project_index >= $section_preview_limit ? 'project-card--extra is-hidden' : ''; ?>">
                         
                         <div class="project-identity-grid">
@@ -472,11 +641,15 @@ $section_preview_limit = 3;
 
                                 <div class="project-meta-row project-meta-row-bottom">
                                     <span class="badge category"><?php echo ucfirst($project['category']); ?></span>
+                                    <span class="review-ready-chip <?php echo htmlspecialchars($readiness['class'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <i class="<?php echo htmlspecialchars($readiness['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                        <?php echo htmlspecialchars($readiness['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
-                        <?php echo $render_project_contract_address($project['contract_address'] ?? ''); ?>
+                        <?php echo $render_project_asset_marker($project); ?>
                         
                         <p class="project-description"><?php echo htmlspecialchars(substr($project['description'] ?? 'No description available', 0, 90)); ?>...</p>
                         
@@ -531,7 +704,7 @@ $section_preview_limit = 3;
                             </a>
                         <?php elseif ($can_submit_review): ?>
                             <a href="<?php echo BASE_URL; ?>/public/project-detail.php?id=<?php echo $project['id']; ?>" class="btn-review">
-                                <i class="fas fa-pen-alt"></i> Post Quality Review
+                                <i class="fas fa-pen-alt"></i> Write Review
                             </a>
                         <?php elseif (!$current_user): ?>
                             <a href="<?php echo AUTH_URL; ?>/auth.php" class="btn-review btn-review-locked">

@@ -19,11 +19,27 @@ function coinrexNormalizeMediaUrl($path) {
         $baseHost = strtolower((string) ($baseParts['host'] ?? ''));
         $mediaPath = trim((string) ($parts['path'] ?? ''));
 
-        if ($pathHost !== '' && $baseHost !== '' && $pathHost !== $baseHost) {
-            return $path;
-        }
-
         if ($mediaPath !== '') {
+            $baseUriPrefix = defined('BASE_URI') ? rtrim((string) BASE_URI, '/') : '';
+            $localPrefixes = array_filter([
+                $baseUriPrefix !== '' ? $baseUriPrefix . '/' : '',
+                '/coinrex/',
+                '/devhub/',
+                '/assets/',
+                '/uploads/',
+            ]);
+            $isLocalMediaPath = false;
+            foreach ($localPrefixes as $prefix) {
+                if (strpos($mediaPath, $prefix) === 0) {
+                    $isLocalMediaPath = true;
+                    break;
+                }
+            }
+
+            if ($pathHost !== '' && $baseHost !== '' && $pathHost !== $baseHost && !$isLocalMediaPath) {
+                return $path;
+            }
+
             $path = $mediaPath;
         } else {
             return $path;

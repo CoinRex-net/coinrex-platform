@@ -85,75 +85,75 @@ require_once __DIR__ . '/../includes/header.php';
         
         <!-- Review Requirements Section -->
         <div class="requirements-section animate-fade-up delay-1">
-            <h2><i class="fas fa-clipboard-list"></i> Quality Review Requirements</h2>
+            <h2><i class="fas fa-clipboard-list"></i> Review Requirements</h2>
             <div class="requirements-grid">
                 <div class="requirement-card">
                     <i class="fas fa-dollar-sign"></i>
-                    <h3>Minimum Holding</h3>
-                    <p>You must hold at least <strong>$<?php echo number_format($project['min_holding_amount'], 2); ?></strong> worth of tokens</p>
+                    <h3>Holding</h3>
+                    <p><strong>$<?php echo number_format($project['min_holding_amount'], 2); ?></strong> minimum</p>
                 </div>
                 <div class="requirement-card">
                     <i class="fas fa-clock"></i>
-                    <h3>Holding Duration</h3>
-                    <p>Minimum <strong><?php echo $project['required_holding_days']; ?> days</strong> of holding required</p>
+                    <h3>Duration</h3>
+                    <p><strong><?php echo $project['required_holding_days']; ?> days</strong> minimum</p>
                 </div>
                 <div class="requirement-card">
                     <i class="fas fa-coins"></i>
-                    <h3>$REX Reward</h3>
-                    <p>Earn up to <strong><?php echo $project['max_reward_rex']; ?> $REX</strong> per quality review</p>
+                    <h3>Reward</h3>
+                    <p>Up to <strong><?php echo $project['max_reward_rex']; ?> $REX</strong></p>
                 </div>
                 <div class="requirement-card">
                     <i class="fas fa-file-alt"></i>
-                    <h3>Review Length</h3>
-                    <p>Minimum <strong>150 characters</strong> with detailed analysis</p>
+                    <h3>Review</h3>
+                    <p><strong>150+</strong> characters</p>
                 </div>
             </div>
         </div>
         
         <!-- Terms & Conditions Section -->
         <div class="terms-section animate-fade-up delay-2">
-            <h2><i class="fas fa-file-contract"></i> Terms & Conditions for Quality Review</h2>
+            <h2><i class="fas fa-file-contract"></i> Review Terms</h2>
             <div class="terms-content">
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>1. Fresh Wallet Pairing Required</strong>
-                        <p>For connected-wallet reviews, you must start a new RexLink or external wallet pairing session during submission. A saved wallet address alone is not enough.</p>
+                        <strong>1. Wallet Proof</strong>
+                        <p>Connect RexLink or an external wallet for the fastest check.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>2. Eligibility Check</strong>
-                        <p>After pairing, CoinRex checks the linked wallet against this project’s supported contracts. You can continue only when the eligibility check passes.</p>
+                        <strong>2. Eligibility</strong>
+                        <p>CoinRex checks the wallet against this project.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
                         <strong>3. Manual Proof Fallback</strong>
-                        <p>If you cannot pair a wallet, use manual address proof with wallet address, TX hash, and screenshot. Manual proof goes to moderation.</p>
+                        <p>Use wallet address, TX hash, and screenshot if you cannot connect.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>4. Honest & Detailed Review</strong>
-                        <p>Reviews must be at least 150 characters and based on your real experience. Copied, fake, or low-effort reviews will be rejected.</p>
+                        <strong>4. Real Review</strong>
+                        <p>Write your own 150+ character experience.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
-                        <strong>5. Security & Moderation</strong>
-                        <p>Never upload seed phrases, private keys, or recovery phrases. CoinRex may manually verify proof and review quality before rewards are finalized.</p>
+                        <strong>5. Security</strong>
+                        <p>Never upload seed phrases or private keys.</p>
                     </div>
                 </div>
                 <div class="term-item">
                     <i class="fas fa-check-circle"></i>
                     <div>
                         <strong>6. One Review Per Project</strong>
-                        <p>Each account can submit only one quality review per project. Duplicate reviews may be rejected.</p>
+                        <p>Each account can submit one review per project.</p>
                     </div>
                 </div>
             </div>
@@ -162,7 +162,7 @@ require_once __DIR__ . '/../includes/header.php';
         <!-- Action Buttons -->
         <div class="action-buttons animate-fade-up delay-3">
             <a href="<?php echo BASE_URL; ?>/public/submit-review.php?project_id=<?php echo $project['id']; ?>" class="btn-submit-review">
-                <i class="fas fa-pen-alt"></i> Post Quality Review
+                <i class="fas fa-pen-alt"></i> Write Review
             </a>
             <a href="<?php echo BASE_URL; ?>/public/projects.php" class="btn-browse-more">
                 <i class="fas fa-search"></i> Browse More Projects

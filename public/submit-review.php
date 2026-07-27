@@ -697,11 +697,11 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="wizard-progress wizard-progress-upgraded">
                 <div class="wizard-track"></div>
                 <div class="wizard-fill" id="wizardFill"></div>
-                <div class="wizard-step-nav active" data-nav-step="1"><span>1</span><strong>Proof Path</strong><small>Wallet or manual</small></div>
-                <div class="wizard-step-nav" data-nav-step="2"><span>2</span><strong>Eligibility Check</strong><small>Prove access</small></div>
-                <div class="wizard-step-nav" data-nav-step="3"><span>3</span><strong>Your review</strong><small>Rating & feedback</small></div>
-                <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Extra detail</strong><small>Optional scoring</small></div>
-                <div class="wizard-step-nav" data-nav-step="5"><span>5</span><strong>Submit</strong><small>Check & confirm</small></div>
+                <div class="wizard-step-nav active" data-nav-step="1"><span>1</span><strong>Proof</strong><small>Method</small></div>
+                <div class="wizard-step-nav" data-nav-step="2"><span>2</span><strong>Wallet</strong><small>Check</small></div>
+                <div class="wizard-step-nav" data-nav-step="3"><span>3</span><strong>Review</strong><small>Text</small></div>
+                <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Scores</strong><small>Optional</small></div>
+                <div class="wizard-step-nav" data-nav-step="5"><span>5</span><strong>Submit</strong><small>Confirm</small></div>
             </div>
 
             <div class="submit-card submit-card-upgraded">
@@ -709,12 +709,12 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="step-intro">
                         <div>
                             <span class="step-kicker">Step 1</span>
-                            <h3><i class="fas fa-route"></i> Choose Your Proof Path</h3>
-                            <p class="section-note">Choose connected wallet for automatic eligibility, or manual address if you cannot prove wallet ownership right now.</p>
+                            <h3><i class="fas fa-route"></i> Choose Proof Method</h3>
+                            <p class="section-note">Connect wallet for faster checks. Use manual proof only if needed.</p>
                         </div>
                         <aside class="step-tip-card">
                             <strong><i class="fas fa-lightbulb"></i> Recommended</strong>
-                            <p>Connected wallet is faster because it proves ownership before review submission.</p>
+                            <p>Fastest path.</p>
                         </aside>
                     </div>
 
@@ -726,8 +726,8 @@ require_once __DIR__ . '/../includes/header.php';
                             <span class="proof-path-icon"><i class="fas fa-wallet"></i></span>
                             <span class="proof-path-copy">
                                 <strong>Connect Wallet</strong>
-                                <small>RexLink or external wallet</small>
-                                <p>Prove access first, then run the automatic eligibility check.</p>
+                                <small>Recommended</small>
+                                <p>RexLink or external wallet.</p>
                             </span>
                             <span class="proof-path-check"><i class="fas fa-check"></i></span>
                         </label>
@@ -735,9 +735,9 @@ require_once __DIR__ . '/../includes/header.php';
                             <input type="radio" name="proof_method" value="manual" <?php echo $form['proof_method'] === 'manual' ? 'checked' : ''; ?>>
                             <span class="proof-path-icon"><i class="fas fa-keyboard"></i></span>
                             <span class="proof-path-copy">
-                                <strong>Manual Address</strong>
-                                <small>TX hash and screenshot</small>
-                                <p>Use this when you cannot prove ownership with a connected wallet.</p>
+                                <strong>Manual Proof</strong>
+                                <small>Fallback</small>
+                                <p>TX hash and screenshot.</p>
                             </span>
                             <span class="proof-path-check"><i class="fas fa-check"></i></span>
                         </label>
@@ -748,7 +748,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="step-intro step-intro-tight">
                         <div>
                             <span class="step-kicker">Step 2</span>
-                            <h3><i class="fas fa-shield-alt"></i> Eligibility Check</h3>
+                            <h3><i class="fas fa-shield-alt"></i> Check Wallet</h3>
                         </div>
                     </div>
 
@@ -813,8 +813,8 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="step-intro">
                         <div>
                             <span class="step-kicker">Step 3</span>
-                            <h3><i class="fas fa-star"></i> Tell us what really happened</h3>
-                            <p class="section-note">Write what happened, what felt good, and what felt bad.</p>
+                            <h3><i class="fas fa-star"></i> Your Review</h3>
+                            <p class="section-note">Keep it real and specific.</p>
                         </div>
                     </div>
                     <div class="form-group"><label>Review Title <span class="required-asterisk">*</span></label><input type="text" name="review_title" id="review_title" value="<?php echo esc($form['review_title']); ?>" placeholder="Easy to start, but withdrawals felt slow"></div>
@@ -830,7 +830,21 @@ require_once __DIR__ . '/../includes/header.php';
                             <span class="rating-text" id="ratingText">Select rating</span>
                         </div>
                     </div>
-                    <div class="form-group"><label>Review Content <span class="required-asterisk">*</span> <span class="char-count" id="charCount">0/150 min</span></label><textarea name="review_content" id="review_content" rows="7" placeholder="What did you do, what happened, what felt trustworthy or risky, and would you use it again? Minimum 150 characters."><?php echo esc($form['review_content']); ?></textarea></div>
+                    <div class="review-prompt-chips" aria-label="Review writing prompts">
+                        <button type="button" data-review-prompt="I used this project for ">Used for</button>
+                        <button type="button" data-review-prompt="What felt trustworthy was ">Trust</button>
+                        <button type="button" data-review-prompt="The confusing part was ">Confusing</button>
+                        <button type="button" data-review-prompt="Other users should watch out for ">Warning</button>
+                        <button type="button" data-review-prompt="I would use it again because ">Would use again</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Review Content <span class="required-asterisk">*</span> <span class="char-count" id="charCount">0/150</span></label>
+                        <textarea name="review_content" id="review_content" rows="6" placeholder="What did you use, what happened, and what should others know?"><?php echo esc($form['review_content']); ?></textarea>
+                        <div class="review-quality-row">
+                            <span id="reviewQualityLevel">Too short</span>
+                            <span id="reviewQualityHint">Original, specific reviews approve faster.</span>
+                        </div>
+                    </div>
                     <div class="pros-cons-grid">
                         <div class="form-group"><label><i class="fas fa-thumbs-up"></i> What Felt Good</label><textarea name="pros" rows="3" placeholder="What was clear, smooth, useful, or trustworthy?"><?php echo esc($form['pros']); ?></textarea></div>
                         <div class="form-group"><label><i class="fas fa-thumbs-down"></i> What Needs Improvement</label><textarea name="cons" rows="3" placeholder="What felt confusing, slow, risky, or disappointing?"><?php echo esc($form['cons']); ?></textarea></div>
@@ -841,12 +855,12 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="step-intro">
                         <div>
                             <span class="step-kicker">Step 4</span>
-                            <h3><i class="fas fa-chart-bar"></i> Add extra detail if you want</h3>
-                            <p class="section-note">Optional scores. Add only if you want extra detail.</p>
+                            <h3><i class="fas fa-chart-bar"></i> Scores</h3>
+                            <p class="section-note">Optional quick sliders.</p>
                         </div>
                         <aside class="step-tip-card tip-soft">
                             <strong><i class="fas fa-sliders"></i> Optional step</strong>
-                            <p>If unsure, keep scores balanced and continue.</p>
+                            <p>Balanced is fine.</p>
                         </aside>
                     </div>
                     <div class="signals-intro">
@@ -892,8 +906,8 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="step-intro">
                         <div>
                             <span class="step-kicker">Step 5</span>
-                            <h3><i class="fas fa-paper-plane"></i> Final check and submit</h3>
-                            <p class="section-note">Check once, accept terms, then submit.</p>
+                            <h3><i class="fas fa-paper-plane"></i> Submit</h3>
+                            <p class="section-note">Check once and confirm.</p>
                         </div>
                     </div>
 
@@ -901,8 +915,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="consent-panel-head">
                             <div>
                                 <span class="consent-kicker">Final Review Check</span>
-                                <h4>Ready To Submit Your Proof-Backed Review</h4>
-                                <p>Final check before submission.</p>
+                                <h4>Final Check</h4>
                             </div>
                             <div class="consent-status-pill">
                                 <i class="fas fa-hourglass-half"></i>
@@ -912,9 +925,10 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <div class="final-review-card">
                             <div class="final-review-item"><span>Project</span><strong><?php echo esc($project['name']); ?></strong></div>
-                            <div class="final-review-item"><span>Proof Required</span><strong>Connected wallet or manual proof</strong></div>
-                            <div class="final-review-item"><span>Review Limit</span><strong>One review per user</strong></div>
-                            <div class="final-review-item"><span>Moderation</span><strong>All proof remains subject to validation</strong></div>
+                            <div class="final-review-item"><span>Rating</span><strong id="finalRatingSummary">-</strong></div>
+                            <div class="final-review-item"><span>Proof</span><strong id="finalProofSummary">Connected</strong></div>
+                            <div class="final-review-item"><span>Wallet</span><strong id="finalWalletSummary">Not linked</strong></div>
+                            <div class="final-review-item"><span>Reward</span><strong><span id="finalRewardSummary">0</span> $REX</strong></div>
                         </div>
 
                         <div class="beginner-checklist">
@@ -1187,6 +1201,25 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         btnBack.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
         btnNext.style.display = currentStep === totalSteps ? 'none' : 'inline-flex';
         btnSubmit.style.display = currentStep === totalSteps ? 'inline-flex' : 'none';
+        updateFinalReviewSummary();
+    }
+
+    function maskWallet(value) {
+        value = String(value || '').trim();
+        if (value.length <= 14) return value || 'Not linked';
+        return value.slice(0, 6) + '...' + value.slice(-4);
+    }
+
+    function updateFinalReviewSummary() {
+        const finalRating = document.getElementById('finalRatingSummary');
+        const finalProof = document.getElementById('finalProofSummary');
+        const finalWallet = document.getElementById('finalWalletSummary');
+        const finalReward = document.getElementById('finalRewardSummary');
+        if (finalRating) finalRating.textContent = currentRating > 0 ? currentRating.toFixed(1) + '/5' : '-';
+        if (finalProof) finalProof.textContent = getProofMethod() === 'manual' ? 'Manual' : 'Connected';
+        const walletValue = syncStep2WalletAddress ? syncStep2WalletAddress() : (document.getElementById('wallet_address')?.value || '');
+        if (finalWallet) finalWallet.textContent = maskWallet(walletValue);
+        if (finalReward) finalReward.textContent = document.getElementById('rewardPreview')?.textContent || '0';
     }
 
     function validateStep(step) {
@@ -1343,18 +1376,49 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             paintStars(currentRating);
             renderRatingLabel(currentRating);
             updateRewardPreview();
+            updateFinalReviewSummary();
             saveDraft();
         });
     });
 
     const reviewContent = document.getElementById('review_content');
     const charCount = document.getElementById('charCount');
+    const reviewQualityLevel = document.getElementById('reviewQualityLevel');
+    const reviewQualityHint = document.getElementById('reviewQualityHint');
+    function updateReviewQuality() {
+        const len = reviewContent?.value.length || 0;
+        if (charCount) {
+            charCount.textContent = `${len}/150`;
+            charCount.classList.toggle('is-ready', len >= 150);
+        }
+        if (reviewQualityLevel) {
+            let label = 'Too short';
+            if (len >= 320) label = 'Detailed';
+            else if (len >= 150) label = 'Good';
+            reviewQualityLevel.textContent = label;
+            reviewQualityLevel.classList.toggle('is-ready', len >= 150);
+        }
+        if (reviewQualityHint) {
+            reviewQualityHint.textContent = len >= 150 ? 'Specific details help moderation.' : 'Add real usage details.';
+        }
+    }
     reviewContent?.addEventListener('input', function() {
-        const len = this.value.length;
-        charCount.textContent = `${len}/150 min`;
-        charCount.style.color = len >= 150 ? '#22c55e' : '#ef4444';
+        updateReviewQuality();
         updateRewardPreview();
+        updateFinalReviewSummary();
         saveDraft();
+    });
+    document.querySelectorAll('[data-review-prompt]').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!reviewContent) return;
+            const prompt = button.getAttribute('data-review-prompt') || '';
+            const spacer = reviewContent.value.trim() === '' ? '' : '\n';
+            reviewContent.value += spacer + prompt;
+            reviewContent.focus();
+            updateReviewQuality();
+            updateRewardPreview();
+            saveDraft();
+        });
     });
 
     const holdingAmount = document.getElementById('holdingAmount');
@@ -1984,7 +2048,7 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             }
             startRexCountdown(data.expires_in_seconds || 300, data.expires_at_unix || (data.qr_payload && data.qr_payload.expires_at_unix) || 0);
             const qrApiBase = String((data.qr_payload && (data.qr_payload.api_base_url || data.qr_payload.base_url)) || rexSignerApiBaseUrl || '').replace(/\/+$/, '');
-            rexSetStatus('Open RexLink and pair with this QR or code. API ' + pairingApiMs + 'ms' + (data.server_timing_ms ? ' / server ' + data.server_timing_ms + 'ms' : '') + '. QR API: ' + qrApiBase);
+            rexSetStatus('Open RexLink and pair with this QR or code.');
             rexWatcherStartTimer = window.setTimeout(startRexPairingWatchers, 100);
         } catch (error) {
             rexSetStatus(error.message || 'RexLink pairing could not start.', 'error');
@@ -2256,6 +2320,7 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             ? 'Custodial wallet selected: screenshot proof will carry more moderation weight and the estimate uses the 50% multiplier.'
             : 'Non-custodial wallet selected: on-chain proof is stronger and the full multiplier is applied.';
         document.getElementById('rewardNote').textContent = note;
+        updateFinalReviewSummary();
     }
 
     holdingAmount?.addEventListener('input', () => { updateRewardPreview(); saveDraft(); });
@@ -2357,11 +2422,10 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     paintStars(currentRating);
     renderRatingLabel(currentRating);
     if (reviewContent && charCount) {
-        const initialLength = reviewContent.value.length;
-        charCount.textContent = `${initialLength}/150 min`;
-        charCount.style.color = initialLength >= 150 ? '#22c55e' : '#ef4444';
+        updateReviewQuality();
     }
     updateRewardPreview();
+    updateFinalReviewSummary();
     showStep(1);
     if (getProofMethod() !== 'manual') {
         restoreActiveRexLinkSession({ advance_to_check: true });

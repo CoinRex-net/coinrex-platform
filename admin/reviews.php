@@ -115,6 +115,9 @@ $has_users_total_rex_earned = tableHasColumn('users', 'total_rex_earned');
 $has_review_score = tableHasColumn('reviews', 'review_score');
 $has_auto_approved_at = tableHasColumn('reviews', 'auto_approved_at');
 $has_auto_approved_by_level = tableHasColumn('reviews', 'auto_approved_by_level');
+$has_correction_count = tableHasColumn('reviews', 'correction_count');
+$has_correction_requested_at = tableHasColumn('reviews', 'correction_requested_at');
+$has_correction_note = tableHasColumn('reviews', 'correction_note');
 $has_eligibility_columns = true;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -233,6 +236,9 @@ $reason_select = $has_rejection_reason ? "r.rejection_reason" : "NULL AS rejecti
 $wallet_select = $has_wallet_type ? "r.wallet_type" : "NULL AS wallet_type";
 $final_rex_select = $has_final_rex ? "r.final_rex" : "NULL AS final_rex";
 $score_select = $has_review_score ? "r.review_score" : "NULL AS review_score";
+$correction_select = ($has_correction_count ? "r.correction_count" : "0 AS correction_count") . ", "
+    . ($has_correction_requested_at ? "r.correction_requested_at" : "NULL AS correction_requested_at") . ", "
+    . ($has_correction_note ? "r.correction_note" : "NULL AS correction_note");
 $eligibility_select = $has_eligibility_columns
     ? "r.eligibility_status, r.eligibility_wallet_address, r.eligibility_chain_id, r.eligibility_contract_address"
     : "NULL AS eligibility_status, NULL AS eligibility_wallet_address, NULL AS eligibility_chain_id, NULL AS eligibility_contract_address";
@@ -241,6 +247,7 @@ $stmt = $db->prepare("
     SELECT r.id, r.user_id, r.project_id, r.review_title, r.review_content, r.rating, r.status, {$proof_select},
         r.tx_hash, r.wallet_address, r.screenshot_url, r.created_at, {$reason_select},
         r.holding_amount, r.holding_days, r.calculated_rex, {$final_rex_select}, {$wallet_select}, {$score_select},
+        {$correction_select},
         {$eligibility_select},
         r.pros, r.cons,
         u.username, u.email, u.level,
@@ -410,6 +417,23 @@ foreach ($reviews as $queue_review) {
                     $lane_label = $preview_level_state['approval_label'] ?? '24-48 hours';
                     if ($approval_lane === 'auto') $lane_class = 'is-active';
                     elseif ($approval_lane === 'priority') $lane_class = 'is-pro';
+                    $helper_badges = [];
+                    if (($review['eligibility_status'] ?? '') === 'eligible') $helper_badges[] = ['Eligibility verified', 'is-active'];
+                    if (($review['eligibility_status'] ?? '') === 'manual_pending' || $proof_status === 'pending') $helper_badges[] = ['Manual proof', 'is-pending'];
+                    if (trim((string) ($review['tx_hash'] ?? '')) === '') $helper_badges[] = ['TX issue', 'is-suspended'];
+                    if (trim((string) ($review['screenshot_url'] ?? '')) !== '') $helper_badges[] = ['Screenshot', 'is-active'];
+                    if ((int) ($review['correction_count'] ?? 0) > 0) $helper_badges[] = ['Correction used', 'is-pro'];
+                    $wallet_reuse_count = 0;
+                    $wallet_for_check = strtolower(trim((string) ($review['wallet_address'] ?? '')));
+                    if ($wallet_for_check !== '') {
+                        $wallet_count_stmt = $db->prepare("SELECT COUNT(*) AS total FROM reviews WHERE LOWER(wallet_address) = ? AND id != ?");
+                        $wallet_count_stmt->execute([$wallet_for_check, (int) $review['id']]);
+                        $wallet_reuse_count = (int) ($wallet_count_stmt->fetch()['total'] ?? 0);
+                    }
+                    if ($wallet_reuse_count > 0) $helper_badges[] = ['Wallet reuse', 'is-suspended'];
+                    $helper_badge_text = implode('|', array_map(static function ($badge) {
+                        return $badge[0] . ':' . $badge[1];
+                    }, $helper_badges));
                 ?>
                     <tr>
                         <td data-label="ID"><?php echo (int) $review['id']; ?></td>
@@ -431,6 +455,13 @@ foreach ($reviews as $queue_review) {
                         <td data-label="Status">
                             <span class="dashboard-pill <?php echo $status_class; ?>"><?php echo htmlspecialchars($status, ENT_QUOTES, 'UTF-8'); ?></span><br>
                             <span class="muted">Proof: <?php echo htmlspecialchars($proof_status, ENT_QUOTES, 'UTF-8'); ?></span>
+                            <?php if (!empty($helper_badges)): ?>
+                                <div class="review-helper-badges">
+                                    <?php foreach ($helper_badges as $badge): ?>
+                                        <span class="dashboard-pill <?php echo htmlspecialchars($badge[1], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($badge[0], ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                             <?php if (($review['eligibility_status'] ?? '') === 'eligible'): ?>
                                 <br><span class="muted">On-chain: eligible</span>
                             <?php endif; ?>
@@ -477,6 +508,9 @@ foreach ($reviews as $queue_review) {
                                     data-score-wallet="<?php echo htmlspecialchars((string) $preview_breakdown['wallet'], ENT_QUOTES, 'UTF-8'); ?>/20"
                                     data-score-raw="<?php echo htmlspecialchars((string) $preview_breakdown['total'], ENT_QUOTES, 'UTF-8'); ?>"
                                     data-score-bonus="<?php echo htmlspecialchars((string) ($preview_score_details['level_bonus'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-helper-badges="<?php echo htmlspecialchars($helper_badge_text, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-correction-count="<?php echo (int) ($review['correction_count'] ?? 0); ?>"
+                                    data-correction-note="<?php echo htmlspecialchars((string) ($review['correction_note'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                 ><i class="fas fa-eye"></i> View</button>
                                 <form method="POST" action="" class="action-stack-form">
                                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
@@ -642,6 +676,24 @@ foreach ($reviews as $queue_review) {
                         <div class="modal-info-row">
                             <span class="modal-info-label">Matched Contract</span>
                             <span class="modal-info-value" style="font-family:monospace;font-size:11px;word-break:break-all;" id="modalEligibilityContract">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Helper Badges Card -->
+                <div class="modal-info-card">
+                    <div class="modal-info-card-header">
+                        <i class="fas fa-tags"></i> Helper Badges
+                    </div>
+                    <div class="modal-info-card-body">
+                        <div class="review-helper-badges review-helper-badges-modal" id="modalHelperBadges"></div>
+                        <div class="modal-info-row">
+                            <span class="modal-info-label">Corrections</span>
+                            <span class="modal-info-value" id="modalCorrectionCount">0</span>
+                        </div>
+                        <div class="modal-info-row">
+                            <span class="modal-info-label">Correction Note</span>
+                            <span class="modal-info-value" id="modalCorrectionNote">-</span>
                         </div>
                     </div>
                 </div>
@@ -822,6 +874,23 @@ foreach ($reviews as $queue_review) {
         document.getElementById('modalEligibilityChain').textContent = data.eligibilityChain || '—';
         document.getElementById('modalEligibilityContract').textContent = data.eligibilityContract || '—';
 
+        var helperWrap = document.getElementById('modalHelperBadges');
+        if (helperWrap) {
+            helperWrap.innerHTML = '';
+            String(data.helperBadges || '').split('|').filter(Boolean).forEach(function(item) {
+                var parts = item.split(':');
+                var badge = document.createElement('span');
+                badge.className = 'dashboard-pill ' + (parts[1] || 'is-pending');
+                badge.textContent = parts[0] || item;
+                helperWrap.appendChild(badge);
+            });
+            if (!helperWrap.children.length) {
+                helperWrap.textContent = 'No helper flags.';
+            }
+        }
+        document.getElementById('modalCorrectionCount').textContent = data.correctionCount || '0';
+        document.getElementById('modalCorrectionNote').textContent = data.correctionNote || '-';
+
         // Reviewer context
         document.getElementById('modalUsername').textContent = data.username || '—';
         document.getElementById('modalEmail').textContent = data.email || '—';
@@ -897,6 +966,9 @@ foreach ($reviews as $queue_review) {
                 scoreWallet: btn.getAttribute('data-score-wallet'),
                 scoreRaw: btn.getAttribute('data-score-raw'),
                 scoreBonus: btn.getAttribute('data-score-bonus'),
+                helperBadges: btn.getAttribute('data-helper-badges'),
+                correctionCount: btn.getAttribute('data-correction-count'),
+                correctionNote: btn.getAttribute('data-correction-note'),
             });
         });
     });

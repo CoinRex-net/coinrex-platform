@@ -11,6 +11,11 @@ CREATE DATABASE IF NOT EXISTS koinrex
 USE koinrex;
 
 DROP TABLE IF EXISTS content_flags;
+DROP TABLE IF EXISTS review_comment_likes;
+DROP TABLE IF EXISTS review_comments;
+DROP TABLE IF EXISTS review_insights;
+DROP TABLE IF EXISTS review_priority_slots;
+DROP TABLE IF EXISTS rexrank_ledger;
 DROP TABLE IF EXISTS review_reactions;
 DROP TABLE IF EXISTS user_task_logs;
 DROP TABLE IF EXISTS mini_tasks;
@@ -40,6 +45,9 @@ CREATE TABLE users (
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     rex_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     total_rex_earned DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    rexrank_balance DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+    rexrank_total_earned DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+    rexrank_converted_total DECIMAL(18,2) NOT NULL DEFAULT 0.00,
     referral_earnings DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     signup_ip VARCHAR(45) NULL,
     user_agent TEXT NULL,
@@ -269,6 +277,108 @@ CREATE TABLE review_reactions (
         ON DELETE CASCADE
         ON UPDATE CASCADE,
     CONSTRAINT fk_review_reactions_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE review_comments (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    review_id INT UNSIGNED NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    comment_text TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'visible',
+    like_count INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_review_comment_user (review_id, user_id),
+    KEY idx_review_comments_review_status (review_id, status),
+    KEY idx_review_comments_user (user_id),
+    CONSTRAINT fk_review_comments_review
+        FOREIGN KEY (review_id) REFERENCES reviews(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_review_comments_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE review_comment_likes (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    comment_id INT UNSIGNED NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_review_comment_like_user (comment_id, user_id),
+    KEY idx_review_comment_like_comment (comment_id),
+    KEY idx_review_comment_like_user (user_id),
+    CONSTRAINT fk_review_comment_likes_comment
+        FOREIGN KEY (comment_id) REFERENCES review_comments(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_review_comment_likes_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE review_insights (
+    review_id INT UNSIGNED NOT NULL,
+    impression_count INT UNSIGNED NOT NULL DEFAULT 0,
+    read_full_click_count INT UNSIGNED NOT NULL DEFAULT 0,
+    last_impression_at DATETIME NULL,
+    last_read_full_at DATETIME NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (review_id),
+    KEY idx_review_insights_impressions (impression_count),
+    KEY idx_review_insights_reads (read_full_click_count),
+    CONSTRAINT fk_review_insights_review
+        FOREIGN KEY (review_id) REFERENCES reviews(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE rexrank_ledger (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id INT UNSIGNED NOT NULL,
+    action_type VARCHAR(50) NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    balance_after DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+    reference_type VARCHAR(40) NULL,
+    reference_id VARCHAR(100) NULL,
+    note VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_rexrank_user_created (user_id, created_at),
+    KEY idx_rexrank_action (action_type),
+    KEY idx_rexrank_reference (reference_type, reference_id),
+    CONSTRAINT fk_rexrank_ledger_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE review_priority_slots (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    review_id INT UNSIGNED NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    slot_group VARCHAR(20) NOT NULL,
+    rexrank_cost DECIMAL(18,2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    starts_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_review_priority_active (status, expires_at, slot_group),
+    KEY idx_review_priority_review (review_id),
+    KEY idx_review_priority_user (user_id),
+    CONSTRAINT fk_review_priority_review
+        FOREIGN KEY (review_id) REFERENCES reviews(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_review_priority_user
         FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE

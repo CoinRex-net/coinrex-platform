@@ -76,6 +76,8 @@ function ensureLevelEngineSchema(PDO $db = null) {
         $db->exec("ALTER TABLE reviews ADD COLUMN auto_approved_by_level TINYINT(1) NOT NULL DEFAULT 0 AFTER auto_approved_at");
     }
 
+    ensureReviewCorrectionSchema($db);
+
     $db->exec("
         CREATE TABLE IF NOT EXISTS review_reactions (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -139,6 +141,554 @@ function ensureLevelEngineSchema(PDO $db = null) {
     }
 
     $schema_ready = true;
+}
+
+function ensureReviewCorrectionSchema(PDO $db = null) {
+    static $schema_ready = false;
+
+    if ($schema_ready) {
+        return;
+    }
+
+    $db = $db ?: getDBConnection();
+
+    if (tableExists('reviews')) {
+        if (!tableHasColumn('reviews', 'correction_count')) {
+            $db->exec("ALTER TABLE reviews ADD COLUMN correction_count TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER auto_approved_by_level");
+        }
+
+        if (!tableHasColumn('reviews', 'correction_requested_at')) {
+            $db->exec("ALTER TABLE reviews ADD COLUMN correction_requested_at DATETIME NULL AFTER correction_count");
+        }
+
+        if (!tableHasColumn('reviews', 'correction_note')) {
+            $db->exec("ALTER TABLE reviews ADD COLUMN correction_note TEXT NULL AFTER correction_requested_at");
+        }
+    }
+
+    $schema_ready = true;
+}
+
+function ensureRexRankSchema(PDO $db = null) {
+    static $schema_ready = false;
+
+    if ($schema_ready) {
+        return;
+    }
+
+    $db = $db ?: getDBConnection();
+
+    if (tableExists('users')) {
+        if (!tableHasColumn('users', 'rexrank_balance')) {
+            $db->exec("ALTER TABLE users ADD COLUMN rexrank_balance DECIMAL(18,2) NOT NULL DEFAULT 0.00 AFTER total_rex_earned");
+        }
+        if (!tableHasColumn('users', 'rexrank_total_earned')) {
+            $db->exec("ALTER TABLE users ADD COLUMN rexrank_total_earned DECIMAL(18,2) NOT NULL DEFAULT 0.00 AFTER rexrank_balance");
+        }
+        if (!tableHasColumn('users', 'rexrank_converted_total')) {
+            $db->exec("ALTER TABLE users ADD COLUMN rexrank_converted_total DECIMAL(18,2) NOT NULL DEFAULT 0.00 AFTER rexrank_total_earned");
+        }
+    }
+
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS rexrank_ledger (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id INT UNSIGNED NOT NULL,
+            action_type VARCHAR(50) NOT NULL,
+            amount DECIMAL(18,2) NOT NULL,
+            balance_after DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+            reference_type VARCHAR(40) NULL,
+            reference_id VARCHAR(100) NULL,
+            note VARCHAR(255) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_rexrank_user_created (user_id, created_at),
+            KEY idx_rexrank_action (action_type),
+            KEY idx_rexrank_reference (reference_type, reference_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS review_priority_slots (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            review_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            slot_group VARCHAR(20) NOT NULL,
+            rexrank_cost DECIMAL(18,2) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            starts_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_review_priority_active (status, expires_at, slot_group),
+            KEY idx_review_priority_review (review_id),
+            KEY idx_review_priority_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS review_comments (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            review_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            comment_text TEXT NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'visible',
+            like_count INT UNSIGNED NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_review_comment_user (review_id, user_id),
+            KEY idx_review_comments_review_status (review_id, status),
+            KEY idx_review_comments_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS review_comment_likes (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            comment_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_review_comment_like_user (comment_id, user_id),
+            KEY idx_review_comment_like_comment (comment_id),
+            KEY idx_review_comment_like_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    ensureReviewInsightSchema($db);
+
+    $schema_ready = true;
+}
+
+function ensureReviewInsightSchema(PDO $db = null) {
+    static $schema_ready = false;
+
+    if ($schema_ready) {
+        return;
+    }
+
+    $db = $db ?: getDBConnection();
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS review_insights (
+            review_id INT UNSIGNED NOT NULL,
+            impression_count INT UNSIGNED NOT NULL DEFAULT 0,
+            read_full_click_count INT UNSIGNED NOT NULL DEFAULT 0,
+            last_impression_at DATETIME NULL,
+            last_read_full_at DATETIME NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (review_id),
+            KEY idx_review_insights_impressions (impression_count),
+            KEY idx_review_insights_reads (read_full_click_count)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    $schema_ready = true;
+}
+
+function recordReviewInsightEvent($review_ids, $event_type, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureReviewInsightSchema($db);
+
+    $event_type = strtolower(trim((string) $event_type));
+    $ids = is_array($review_ids) ? $review_ids : [$review_ids];
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), function ($id) {
+        return $id > 0;
+    })));
+
+    if (empty($ids) || !in_array($event_type, ['impression', 'read_full'], true)) {
+        return ['success' => false, 'message' => 'Nothing to track.'];
+    }
+
+    $review_placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $approved = $db->prepare("SELECT id FROM reviews WHERE id IN ({$review_placeholders}) AND status = 'approved'");
+    $approved->execute($ids);
+    $approved_ids = array_map('intval', $approved->fetchAll(PDO::FETCH_COLUMN));
+
+    if (empty($approved_ids)) {
+        return ['success' => false, 'message' => 'No approved reviews to track.'];
+    }
+
+    $sql = $event_type === 'read_full'
+        ? "INSERT INTO review_insights (review_id, read_full_click_count, last_read_full_at)
+           VALUES (?, 1, NOW())
+           ON DUPLICATE KEY UPDATE read_full_click_count = read_full_click_count + 1, last_read_full_at = NOW()"
+        : "INSERT INTO review_insights (review_id, impression_count, last_impression_at)
+           VALUES (?, 1, NOW())
+           ON DUPLICATE KEY UPDATE impression_count = impression_count + 1, last_impression_at = NOW()";
+
+    $stmt = $db->prepare($sql);
+    foreach ($approved_ids as $review_id) {
+        $stmt->execute([$review_id]);
+    }
+
+    return ['success' => true, 'tracked' => count($approved_ids)];
+}
+
+function getRexRankSlotCosts() {
+    return [
+        'top1' => ['label' => 'Top 1', 'cost' => 50, 'rank' => 1],
+        'top3' => ['label' => 'Top 2-3', 'cost' => 30, 'rank' => 2],
+        'top5' => ['label' => 'Top 4-5', 'cost' => 20, 'rank' => 4],
+        'top10' => ['label' => 'Top 6-10', 'cost' => 10, 'rank' => 6],
+    ];
+}
+
+function getUserRexRankStats($user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+
+    $stmt = $db->prepare("SELECT rexrank_balance, rexrank_total_earned, rexrank_converted_total FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([(int) $user_id]);
+    $row = $stmt->fetch() ?: [];
+    $balance = (float) ($row['rexrank_balance'] ?? 0);
+    $earned = (float) ($row['rexrank_total_earned'] ?? 0);
+    $converted = (float) ($row['rexrank_converted_total'] ?? 0);
+    $remaining_convertible = max(0, floor(($earned * 0.5) - $converted));
+
+    $daily_stmt = $db->prepare("
+        SELECT COUNT(*) AS total
+        FROM rexrank_ledger
+        WHERE user_id = ?
+          AND action_type = 'voter_vote_spend'
+          AND created_at >= CURDATE()
+    ");
+    $daily_stmt->execute([(int) $user_id]);
+
+    return [
+        'balance' => $balance,
+        'total_earned' => $earned,
+        'converted_total' => $converted,
+        'convertible_rr' => min($balance, $remaining_convertible),
+        'daily_votes' => (int) ($daily_stmt->fetch()['total'] ?? 0),
+        'daily_vote_limit' => 10,
+    ];
+}
+
+function addRexRankLedgerEntry($user_id, $amount, $action_type, $reference_type = null, $reference_id = null, $note = null, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+
+    $user_id = (int) $user_id;
+    $amount = round((float) $amount, 2);
+    $action_type = substr(trim((string) $action_type), 0, 50);
+    $reference_type = $reference_type !== null ? substr(trim((string) $reference_type), 0, 40) : null;
+    $reference_id = $reference_id !== null ? substr(trim((string) $reference_id), 0, 100) : null;
+    $note = $note !== null ? substr(trim((string) $note), 0, 255) : null;
+
+    if ($user_id <= 0 || $amount == 0.0 || $action_type === '') {
+        throw new InvalidArgumentException('Invalid RexRank ledger entry.');
+    }
+
+    $balance_stmt = $db->prepare("SELECT rexrank_balance FROM users WHERE id = ? FOR UPDATE");
+    $balance_stmt->execute([$user_id]);
+    $current_balance = (float) (($balance_stmt->fetch()['rexrank_balance'] ?? 0));
+    $new_balance = round($current_balance + $amount, 2);
+    if ($new_balance < 0) {
+        throw new RuntimeException('Not enough RexRank.');
+    }
+
+    $update_sql = "UPDATE users SET rexrank_balance = ?, updated_at = NOW()";
+    $params = [$new_balance];
+    if ($amount > 0) {
+        $update_sql .= ", rexrank_total_earned = rexrank_total_earned + ?";
+        $params[] = $amount;
+    }
+    $update_sql .= " WHERE id = ?";
+    $params[] = $user_id;
+    $db->prepare($update_sql)->execute($params);
+
+    $insert = $db->prepare("
+        INSERT INTO rexrank_ledger (user_id, action_type, amount, balance_after, reference_type, reference_id, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ");
+    $insert->execute([$user_id, $action_type, $amount, $new_balance, $reference_type, $reference_id, $note]);
+
+    return $new_balance;
+}
+
+function castRexRankExperienceVote($review_id, $voter_user_id, $vote_type, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+    ensureRewardClaimSchema($db);
+
+    $review_id = (int) $review_id;
+    $voter_user_id = (int) $voter_user_id;
+    $vote_type = strtolower(trim((string) $vote_type));
+    $allowed_votes = ['same_experience', 'different_experience'];
+    if (!in_array($vote_type, $allowed_votes, true)) {
+        return ['success' => false, 'message' => 'Choose a valid vote.'];
+    }
+    if ($voter_user_id <= 0) {
+        return ['success' => false, 'message' => 'Please sign in to vote.'];
+    }
+
+    $voter = getUserById($voter_user_id);
+    if (!$voter || !in_array(normalizeUserLevel($voter['level'] ?? 'beginner'), ['pro', 'expert'], true)) {
+        return ['success' => false, 'message' => 'Experience voting unlocks at Pro.'];
+    }
+
+    $review_stmt = $db->prepare("SELECT id, user_id, status FROM reviews WHERE id = ? LIMIT 1");
+    $review_stmt->execute([$review_id]);
+    $review = $review_stmt->fetch();
+    if (!$review || strtolower((string) ($review['status'] ?? '')) !== 'approved') {
+        return ['success' => false, 'message' => 'Only approved reviews can receive votes.'];
+    }
+    $author_user_id = (int) ($review['user_id'] ?? 0);
+    if ($author_user_id === $voter_user_id) {
+        return ['success' => false, 'message' => 'You cannot vote on your own review.'];
+    }
+
+    $existing = $db->prepare("
+        SELECT id
+        FROM review_reactions
+        WHERE review_id = ?
+          AND user_id = ?
+          AND reaction_type IN ('same_experience', 'different_experience')
+        LIMIT 1
+    ");
+    $existing->execute([$review_id, $voter_user_id]);
+    if ($existing->fetch()) {
+        return ['success' => false, 'message' => 'You already voted on this review.'];
+    }
+
+    $stats = getUserRexRankStats($voter_user_id, $db);
+    if ((float) $stats['balance'] < 10) {
+        return ['success' => false, 'message' => 'You need 10RR to vote.'];
+    }
+    if ((int) $stats['daily_votes'] >= 10) {
+        return ['success' => false, 'message' => 'Daily vote limit reached.'];
+    }
+
+    try {
+        $db->beginTransaction();
+        addRexRankLedgerEntry($voter_user_id, -10, 'voter_vote_spend', 'review', (string) $review_id, $vote_type, $db);
+        addRexRankLedgerEntry($author_user_id, 10, 'review_vote_earned', 'review', (string) $review_id, $vote_type, $db);
+
+        $insert = $db->prepare("INSERT INTO review_reactions (review_id, user_id, reaction_type) VALUES (?, ?, ?)");
+        $insert->execute([$review_id, $voter_user_id, $vote_type]);
+
+        $db->prepare("UPDATE reviews SET helpful_count = helpful_count + 1, updated_at = NOW() WHERE id = ?")->execute([$review_id]);
+
+        addRewardLedgerEntry(
+            $voter_user_id,
+            1,
+            'bonus',
+            'rexrank_vote_reward',
+            'available',
+            'rexrank_vote:' . $review_id . ':' . $voter_user_id,
+            $db
+        );
+
+        $db->commit();
+        return ['success' => true, 'message' => 'Vote added. +1 $REX earned.', 'vote_type' => $vote_type];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+function castReviewUpReward($review_id, $user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+
+    $review_id = (int) $review_id;
+    $user_id = (int) $user_id;
+    if ($review_id <= 0 || $user_id <= 0) {
+        return ['success' => false, 'message' => 'Please sign in to up this review.'];
+    }
+
+    $review_stmt = $db->prepare("SELECT id, user_id, status FROM reviews WHERE id = ? LIMIT 1");
+    $review_stmt->execute([$review_id]);
+    $review = $review_stmt->fetch();
+    if (!$review || strtolower((string) ($review['status'] ?? '')) !== 'approved') {
+        return ['success' => false, 'message' => 'Only approved reviews can be upped.'];
+    }
+    if ((int) ($review['user_id'] ?? 0) === $user_id) {
+        return ['success' => false, 'message' => 'You cannot up your own review.'];
+    }
+
+    $existing = $db->prepare("SELECT id FROM review_reactions WHERE review_id = ? AND user_id = ? AND reaction_type = 'up' LIMIT 1");
+    $existing->execute([$review_id, $user_id]);
+    if ($existing->fetch()) {
+        return ['success' => false, 'message' => 'You already upped this review.'];
+    }
+
+    try {
+        $db->beginTransaction();
+        $insert = $db->prepare("INSERT INTO review_reactions (review_id, user_id, reaction_type) VALUES (?, ?, 'up')");
+        $insert->execute([$review_id, $user_id]);
+        addRexRankLedgerEntry($user_id, 1, 'review_up_reward', 'review', (string) $review_id, 'Up reward', $db);
+        $db->commit();
+        return ['success' => true, 'message' => '+1RR earned.'];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+function submitReviewComment($review_id, $user_id, $comment_text, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+
+    $review_id = (int) $review_id;
+    $user_id = (int) $user_id;
+    $comment_text = trim((string) $comment_text);
+    if ($review_id <= 0 || $user_id <= 0) {
+        return ['success' => false, 'message' => 'Please sign in to comment.'];
+    }
+    if ($comment_text === '' || mb_strlen($comment_text) > 500) {
+        return ['success' => false, 'message' => 'Comment must be 1-500 characters.'];
+    }
+
+    $review_stmt = $db->prepare("SELECT id, status FROM reviews WHERE id = ? LIMIT 1");
+    $review_stmt->execute([$review_id]);
+    $review = $review_stmt->fetch();
+    if (!$review || strtolower((string) ($review['status'] ?? '')) !== 'approved') {
+        return ['success' => false, 'message' => 'Only approved reviews can receive comments.'];
+    }
+
+    try {
+        $insert = $db->prepare("
+            INSERT INTO review_comments (review_id, user_id, comment_text, status)
+            VALUES (?, ?, ?, 'visible')
+        ");
+        $insert->execute([$review_id, $user_id, $comment_text]);
+        return ['success' => true, 'message' => 'Comment added.'];
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), '1062') !== false || stripos($e->getMessage(), 'Duplicate') !== false) {
+            return ['success' => false, 'message' => 'You already commented on this review.'];
+        }
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+function likeReviewCommentByReviewer($comment_id, $reviewer_user_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+
+    $comment_id = (int) $comment_id;
+    $reviewer_user_id = (int) $reviewer_user_id;
+    if ($comment_id <= 0 || $reviewer_user_id <= 0) {
+        return ['success' => false, 'message' => 'Please sign in to like comments.'];
+    }
+
+    $stmt = $db->prepare("
+        SELECT c.id, c.user_id AS commenter_id, c.review_id, r.user_id AS reviewer_id, r.status
+        FROM review_comments c
+        INNER JOIN reviews r ON r.id = c.review_id
+        WHERE c.id = ?
+          AND c.status = 'visible'
+        LIMIT 1
+    ");
+    $stmt->execute([$comment_id]);
+    $comment = $stmt->fetch();
+    if (!$comment || (int) ($comment['reviewer_id'] ?? 0) !== $reviewer_user_id) {
+        return ['success' => false, 'message' => 'Only the review author can like this comment.'];
+    }
+    if ((int) ($comment['commenter_id'] ?? 0) === $reviewer_user_id) {
+        return ['success' => false, 'message' => 'You cannot reward your own comment.'];
+    }
+
+    try {
+        $db->beginTransaction();
+        $insert = $db->prepare("INSERT INTO review_comment_likes (comment_id, user_id) VALUES (?, ?)");
+        $insert->execute([$comment_id, $reviewer_user_id]);
+        $db->prepare("UPDATE review_comments SET like_count = like_count + 1, updated_at = NOW() WHERE id = ?")->execute([$comment_id]);
+        addRexRankLedgerEntry((int) $comment['commenter_id'], 1, 'comment_reviewer_like', 'review_comment', (string) $comment_id, 'Reviewer liked comment', $db);
+        $db->commit();
+        return ['success' => true, 'message' => 'Comment liked. Commenter earned +1RR.'];
+    } catch (PDOException $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        if (strpos($e->getMessage(), '1062') !== false || stripos($e->getMessage(), 'Duplicate') !== false) {
+            return ['success' => false, 'message' => 'Comment already liked.'];
+        }
+        return ['success' => false, 'message' => $e->getMessage()];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+function convertRexRankToRex($user_id, $amount_rr, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+    ensureRewardClaimSchema($db);
+
+    $user_id = (int) $user_id;
+    $amount_rr = floor((float) $amount_rr);
+    if ($user_id <= 0 || $amount_rr < 10) {
+        return ['success' => false, 'message' => 'Minimum conversion is 10RR.'];
+    }
+
+    $stats = getUserRexRankStats($user_id, $db);
+    if ($amount_rr > (float) $stats['convertible_rr']) {
+        return ['success' => false, 'message' => 'Amount exceeds your convertible RexRank.'];
+    }
+    $rex_amount = round($amount_rr / 10, 8);
+
+    try {
+        $db->beginTransaction();
+        addRexRankLedgerEntry($user_id, -$amount_rr, 'rexrank_conversion_debit', 'conversion', 'rexrank_to_rex', 'Converted to $REX', $db);
+        $db->prepare("UPDATE users SET rexrank_converted_total = rexrank_converted_total + ?, updated_at = NOW() WHERE id = ?")->execute([$amount_rr, $user_id]);
+        addRewardLedgerEntry($user_id, $rex_amount, 'bonus', 'rexrank_conversion', 'available', 'rexrank_conversion:' . time() . ':' . $user_id, $db);
+        $db->commit();
+        return ['success' => true, 'message' => 'RexRank converted to $REX.', 'rex_amount' => $rex_amount];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+function purchaseReviewPrioritySlot($review_id, $user_id, $slot_group, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    ensureRexRankSchema($db);
+
+    $review_id = (int) $review_id;
+    $user_id = (int) $user_id;
+    $slot_group = strtolower(trim((string) $slot_group));
+    $costs = getRexRankSlotCosts();
+    if (!isset($costs[$slot_group])) {
+        return ['success' => false, 'message' => 'Choose a valid priority slot.'];
+    }
+
+    $review_stmt = $db->prepare("SELECT id, user_id, status FROM reviews WHERE id = ? AND user_id = ? LIMIT 1");
+    $review_stmt->execute([$review_id, $user_id]);
+    $review = $review_stmt->fetch();
+    if (!$review || strtolower((string) ($review['status'] ?? '')) !== 'approved') {
+        return ['success' => false, 'message' => 'Only your approved reviews can be boosted.'];
+    }
+
+    $cost = (float) $costs[$slot_group]['cost'];
+    if ((float) getUserRexRankStats($user_id, $db)['balance'] < $cost) {
+        return ['success' => false, 'message' => 'Not enough RexRank for this slot.'];
+    }
+
+    try {
+        $db->beginTransaction();
+        addRexRankLedgerEntry($user_id, -$cost, 'priority_slot_spend', 'review', (string) $review_id, $slot_group, $db);
+        $db->prepare("
+            INSERT INTO review_priority_slots (review_id, user_id, slot_group, rexrank_cost, status, starts_at, expires_at)
+            VALUES (?, ?, ?, ?, 'active', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))
+        ")->execute([$review_id, $user_id, $slot_group, $cost]);
+        $db->commit();
+        return ['success' => true, 'message' => $costs[$slot_group]['label'] . ' priority active for 7 days.'];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
 }
 
 function projectMeetsFeatureCriteria(array $project_row) {

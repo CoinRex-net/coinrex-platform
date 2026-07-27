@@ -16,8 +16,12 @@ requireProjectReviewAccess('/taskhub.php');
 
 $db = getDBConnection();
 ensureLevelEngineSchema($db);
+ensureReviewCorrectionSchema($db);
+ensureRexRankSchema($db);
 $user = getCurrentUser();
 $user_level_state = getUserLevelState($user, $db);
+$rexrank_stats = getUserRexRankStats((int) $user['id'], $db);
+$slot_costs = getRexRankSlotCosts();
 
 $has_wallet_type = tableHasColumn('reviews', 'wallet_type');
 $has_final_rex = tableHasColumn('reviews', 'final_rex');
@@ -29,7 +33,175 @@ $has_proof_rejection_reason = tableHasColumn('reviews', 'proof_rejection_reason'
 $has_reviewed_at = tableHasColumn('reviews', 'reviewed_at');
 $has_proof_verified_at = tableHasColumn('reviews', 'proof_verified_at');
 $has_auto_approved_at = tableHasColumn('reviews', 'auto_approved_at');
+$has_correction_count = tableHasColumn('reviews', 'correction_count');
+$has_correction_requested_at = tableHasColumn('reviews', 'correction_requested_at');
+$has_correction_note = tableHasColumn('reviews', 'correction_note');
 $has_project_verified = tableHasColumn('projects', 'is_verified');
+
+$page_notice = '';
+$page_notice_type = 'success';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireAppCsrf((string) ($_POST['csrf_token'] ?? ''));
+
+    $action = trim((string) ($_POST['action'] ?? ''));
+    if ($action === 'purchase_review_priority') {
+        $result = purchaseReviewPrioritySlot((int) ($_POST['review_id'] ?? 0), (int) $user['id'], (string) ($_POST['slot_group'] ?? ''), $db);
+        setFlashMessage('my_reviews_notice', (string) ($result['message'] ?? 'Unable to activate priority.'));
+        setFlashMessage('my_reviews_notice_type', !empty($result['success']) ? 'success' : 'error');
+        redirect(BASE_URL . '/public/my-reviews.php');
+    }
+
+    if ($action === 'submit_review_correction') {
+        $review_id = (int) ($_POST['review_id'] ?? 0);
+        try {
+            $lookup = $db->prepare("
+                SELECT id, user_id, project_id, status, proof_status, correction_count, screenshot_url
+                FROM reviews
+                WHERE id = ? AND user_id = ?
+                LIMIT 1
+            ");
+            $lookup->execute([$review_id, (int) $user['id']]);
+            $current_review = $lookup->fetch();
+            if (!$current_review) {
+                throw new RuntimeException('Review not found.');
+            }
+            $current_status = strtolower((string) ($current_review['status'] ?? ''));
+            if (!in_array($current_status, ['rejected', 'flagged'], true)) {
+                throw new RuntimeException('Only rejected or flagged reviews can be corrected.');
+            }
+            if ((int) ($current_review['correction_count'] ?? 0) >= 1) {
+                throw new RuntimeException('Correction already used for this review.');
+            }
+
+            $review_title = trim((string) ($_POST['review_title'] ?? ''));
+            $review_content = trim((string) ($_POST['review_content'] ?? ''));
+            $pros = trim((string) ($_POST['pros'] ?? ''));
+            $cons = trim((string) ($_POST['cons'] ?? ''));
+            $tx_hash = trim((string) ($_POST['tx_hash'] ?? ''));
+            $wallet_address = strtolower(trim((string) ($_POST['wallet_address'] ?? '')));
+            $correction_note = trim((string) ($_POST['correction_note'] ?? ''));
+
+            if ($review_title === '') {
+                throw new RuntimeException('Review title is required.');
+            }
+            if (mb_strlen($review_content) < 150) {
+                throw new RuntimeException('Review must be at least 150 characters.');
+            }
+            if ($wallet_address !== '' && !preg_match('/^0x[a-f0-9]{40}$/', $wallet_address)) {
+                throw new RuntimeException('Wallet address must be a valid EVM address.');
+            }
+
+            $screenshot_url = (string) ($current_review['screenshot_url'] ?? '');
+            if (isset($_FILES['screenshot']) && $_FILES['screenshot']['error'] === UPLOAD_ERR_OK) {
+                $max_upload_size = 5 * 1024 * 1024;
+                $allowed_mimes = [
+                    'image/jpeg' => 'jpg',
+                    'image/png' => 'png',
+                    'image/gif' => 'gif',
+                    'image/webp' => 'webp',
+                ];
+                $tmp_name = (string) ($_FILES['screenshot']['tmp_name'] ?? '');
+                $file_size = (int) ($_FILES['screenshot']['size'] ?? 0);
+                if (!is_uploaded_file($tmp_name) || $file_size <= 0 || $file_size > $max_upload_size) {
+                    throw new RuntimeException('Screenshot must be an image under 5MB.');
+                }
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime_type = $finfo ? finfo_file($finfo, $tmp_name) : false;
+                if ($finfo) {
+                    finfo_close($finfo);
+                }
+                $ext = $allowed_mimes[$mime_type] ?? '';
+                if ($ext === '' || @getimagesize($tmp_name) === false) {
+                    throw new RuntimeException('Screenshot format must be JPG, PNG, GIF, or WEBP.');
+                }
+                $upload_path = BASE_PATH . '/uploads/proofs/';
+                if (!file_exists($upload_path)) {
+                    mkdir($upload_path, 0755, true);
+                }
+                $new_filename = 'correction_' . (int) $user['id'] . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
+                if (!move_uploaded_file($tmp_name, $upload_path . $new_filename)) {
+                    throw new RuntimeException('Failed to upload screenshot.');
+                }
+                $screenshot_url = BASE_URL . '/uploads/proofs/' . $new_filename;
+            }
+
+            $db->beginTransaction();
+            $updates = [
+                'review_title = ?',
+                'review_content = ?',
+                'pros = ?',
+                'cons = ?',
+                'status = ?',
+                'updated_at = NOW()',
+            ];
+            $params = [$review_title, $review_content, $pros, $cons, 'pending'];
+            if ($tx_hash !== '') {
+                $updates[] = 'tx_hash = ?';
+                $params[] = $tx_hash;
+            }
+            if ($wallet_address !== '') {
+                $updates[] = 'wallet_address = ?';
+                $params[] = $wallet_address;
+            }
+            if ($screenshot_url !== '') {
+                $updates[] = 'screenshot_url = ?';
+                $params[] = $screenshot_url;
+            }
+            if ($has_proof_status) {
+                $updates[] = 'proof_status = ?';
+                $params[] = 'pending';
+            }
+            if ($has_rejection_reason) {
+                $updates[] = 'rejection_reason = NULL';
+            }
+            if ($has_approval_note) {
+                $updates[] = 'approval_note = NULL';
+            }
+            if ($has_proof_rejection_reason) {
+                $updates[] = 'proof_rejection_reason = NULL';
+            }
+            if ($has_review_score) {
+                $updates[] = 'review_score = 0';
+            }
+            if ($has_final_rex) {
+                $updates[] = 'final_rex = 0';
+            }
+            if ($has_correction_count) {
+                $updates[] = 'correction_count = correction_count + 1';
+            }
+            if ($has_correction_requested_at) {
+                $updates[] = 'correction_requested_at = NOW()';
+            }
+            if ($has_correction_note) {
+                $updates[] = 'correction_note = ?';
+                $params[] = $correction_note;
+            }
+            $params[] = $review_id;
+            $update = $db->prepare('UPDATE reviews SET ' . implode(', ', $updates) . ' WHERE id = ?');
+            $update->execute($params);
+            syncUserReviewCounters((int) $user['id'], $db);
+            syncUserLevelStatus((int) $user['id'], $db);
+            syncProjectAggregateMetrics((int) ($current_review['project_id'] ?? 0), $db);
+            $db->commit();
+            setFlashMessage('my_reviews_notice', 'Correction submitted. Review is pending again.');
+            setFlashMessage('my_reviews_notice_type', 'success');
+            redirect(BASE_URL . '/public/my-reviews.php');
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            $page_notice = $e->getMessage();
+            $page_notice_type = 'error';
+        }
+    }
+}
+
+$flash_notice = consumeFlashMessage('my_reviews_notice');
+if ($flash_notice !== '') {
+    $page_notice = $flash_notice;
+    $page_notice_type = consumeFlashMessage('my_reviews_notice_type') ?: 'success';
+}
 
 $status_filter = strtolower(trim((string) ($_GET['status'] ?? 'all')));
 $proof_filter = strtolower(trim((string) ($_GET['proof'] ?? 'all')));
@@ -96,7 +268,7 @@ function reviewStatusMeta($status)
         'approved' => ['label' => 'Approved', 'class' => 'approved', 'icon' => 'fas fa-check-circle'],
         'rejected' => ['label' => 'Rejected', 'class' => 'rejected', 'icon' => 'fas fa-times-circle'],
         'flagged' => ['label' => 'Flagged', 'class' => 'flagged', 'icon' => 'fas fa-flag'],
-        'pending' => ['label' => 'Pending Review', 'class' => 'pending', 'icon' => 'fas fa-hourglass-half'],
+        'pending' => ['label' => 'Pending', 'class' => 'pending', 'icon' => 'fas fa-hourglass-half'],
     ];
 
     return $map[$status] ?? ['label' => ucfirst($status !== '' ? $status : 'Pending'), 'class' => 'pending', 'icon' => 'fas fa-hourglass-half'];
@@ -106,13 +278,13 @@ function proofStatusMeta($status)
 {
     $status = strtolower(trim((string) $status));
     $map = [
-        'verified' => ['label' => 'Proof Verified', 'class' => 'verified', 'icon' => 'fas fa-check-circle'],
-        'rejected' => ['label' => 'Proof Rejected', 'class' => 'rejected', 'icon' => 'fas fa-times-circle'],
-        'flagged' => ['label' => 'Proof Flagged', 'class' => 'flagged', 'icon' => 'fas fa-exclamation-triangle'],
-        'pending' => ['label' => 'Proof Pending', 'class' => 'pending', 'icon' => 'fas fa-search'],
+        'verified' => ['label' => 'Verified', 'class' => 'verified', 'icon' => 'fas fa-check-circle'],
+        'rejected' => ['label' => 'Rejected', 'class' => 'rejected', 'icon' => 'fas fa-times-circle'],
+        'flagged' => ['label' => 'Flagged', 'class' => 'flagged', 'icon' => 'fas fa-exclamation-triangle'],
+        'pending' => ['label' => 'Pending', 'class' => 'pending', 'icon' => 'fas fa-search'],
     ];
 
-    return $map[$status] ?? ['label' => 'Proof Pending', 'class' => 'pending', 'icon' => 'fas fa-search'];
+    return $map[$status] ?? ['label' => 'Pending', 'class' => 'pending', 'icon' => 'fas fa-search'];
 }
 
 function maskValue($value, $start = 8, $end = 6)
@@ -277,17 +449,42 @@ try {
         ($has_reviewed_at ? 'r.reviewed_at' : 'NULL AS reviewed_at'),
         ($has_proof_verified_at ? 'r.proof_verified_at' : 'NULL AS proof_verified_at'),
         ($has_auto_approved_at ? 'r.auto_approved_at' : 'NULL AS auto_approved_at'),
+        ($has_correction_count ? 'r.correction_count' : '0 AS correction_count'),
+        ($has_correction_requested_at ? 'r.correction_requested_at' : 'NULL AS correction_requested_at'),
+        ($has_correction_note ? 'r.correction_note' : 'NULL AS correction_note'),
         'r.created_at',
         'r.updated_at',
+        "COALESCE(ap.slot_group, '') AS priority_slot_group",
+        "ap.expires_at AS priority_expires_at",
         "COALESCE(p.name, 'Archived Project') AS project_name",
         'p.logo AS project_logo',
         ($has_project_verified ? 'COALESCE(p.is_verified, 0) AS project_verified' : '0 AS project_verified'),
+        'COALESCE(ri.impression_count, 0) AS impression_count',
+        'COALESCE(ri.read_full_click_count, 0) AS read_full_click_count',
     ];
 
     $reviews_sql = "
         SELECT " . implode(",\n            ", $review_fields) . "
         FROM reviews r
         LEFT JOIN projects p ON p.id = r.project_id
+        LEFT JOIN review_insights ri ON ri.review_id = r.id
+        LEFT JOIN (
+            SELECT
+                review_id,
+                SUBSTRING_INDEX(GROUP_CONCAT(slot_group ORDER BY
+                    CASE slot_group
+                        WHEN 'top1' THEN 1
+                        WHEN 'top3' THEN 2
+                        WHEN 'top5' THEN 4
+                        WHEN 'top10' THEN 6
+                        ELSE 99
+                    END ASC, created_at DESC), ',', 1) AS slot_group,
+                MAX(expires_at) AS expires_at
+            FROM review_priority_slots
+            WHERE status = 'active'
+              AND expires_at > NOW()
+            GROUP BY review_id
+        ) ap ON ap.review_id = r.id
         WHERE {$where_sql}
         ORDER BY r.created_at DESC
         LIMIT " . (int) $per_page . " OFFSET " . (int) $offset . "
@@ -314,10 +511,16 @@ $page_title = 'My Reviews';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/my-reviews.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/my-reviews.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/my-reviews.css'); ?>">
 
 <main class="my-reviews-main">
     <div class="my-reviews-shell">
+        <?php if ($page_notice !== ''): ?>
+            <div id="myReviewsToast" class="my-reviews-toast <?php echo $page_notice_type === 'error' ? 'toast-error' : 'toast-success'; ?>" role="status" aria-live="polite">
+                <?php echo esc($page_notice); ?>
+            </div>
+        <?php endif; ?>
+
         <section class="reviews-hero">
             <div class="reviews-hero-copy">
                 <span class="hero-kicker">Private Review Center</span>
@@ -445,20 +648,24 @@ require_once __DIR__ . '/../includes/header.php';
                     $wallet_meta = walletTypeMeta($review['wallet_type'] ?? 'non_custodial');
                     $score_meta = scoreLabel($review['review_score'] ?? 0);
                     $reward_value = rewardValue($review);
+                    $can_correct_review = in_array(strtolower((string) ($review['status'] ?? '')), ['rejected', 'flagged'], true)
+                        && (int) ($review['correction_count'] ?? 0) < 1;
+                    $can_boost_review = strtolower((string) ($review['status'] ?? '')) === 'approved';
+                    $priority_slot = (string) ($review['priority_slot_group'] ?? '');
+                    $priority_label = $priority_slot !== '' && isset($slot_costs[$priority_slot]) ? $slot_costs[$priority_slot]['label'] : '';
+                    $impression_count = (int) ($review['impression_count'] ?? 0);
+                    $read_full_count = (int) ($review['read_full_click_count'] ?? 0);
+                    $read_rate = $impression_count > 0 ? round(($read_full_count / max(1, $impression_count)) * 100, 1) : 0;
                     $review_excerpt = trim((string) ($review['review_content'] ?? ''));
                     if (mb_strlen($review_excerpt) > 180) {
                         $review_excerpt = mb_substr($review_excerpt, 0, 177) . '...';
                     }
                     ?>
-                    <article class="review-activity-card">
+                    <article class="review-activity-card" data-review-id="<?php echo (int) $review['id']; ?>">
                         <div class="card-topline">
                             <div class="project-identity">
-                                <div class="project-logo-wrap">
-                                    <?php if (!empty($review['project_logo'])): ?>
-                                        <img src="<?php echo esc($review['project_logo']); ?>" alt="<?php echo esc($review['project_name']); ?>">
-                                    <?php else: ?>
-                                        <div class="project-logo-fallback"><?php echo esc(strtoupper(substr((string) $review['project_name'], 0, 2))); ?></div>
-                                    <?php endif; ?>
+                                <div class="project-logo-wrap<?php echo !empty($review['project_logo']) ? ' has-logo-image' : ' is-fallback'; ?>"<?php if (!empty($review['project_logo'])): ?> style="background-image: url('<?php echo esc($review['project_logo']); ?>');" aria-label="<?php echo esc($review['project_name']); ?> logo"<?php endif; ?>>
+                                    <div class="project-logo-fallback"><?php echo esc(strtoupper(substr(trim((string) $review['project_name']) !== '' ? (string) $review['project_name'] : 'PR', 0, 2))); ?></div>
                                 </div>
                                 <div class="project-copy">
                                     <div class="project-name-row">
@@ -516,6 +723,12 @@ require_once __DIR__ . '/../includes/header.php';
                             </div>
                         </div>
 
+                        <div class="review-analytics-strip" aria-label="Review insights">
+                            <div><i class="fas fa-eye"></i><span>Impressions</span><strong><?php echo number_format($impression_count); ?></strong></div>
+                            <div><i class="fas fa-book-open"></i><span>Full Reads</span><strong><?php echo number_format($read_full_count); ?></strong></div>
+                            <div><i class="fas fa-chart-line"></i><span>Read Rate</span><strong><?php echo number_format($read_rate, $read_rate >= 10 ? 0 : 1); ?>%</strong></div>
+                        </div>
+
                         <?php if (!empty($review['rejection_reason']) || !empty($review['proof_rejection_reason']) || !empty($review['approval_note'])): ?>
                             <div class="review-note-strip">
                                 <i class="fas fa-circle-info"></i>
@@ -537,6 +750,18 @@ require_once __DIR__ . '/../includes/header.php';
                                 <i class="fas fa-external-link-alt"></i>
                                 <span>View Project</span>
                             </a>
+                            <?php if ($can_boost_review): ?>
+                                <button type="button" class="btn-card-secondary" data-boost-review="<?php echo (int) $review['id']; ?>" data-boost-title="<?php echo esc($review['project_name'] ?? 'Review'); ?>">
+                                    <i class="fas fa-bolt"></i>
+                                    <span><?php echo $priority_label !== '' ? esc($priority_label) : 'Boost'; ?></span>
+                                </button>
+                            <?php endif; ?>
+                            <?php if ($can_correct_review): ?>
+                                <button type="button" class="btn-card-secondary" data-open-review="<?php echo (int) $review['id']; ?>">
+                                    <i class="fas fa-pen"></i>
+                                    <span>Fix</span>
+                                </button>
+                            <?php endif; ?>
                         </div>
 
                         <div class="review-detail-template" id="review-detail-<?php echo (int) $review['id']; ?>" hidden>
@@ -564,8 +789,8 @@ require_once __DIR__ . '/../includes/header.php';
                                     <div class="detail-metrics">
                                         <div><span>Rating</span><strong><?php echo number_format((float) ($review['rating'] ?? 0), 1); ?>/5</strong></div>
                                         <div><span>Reward</span><strong><?php echo number_format($reward_value, 2); ?> $REX</strong></div>
-                                        <div><span>Trust Score</span><strong><?php echo number_format((float) ($review['review_score'] ?? 0), 0); ?></strong></div>
-                                        <div><span>Wallet</span><strong><?php echo esc($wallet_meta['label']); ?></strong></div>
+                                        <div><span>Impressions</span><strong><?php echo number_format($impression_count); ?></strong></div>
+                                        <div><span>Full Reads</span><strong><?php echo number_format($read_full_count); ?></strong></div>
                                     </div>
                                     <div class="detail-copy">
                                         <h5>Full Review</h5>
@@ -647,8 +872,37 @@ require_once __DIR__ . '/../includes/header.php';
                                             </a>
                                         </div>
                                     <?php endif; ?>
+                                    <div class="correction-status-panel">
+                                        <h5>Correction</h5>
+                                        <p><?php echo $can_correct_review ? '1 correction available.' : ((int) ($review['correction_count'] ?? 0) > 0 ? 'Correction used.' : 'No action needed.'); ?></p>
+                                        <?php if (!empty($review['correction_note'])): ?>
+                                            <p><strong>Last note:</strong> <?php echo esc($review['correction_note']); ?></p>
+                                        <?php endif; ?>
+                                    </div>
                                 </section>
                             </div>
+
+                            <?php if ($can_correct_review): ?>
+                                <form method="POST" enctype="multipart/form-data" class="review-correction-form">
+                                    <input type="hidden" name="csrf_token" value="<?php echo esc(appCsrfToken()); ?>">
+                                    <input type="hidden" name="action" value="submit_review_correction">
+                                    <input type="hidden" name="review_id" value="<?php echo (int) $review['id']; ?>">
+                                    <h4>Fix Review</h4>
+                                    <div class="correction-grid">
+                                        <label>Title<input type="text" name="review_title" value="<?php echo esc($review['review_title'] ?? ''); ?>" required></label>
+                                        <label>Wallet<input type="text" name="wallet_address" value="<?php echo esc($review['wallet_address'] ?? ''); ?>"></label>
+                                        <label>TX Hash<input type="text" name="tx_hash" value="<?php echo esc($review['tx_hash'] ?? ''); ?>"></label>
+                                        <label>Screenshot<input type="file" name="screenshot" accept="image/*"></label>
+                                    </div>
+                                    <label>Review<textarea name="review_content" rows="5" required><?php echo esc($review['review_content'] ?? ''); ?></textarea></label>
+                                    <div class="correction-grid">
+                                        <label>Good<textarea name="pros" rows="3"><?php echo esc($review['pros'] ?? ''); ?></textarea></label>
+                                        <label>Improve<textarea name="cons" rows="3"><?php echo esc($review['cons'] ?? ''); ?></textarea></label>
+                                    </div>
+                                    <label>Note<textarea name="correction_note" rows="2" placeholder="What did you fix?"></textarea></label>
+                                    <button type="submit" class="btn-card-primary"><i class="fas fa-paper-plane"></i> Submit Correction</button>
+                                </form>
+                            <?php endif; ?>
                         </div>
                     </article>
                 <?php endforeach; ?>
@@ -691,12 +945,41 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<div class="review-modal priority-choice-modal" id="priorityChoiceModal" hidden>
+    <div class="review-modal-backdrop" data-close-priority-modal></div>
+    <div class="review-modal-dialog priority-choice-dialog" role="dialog" aria-modal="true" aria-label="Boost review">
+        <button type="button" class="review-modal-close" data-close-priority-modal aria-label="Close boost modal">
+            <i class="fas fa-times"></i>
+        </button>
+        <div class="priority-choice-head">
+            <span>Review Boost</span>
+            <strong id="priorityChoiceTitle">Priority</strong>
+        </div>
+        <div class="priority-choice-grid">
+            <?php foreach ($slot_costs as $slot_key => $slot): ?>
+                <form method="POST" class="priority-choice-form">
+                    <input type="hidden" name="csrf_token" value="<?php echo esc(appCsrfToken()); ?>">
+                    <input type="hidden" name="action" value="purchase_review_priority">
+                    <input type="hidden" name="review_id" value="">
+                    <input type="hidden" name="slot_group" value="<?php echo esc($slot_key); ?>">
+                    <button type="submit">
+                        <span><?php echo esc($slot['label']); ?></span>
+                        <strong><?php echo (int) $slot['cost']; ?>RR</strong>
+                    </button>
+                </form>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+
 <script>
 (function() {
     'use strict';
 
     const modal = document.getElementById('reviewDetailModal');
     const modalBody = document.getElementById('reviewModalBody');
+    const priorityModal = document.getElementById('priorityChoiceModal');
+    const priorityTitle = document.getElementById('priorityChoiceTitle');
     const openButtons = document.querySelectorAll('[data-open-review]');
     const closeButtons = document.querySelectorAll('[data-close-review-modal]');
 
@@ -743,9 +1026,37 @@ require_once __DIR__ . '/../includes/header.php';
         button.addEventListener('click', closeModal);
     });
 
+    document.querySelectorAll('[data-boost-review]').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!priorityModal) return;
+            const reviewId = button.getAttribute('data-boost-review') || '';
+            priorityModal.querySelectorAll('input[name="review_id"]').forEach((input) => {
+                input.value = reviewId;
+            });
+            if (priorityTitle) {
+                priorityTitle.textContent = button.getAttribute('data-boost-title') || 'Priority';
+            }
+            priorityModal.removeAttribute('hidden');
+            document.body.classList.add('review-modal-open');
+        });
+    });
+
+    document.querySelectorAll('[data-close-priority-modal]').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!priorityModal) return;
+            priorityModal.setAttribute('hidden', 'hidden');
+            if (!modal || modal.hasAttribute('hidden')) {
+                document.body.classList.remove('review-modal-open');
+            }
+        });
+    });
+
     window.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && modal && !modal.hasAttribute('hidden')) {
             closeModal();
+        } else if (event.key === 'Escape' && priorityModal && !priorityModal.hasAttribute('hidden')) {
+            priorityModal.setAttribute('hidden', 'hidden');
+            document.body.classList.remove('review-modal-open');
         }
     });
 
@@ -754,6 +1065,21 @@ require_once __DIR__ . '/../includes/header.php';
             closeModal();
         }
     });
+
+    const toast = document.getElementById('myReviewsToast');
+    if (toast) {
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+        window.setTimeout(() => {
+            toast.classList.remove('show');
+            window.setTimeout(() => {
+                if (toast && toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 260);
+        }, 4200);
+    }
 })();
 </script>
 

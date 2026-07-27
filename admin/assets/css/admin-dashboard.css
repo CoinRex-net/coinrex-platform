@@ -1659,6 +1659,22 @@
     border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
+.review-helper-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.review-helper-badges .dashboard-pill {
+    font-size: 10px;
+    padding: 4px 7px;
+}
+
+.review-helper-badges-modal {
+    margin: 0 0 12px;
+}
+
 /* --- Users Page: Premium Modal --- */
 .dashboard-modal {
     position: fixed;
