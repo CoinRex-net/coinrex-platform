@@ -1,0 +1,617 @@
+.rex-auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0;
+    color: rgba(185, 199, 232, .82);
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.rex-auth-divider::before,
+.rex-auth-divider::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: rgba(148, 163, 184, .16);
+}
+.rex-auth-button {
+    position: relative;
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid rgba(148, 163, 184, .18);
+    border-radius: 10px;
+    background: rgba(2, 6, 23, .28);
+    color: #dbeafe;
+    font-weight: 950;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 12px;
+    transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+.rex-auth-button.is-soon {
+    cursor: not-allowed;
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(15, 23, 42, .58), rgba(2, 6, 23, .28));
+    border-color: rgba(100, 116, 139, .28);
+    color: #cbd5e1;
+}
+.rex-auth-button-main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    gap: 9px;
+    flex: 1;
+}
+.rex-auth-button:hover {
+    border-color: rgba(250, 204, 21, .42);
+    background: rgba(212, 175, 55, .08);
+    color: #facc15;
+    transform: none;
+}
+.rex-auth-button.is-soon:hover {
+    border-color: rgba(100, 116, 139, .28);
+    background: linear-gradient(135deg, rgba(15, 23, 42, .58), rgba(2, 6, 23, .28));
+    color: #cbd5e1;
+}
+.rex-auth-button:disabled {
+    cursor: not-allowed;
+}
+.rex-auth-soon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 950;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    box-shadow: none;
+    flex: 0 0 auto;
+}
+.rex-auth-soon-badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, .62);
+    animation: rexAuthSoonPulse 1.15s ease-out infinite;
+}
+@keyframes rexAuthSoonPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, .62);
+        opacity: 1;
+    }
+    70% {
+        box-shadow: 0 0 0 7px rgba(239, 68, 68, 0);
+        opacity: .78;
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        opacity: 1;
+    }
+}
+.rexlink-modal[hidden] {
+    display: none;
+}
+.rexlink-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1800;
+    display: grid;
+    place-items: center;
+    padding: 14px;
+}
+.rexlink-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, .78);
+    backdrop-filter: blur(7px);
+}
+.rexlink-dialog {
+    position: relative;
+    width: min(860px, 100%);
+    border: 1px solid rgba(148, 163, 184, .18);
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 16% 0%, rgba(250, 204, 21, .10), transparent 34%),
+        linear-gradient(145deg, #101827, #0a1221 64%, #0f172a);
+    box-shadow: 0 26px 80px rgba(0, 0, 0, .46);
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto auto auto auto;
+}
+.rexlink-head {
+    padding: 16px 20px 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, .12);
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+}
+.rexlink-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #facc15;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.rexlink-head h3 {
+    margin: 3px 0 0;
+    color: #f8fafc;
+    font-size: clamp(1.16rem, 2.2vw, 1.5rem);
+}
+.rexlink-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, .18);
+    background: rgba(30, 41, 59, .92);
+    color: #f8fafc;
+    cursor: pointer;
+    flex: 0 0 auto;
+    font-size: 22px;
+    line-height: 1;
+}
+.rexlink-progress {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding: 0 18px 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, .12);
+}
+.rexlink-progress span {
+    border-radius: 8px;
+    background: rgba(148, 163, 184, .10);
+    color: #91a4bd;
+    font-size: 12px;
+    font-weight: 900;
+    text-align: center;
+    padding: 7px 8px;
+}
+.rexlink-progress span.is-active {
+    background: rgba(250, 204, 21, .14);
+    color: #facc15;
+}
+.rexlink-progress span.is-complete {
+    background: rgba(34, 197, 94, .14);
+    color: #86efac;
+}
+.rexlink-body {
+    overflow: visible;
+    padding: 16px 20px 20px;
+}
+.rexlink-step {
+    display: none;
+}
+.rexlink-step.is-active {
+    display: grid;
+    gap: 10px;
+}
+.rexlink-link-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, .72fr) minmax(340px, 1.28fr);
+    gap: 18px;
+    align-items: stretch;
+}
+.rexlink-link-grid > .rexlink-copy {
+    border: 1px solid rgba(148, 163, 184, .14);
+    border-radius: 16px;
+    padding: 13px;
+    background:
+        radial-gradient(circle at top left, rgba(250, 204, 21, .12), transparent 34%),
+        rgba(8, 17, 32, .62);
+    display: grid;
+    align-content: start;
+    gap: 10px;
+}
+.rexlink-copy h4,
+.rexlink-success h4 {
+    margin: 0;
+    color: #f8fafc;
+    font-size: 1.05rem;
+}
+.rexlink-copy p,
+.rexlink-success p,
+.rexlink-guide li,
+.rexlink-status {
+    margin: 4px 0 0;
+    color: #b9c7e8;
+    font-size: 13px;
+    line-height: 1.35;
+}
+.rexlink-link-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.rexlink-guide {
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+}
+.rexlink-guide li {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+.rexlink-guide i {
+    color: #facc15;
+    margin-top: 2px;
+}
+.rexlink-link-actions {
+    display: flex;
+    justify-content: flex-start;
+}
+.rexlink-qr-card {
+    width: min(100%, 390px);
+    justify-self: center;
+    border-radius: 16px;
+    padding: 12px;
+    border: 1px solid rgba(250, 204, 21, .32);
+    background: linear-gradient(145deg, rgba(13, 27, 52, .98), rgba(8, 17, 32, .94));
+    box-shadow: 0 22px 48px rgba(2, 6, 23, .38);
+    display: grid;
+    place-items: center;
+    gap: 8px;
+}
+.rexlink-qr-stage {
+    position: relative;
+    width: min(100%, 268px);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: rgba(2, 6, 23, .86);
+    border: 1px solid rgba(147, 197, 253, .20);
+}
+.rexlink-qr-stage img,
+.rexlink-qr-placeholder {
+    width: 232px;
+    height: 232px;
+    border-radius: 8px;
+}
+.rexlink-qr-stage img {
+    display: block;
+    background: #fff;
+    padding: 8px;
+}
+.rexlink-qr-stage img[hidden],
+.rexlink-qr-placeholder[hidden] {
+    display: none !important;
+}
+.rexlink-qr-placeholder {
+    border: 1px dashed rgba(212, 175, 55, .36);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #b9c7e8;
+    padding: 18px;
+}
+.rexlink-qr-placeholder::before {
+    content: "";
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    border: 2px solid rgba(250, 204, 21, .18);
+    border-top-color: rgba(250, 204, 21, .82);
+    animation: rexlinkSpin .9s linear infinite;
+}
+.rexlink-qr-placeholder.is-rendered {
+    border-style: solid;
+    background: #fff;
+    padding: 8px;
+}
+.rexlink-qr-placeholder.is-rendered::before {
+    display: none;
+}
+.rexlink-qr-placeholder svg {
+    display: block;
+    width: 232px;
+    height: 232px;
+}
+.rexlink-expired-placeholder {
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 8px;
+    color: #fca5a5;
+}
+.rexlink-expired-placeholder i {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(239, 68, 68, .12);
+    border: 1px solid rgba(248, 113, 113, .34);
+    color: #f87171;
+    font-size: 18px;
+}
+.rexlink-expired-placeholder strong {
+    color: #f8fafc;
+    font-size: 15px;
+    font-weight: 900;
+}
+.rexlink-expired-placeholder small {
+    color: #b9c7e8;
+    font-size: 12px;
+    line-height: 1.35;
+    max-width: 170px;
+}
+.rexlink-qr-logo-badge {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: #081120;
+    border: 4px solid #fff;
+    pointer-events: none;
+    z-index: 2;
+}
+.rexlink-qr-logo-badge.is-visible {
+    display: flex;
+}
+.rexlink-qr-logo-badge img {
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+}
+.rexlink-code-row {
+    margin-top: 0;
+    display: inline-grid;
+    grid-template-columns: minmax(0, auto) 36px;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    max-width: 100%;
+}
+.rexlink-code {
+    min-height: 36px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(250, 204, 21, .34);
+    background: rgba(212, 175, 55, .10);
+    color: #facc15;
+    font-size: clamp(16px, 2.3vw, 21px);
+    font-weight: 950;
+    letter-spacing: .08em;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+.rexlink-copy-button {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid rgba(250, 204, 21, .32);
+    background: rgba(212, 175, 55, .10);
+    color: #facc15;
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+}
+.rexlink-countdown {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    margin: 0;
+    padding: 5px 9px;
+    border: 1px solid rgba(34, 197, 94, .26);
+    border-radius: 8px;
+    background: rgba(34, 197, 94, .10);
+    color: #86efac;
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+.rexlink-session-note {
+    margin: 8px 0 0;
+    color: #91a4bd;
+    font-size: 12px;
+    font-weight: 800;
+}
+.rexlink-status {
+    min-height: 18px;
+    margin-top: 0;
+}
+.rexlink-status.is-error {
+    color: #fca5a5;
+}
+.rexlink-status.is-success {
+    color: #86efac;
+}
+.rexlink-success {
+    min-height: 240px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+}
+.rexlink-success-icon {
+    width: 78px;
+    height: 78px;
+    border-radius: 22px;
+    margin: 0 auto 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(34, 197, 94, .14);
+    color: #86efac;
+    font-size: 32px;
+    animation: rexlinkPop .65s ease both;
+}
+@keyframes rexlinkPop {
+    0% { transform: scale(.72); opacity: 0; }
+    70% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes rexlinkSpin {
+    to { transform: rotate(360deg); }
+}
+.rexlink-secondary,
+.rexlink-primary {
+    min-height: 38px;
+    border-radius: 8px;
+    padding: 0 14px;
+    font-weight: 900;
+    cursor: pointer;
+}
+.rexlink-secondary {
+    border: 1px solid rgba(148, 163, 184, .18);
+    background: rgba(30, 41, 59, .72);
+    color: #f8fafc;
+}
+.rexlink-primary {
+    border: 1px solid rgba(250, 204, 21, .36);
+    background: rgba(212, 175, 55, .13);
+    color: #facc15;
+}
+.rexlink-primary:disabled,
+.rexlink-secondary:disabled {
+    cursor: not-allowed;
+    opacity: .58;
+}
+@media (max-width: 720px) {
+    .rexlink-link-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .rexlink-link-grid > .rexlink-copy {
+        order: 2;
+        padding: 10px;
+        gap: 7px;
+    }
+    .rexlink-qr-card {
+        order: 1;
+        width: min(100%, 430px);
+        justify-self: center;
+        display: grid;
+        justify-items: center;
+    }
+    .rexlink-dialog {
+        width: min(100%, 560px);
+        max-height: calc(100dvh - 12px);
+    }
+    .rexlink-progress {
+        padding-inline: 14px;
+    }
+    .rexlink-body,
+    .rexlink-head {
+        padding-inline: 14px;
+    }
+}
+@media (max-width: 520px) {
+    .rexlink-modal {
+        padding: 6px;
+    }
+    .rexlink-head {
+        padding: 10px 12px 7px;
+    }
+    .rexlink-tag {
+        font-size: 11px;
+    }
+    .rexlink-head h3 {
+        font-size: 1.05rem;
+    }
+    .rexlink-close {
+        width: 34px;
+        height: 34px;
+    }
+    .rexlink-progress {
+        padding: 0 14px 8px;
+        gap: 5px;
+    }
+    .rexlink-progress span {
+        font-size: 11px;
+        padding: 6px 5px;
+    }
+    .rexlink-body {
+        padding: 10px 12px 12px;
+    }
+    .rexlink-link-title {
+        display: grid;
+        gap: 6px;
+    }
+    .rexlink-link-title h4 {
+        font-size: .95rem;
+    }
+    .rexlink-session-note {
+        margin-top: 2px;
+        font-size: 11px;
+        line-height: 1.25;
+    }
+    .rexlink-qr-stage {
+        width: min(100%, 292px);
+    }
+    .rexlink-qr-stage img,
+    .rexlink-qr-placeholder,
+    .rexlink-qr-placeholder svg {
+        width: 252px;
+        height: 252px;
+    }
+    .rexlink-qr-card {
+        padding: 10px;
+        gap: 9px;
+    }
+    .rexlink-code-row {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr) 38px;
+        justify-content: stretch;
+    }
+    .rexlink-code {
+        width: 100%;
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+    .rexlink-qr-logo-badge {
+        width: 44px;
+        height: 44px;
+    }
+    .rexlink-qr-logo-badge img {
+        width: 30px;
+        height: 30px;
+    }
+    .rexlink-guide {
+        gap: 4px;
+        margin-top: 3px;
+    }
+    .rexlink-guide li:nth-child(n+3) {
+        display: none;
+    }
+    .rexlink-copy p,
+    .rexlink-guide li,
+    .rexlink-status {
+        font-size: 11px;
+    }
+    .rexlink-status {
+        min-height: 14px;
+    }
+}

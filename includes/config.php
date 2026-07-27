@@ -276,20 +276,32 @@ define('ASSETS_PATH', BASE_PATH . '/assets');
 // URL Configuration
 $protocol = coinrexIsHttpsRequest() ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$configured_base_url = trim((string) (getenv('COINREX_BASE_URL') ?: ''));
+$configured_base_uri = trim((string) (getenv('COINREX_BASE_URI') ?: ''));
 $document_root = realpath($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__));
 $site_root = realpath(BASE_PATH);
 $document_root = str_replace('\\', '/', $document_root);
 $site_root = str_replace('\\', '/', $site_root);
 $base_uri = '';
-if ($document_root !== '' && strpos($site_root, $document_root) === 0) {
+if ($configured_base_url !== '') {
+    $configured_base_url = rtrim($configured_base_url, '/');
+    $configured_path = parse_url($configured_base_url, PHP_URL_PATH);
+    $base_uri = is_string($configured_path) ? $configured_path : '';
+} elseif ($configured_base_uri !== '') {
+    $base_uri = $configured_base_uri;
+} elseif ($document_root !== '' && strpos($site_root, $document_root) === 0) {
     $base_uri = substr($site_root, strlen($document_root));
 }
 $base_uri = '/' . trim($base_uri, '/');
 if ($base_uri === '/') {
     $base_uri = '';
 }
+$canonical_host = strtolower((string) preg_replace('/:\d+$/', '', $host));
+if ($is_production && in_array($canonical_host, ['coinrex.xyz', 'www.coinrex.xyz'], true) && $base_uri === '/coinrex') {
+    $base_uri = '';
+}
 define('BASE_URI', $base_uri);
-define('BASE_URL', rtrim($protocol . '://' . $host . $base_uri, '/'));
+define('BASE_URL', $configured_base_url !== '' ? $configured_base_url : rtrim($protocol . '://' . $host . $base_uri, '/'));
 $public_base_url = trim((string) (getenv('COINREX_PUBLIC_BASE_URL') ?: ''));
 $public_base_url = $public_base_url !== '' ? rtrim($public_base_url, '/') : '';
 define('PUBLIC_BASE_URL_CONFIGURED', $public_base_url !== '');
