@@ -938,6 +938,12 @@ function seedDefaultNavigationControls(PDO $db = null, bool $resetPresentation =
                 (string) ($item['admin_route_hint'] ?? ''),
             ];
 
+            // Always enforce the correct plural label for marketplace project link.
+            if ($key === 'header_marketplace_project') {
+                $fields[] = 'label = ?';
+                $params[] = 'Projects';
+            }
+
             if ($resetPresentation) {
                 $fields[] = 'label = ?';
                 $fields[] = 'custom_url = ?';
