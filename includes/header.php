@@ -170,15 +170,7 @@ $navigation_context = [
     'taskhub_mission_completed' => $taskhub_mission_completed_for_nav,
 ];
 $header_primary_items = getManagedNavigationSlotItems('desktop', 'header', 'primary', 6, $navigation_context);
-$header_resource_items = getManagedNavigationItems('header', 'resources', $navigation_context);
 $mobile_navigation_items = getManagedNavigationSlotItems('mobile', 'mobile', 'bottom', 5, $navigation_context);
-$resources_active = false;
-foreach ($header_resource_items as $header_resource_item) {
-    if (!empty($header_resource_item['is_active'])) {
-        $resources_active = true;
-        break;
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -389,25 +381,6 @@ foreach ($header_resource_items as $header_resource_item) {
                         </a>
                     <?php endif; ?>
                 <?php endforeach; ?>
-                <?php if (!empty($header_resource_items)): ?>
-                <div class="nex-resource-menu">
-                    <button type="button" class="nex-resource-trigger <?php echo $resources_active ? 'active' : ''; ?>" aria-haspopup="true" aria-expanded="false">
-                        <i class="fas fa-layer-group"></i>
-                        <span>Resources</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                    <div class="nex-dropdown nex-resource-dropdown">
-                        <?php foreach ($header_resource_items as $nav_item): ?>
-                            <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
-                                <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
-                                    <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
-                                <?php endif; ?>
-                                <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
             </div>
 
             <!-- Right Actions -->

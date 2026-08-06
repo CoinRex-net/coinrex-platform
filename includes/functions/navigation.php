@@ -106,6 +106,24 @@ function getDefaultNavigationControls(): array {
             'admin_route_hint' => BASE_URL . '/public/leaderboard.php',
             'active_pages' => ['leaderboard'],
         ],
+        'header_resources_menu' => [
+            'nav_key' => 'header_resources_menu',
+            'location' => 'header',
+            'section_key' => 'primary',
+            'section_label' => 'Header Primary',
+            'label' => 'Resources',
+            'route_key' => '',
+            'icon_class' => 'fas fa-layer-group',
+            'badge_text' => '',
+            'sort_order' => 25,
+            'is_enabled' => 1,
+            'audience' => 'all',
+            'item_type' => 'dropdown',
+            'children_section_key' => 'resources',
+            'admin_hint' => 'Opens the Resources dropdown in the primary header. Children are managed in the Header Resources section.',
+            'admin_route_hint' => 'Dropdown only',
+            'active_pages' => ['roadmap', 'litepaper', 'blog', 'blog-post', 'blog-category', 'blog-tag', 'about'],
+        ],
         'header_marketplace_menu' => [
             'nav_key' => 'header_marketplace_menu',
             'location' => 'header',
@@ -1156,6 +1174,7 @@ function coinrexNavigationCanRenderKey(string $navKey, array $context = []): boo
         case 'footer_platform_devhub':
             return featureIsVisible('devhub_full') || featureIsVisible('devhub_auth');
         case 'header_marketplace_menu':
+        case 'header_resources_menu':
             return true;
         case 'footer_bottom_api':
             return featureIsVisible('devhub_full');
@@ -1288,6 +1307,7 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
     $legacySlotGroup = $slotGroup . '_' . ($isLoggedIn ? 'member' : 'guest');
 
     $slotKeys = [];
+    $explicitEmptySlots = [];
     try {
         $db = getDBConnection();
         ensureNavigationControlsSchema($db);
@@ -1300,23 +1320,38 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
 
         foreach ($slotGroups as $candidateSlotGroup) {
             $stmt = $db->prepare("
-                SELECT nav_key
+                SELECT slot_number, nav_key
                 FROM navigation_slots
                 WHERE slot_group = ?
                 ORDER BY slot_number ASC
                 LIMIT " . (int) $limit
             );
             $stmt->execute([$candidateSlotGroup]);
-            $slotKeys = array_values(array_filter(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [])));
-            if ($slotKeys) {
+            $slotRows = $stmt->fetchAll() ?: [];
+            if ($slotRows) {
+                $slotKeys = [];
+                foreach ($slotRows as $slotRow) {
+                    $slotNumber = (int) ($slotRow['slot_number'] ?? 0);
+                    $slotNavKey = trim((string) ($slotRow['nav_key'] ?? ''));
+                    if ($slotNumber >= 1 && $slotNumber <= $limit) {
+                        if ($slotNavKey === '') {
+                            $explicitEmptySlots[$slotNumber] = true;
+                        } else {
+                            $slotKeys[$slotNumber] = $slotNavKey;
+                        }
+                    }
+                }
+                ksort($slotKeys);
+                $slotKeys = array_values($slotKeys);
                 break;
             }
         }
     } catch (Throwable $e) {
         $slotKeys = [];
+        $explicitEmptySlots = [];
     }
 
-    if (!$slotKeys) {
+    if (!$slotKeys && !$explicitEmptySlots) {
         return array_slice(getManagedNavigationItems($location, $sectionKey, $context), 0, $limit);
     }
 
@@ -1336,15 +1371,27 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
         }
     }
 
-    if (count($items) < $limit) {
-        foreach (getManagedNavigationItems($location, $sectionKey, $context) as $fallbackItem) {
+    // Only fill slots that are NOT explicitly set to empty in the DB.
+    // Also exclude dropdown items from the fallback pool so empty slots
+    // don't get auto-filled with "Marketplace" or other dropdown triggers.
+    $fallbackPool = array_filter(
+        getManagedNavigationItems($location, $sectionKey, $context),
+        static function (array $fallbackItem): bool {
+            return (string) ($fallbackItem['item_type'] ?? 'link') !== 'dropdown';
+        }
+    );
+
+    $slotsToFill = $limit - count($items) - count($explicitEmptySlots);
+    if ($slotsToFill > 0) {
+        foreach ($fallbackPool as $fallbackItem) {
             $fallbackKey = (string) ($fallbackItem['nav_key'] ?? '');
             if ($fallbackKey === '' || isset($usedKeys[$fallbackKey])) {
                 continue;
             }
             $items[] = $fallbackItem;
             $usedKeys[$fallbackKey] = true;
-            if (count($items) >= $limit) {
+            $slotsToFill--;
+            if ($slotsToFill <= 0) {
                 break;
             }
         }

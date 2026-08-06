@@ -187,6 +187,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $badge_text = trim((string) ($_POST['new_nav']['badge_text'] ?? ''));
             $audience = trim((string) ($_POST['new_nav']['audience'] ?? 'all'));
             $sort_order = (int) ($_POST['new_nav']['sort_order'] ?? 100);
+            $item_type = trim((string) ($_POST['new_nav']['item_type'] ?? 'link'));
+            $children_section_key = trim((string) ($_POST['new_nav']['children_section_key'] ?? ''));
 
             $allowed_sections = [
                 'header' => ['primary', 'resources', 'marketplace'],
@@ -194,8 +196,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'mobile' => ['bottom'],
             ];
 
-            if ($label === '' || $custom_url === '') {
-                throw new RuntimeException('Label and custom URL are required for a new navigation item.');
+            if ($label === '') {
+                throw new RuntimeException('Label is required for a new navigation item.');
+            }
+            if (!in_array($item_type, ['link', 'dropdown'], true)) {
+                $item_type = 'link';
+            }
+            if ($item_type === 'link' && $custom_url === '') {
+                throw new RuntimeException('Custom URL is required for a link navigation item.');
+            }
+            if ($item_type === 'dropdown' && $children_section_key === '') {
+                throw new RuntimeException('A children section is required for a dropdown navigation item.');
             }
             if (!isset($allowed_sections[$location]) || !in_array($section_key, $allowed_sections[$location], true)) {
                 throw new RuntimeException('Please choose a valid navigation section.');
@@ -212,7 +223,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO navigation_controls (
                     nav_key, location, section_key, label, custom_url, icon_class, badge_text, sort_order, is_enabled,
                     audience, item_type, children_section_key, admin_hint, admin_route_hint, is_system, updated_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'link', '', ?, ?, 0, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 0, ?)
             ");
             $insert->execute([
                 $nav_key,
@@ -224,12 +235,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $badge_text,
                 $sort_order,
                 $audience,
-                'Custom navigation item created from Launch Control.',
-                $custom_url,
+                $item_type,
+                $children_section_key,
+                $item_type === 'dropdown'
+                    ? 'Custom dropdown menu created from Launch Control. Children are managed in the ' . $children_section_key . ' section.'
+                    : 'Custom navigation item created from Launch Control.',
+                $item_type === 'dropdown' ? 'Dropdown only' : $custom_url,
                 $current_admin_id > 0 ? $current_admin_id : null,
             ]);
             getNavigationControlRegistry(true);
-            $success_message = 'New navigation item added successfully.';
+            $success_message = $item_type === 'dropdown'
+                ? 'New dropdown menu added successfully. Add children in the ' . $children_section_key . ' section.'
+                : 'New navigation item added successfully.';
         } elseif ($action === 'delete_navigation_item') {
             $nav_key = trim((string) ($_POST['nav_key'] ?? ''));
             if ($nav_key === '') {
@@ -394,9 +411,10 @@ $navigation_slot_options = static function (array $registry, string $slotGroup, 
             continue;
         }
         $audience_label = $audience === 'member' ? 'signed-in' : ($audience === 'guest' ? 'guest' : 'all');
+        $type_label = $itemType === 'dropdown' ? ' [Dropdown]' : '';
         $options[] = [
             'key' => (string) $key,
-            'label' => (string) ($item['label'] ?? 'Navigation item') . ' [' . (string) ($item['section_label'] ?? ($itemLocation . ' / ' . $itemSection)) . '] (' . $audience_label . ')' . $feature_note,
+            'label' => (string) ($item['label'] ?? 'Navigation item') . $type_label . ' [' . (string) ($item['section_label'] ?? ($itemLocation . ' / ' . $itemSection)) . '] (' . $audience_label . ')' . $feature_note,
             'sort_order' => (int) ($item['sort_order'] ?? 0),
             'is_enabled' => !empty($item['is_enabled']),
         ];
@@ -923,8 +941,8 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
         </form>
 
         <section class="launch-create-card">
-            <h3><i class="fas fa-plus-circle"></i> Add New Link/Page</h3>
-            <p>Add a page or custom URL, then select it in the slot dropdown above.</p>
+            <h3><i class="fas fa-plus-circle"></i> Add New Link/Page or Dropdown</h3>
+            <p>Add a page, custom URL, or dropdown menu, then select it in the slot dropdown above.</p>
             <form method="POST" action="" class="launch-create-form">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="action" value="create_navigation_item">
@@ -936,10 +954,17 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                     </label>
                     <label>
                         Custom URL
-                        <input type="text" name="new_nav[custom_url]" placeholder="https://... or /public/page.php" required>
+                        <input type="text" name="new_nav[custom_url]" placeholder="https://... or /public/page.php">
                     </label>
                 </div>
                 <div class="launch-nav-grid-3" style="margin-top:10px;">
+                    <label>
+                        Type
+                        <select name="new_nav[item_type]" id="newNavItemType">
+                            <option value="link">Link / Page</option>
+                            <option value="dropdown">Dropdown Menu</option>
+                        </select>
+                    </label>
                     <label>
                         Location
                         <select name="new_nav[location]">
@@ -959,6 +984,16 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                             <option value="bottom">Footer Bottom / Mobile Bottom</option>
                         </select>
                     </label>
+                </div>
+                <div class="launch-nav-grid-3" style="margin-top:10px;">
+                    <label>
+                        Children Section (for dropdowns)
+                        <select name="new_nav[children_section_key]" id="newNavChildrenSection">
+                            <option value="">-- None --</option>
+                            <option value="resources">Header Resources</option>
+                            <option value="marketplace">Header Marketplace</option>
+                        </select>
+                    </label>
                     <label>
                         Audience
                         <select name="new_nav[audience]">
@@ -967,12 +1002,12 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                             <option value="member">Signed-in Only</option>
                         </select>
                     </label>
-                </div>
-                <div class="launch-nav-grid-3" style="margin-top:10px;">
                     <label>
                         Order
                         <input type="number" name="new_nav[sort_order]" value="100">
                     </label>
+                </div>
+                <div class="launch-nav-grid-3" style="margin-top:10px;">
                     <label>
                         Icon class
                         <input type="text" name="new_nav[icon_class]" placeholder="fas fa-link">
@@ -992,5 +1027,30 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
     </div>
 </section>
 </div>
+
+<script>
+(function() {
+    const itemTypeSelect = document.getElementById('newNavItemType');
+    const childrenSectionSelect = document.getElementById('newNavChildrenSection');
+    const customUrlInput = document.querySelector('input[name="new_nav[custom_url]"]');
+
+    function updateCreateForm() {
+        if (!itemTypeSelect) return;
+        const isDropdown = itemTypeSelect.value === 'dropdown';
+        if (childrenSectionSelect) {
+            childrenSectionSelect.closest('label').style.display = isDropdown ? 'grid' : 'none';
+        }
+        if (customUrlInput) {
+            customUrlInput.closest('label').style.display = isDropdown ? 'none' : 'grid';
+            customUrlInput.required = !isDropdown;
+        }
+    }
+
+    if (itemTypeSelect) {
+        itemTypeSelect.addEventListener('change', updateCreateForm);
+        updateCreateForm();
+    }
+})();
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
