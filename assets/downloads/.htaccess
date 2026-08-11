@@ -1,0 +1,8 @@
+# Block direct access to APK files
+# Users must download through /api/rexlink_download.php for tracking
+<FilesMatch "\.(apk|zip|tar|gz)$">
+    Require all denied
+</FilesMatch>
+
+# Block directory listing
+Options -Indexes
