@@ -82,7 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $submit_audience = (string) ($level_audience_map[$submit_level] ?? 'guest');
 
             $desktop_limit = 6;
-            $mobile_limit = 5;
+            $mobile_limit = 4;
+            $mobile_more_limit = 4;
 
             $desktop_slot_group = 'desktop_' . $submit_level;
             $mobile_slot_group = 'mobile_' . $submit_level;
@@ -96,9 +97,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mobile_slots = [];
             }
 
+            $mobile_more_slots = $_POST['mobile_more_slots'] ?? [];
+            if (!is_array($mobile_more_slots)) {
+                $mobile_more_slots = [];
+            }
+
             $configs = [
                 [$desktop_slots, $desktop_slot_group, 'header', 'primary', $submit_audience, $desktop_limit],
                 [$mobile_slots, $mobile_slot_group, 'mobile', 'bottom', $submit_audience, $mobile_limit],
+                [$mobile_more_slots, 'mobile_more_' . $submit_level, 'mobile_more', 'more', $submit_audience, $mobile_more_limit],
             ];
 
             foreach ($configs as [$slots, $slot_group, $loc, $sec, $aud, $limit]) {
@@ -388,7 +395,9 @@ $navigation_slot_options = static function (array $registry, string $slotGroup, 
             $includeInSlotGroup = $itemLocation === 'header'
                 || ($itemType === 'link' && $itemLocation === 'footer');
         } elseif ($slotGroup === 'mobile') {
-            $includeInSlotGroup = $itemType === 'link';
+            $includeInSlotGroup = $itemType === 'link' && $itemLocation === 'mobile';
+        } elseif ($slotGroup === 'mobile_more') {
+            $includeInSlotGroup = $itemType === 'link' && $itemLocation === 'mobile_more' && $itemSection === 'more';
         }
 
         if (!$includeInSlotGroup) {
@@ -867,6 +876,7 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
 
         $desktop_options = $navigation_slot_options($navigation_registry, 'desktop', $filtered_audience, $feature_flags_by_key);
         $mobile_options = $navigation_slot_options($navigation_registry, 'mobile', $filtered_audience, $feature_flags_by_key);
+        $mobile_more_options = $navigation_slot_options($navigation_registry, 'mobile_more', $filtered_audience, $feature_flags_by_key);
 
         $desktop_location = $filtered_level === 'visitor' ? 'header' : 'header';
         $desktop_section = 'primary';
@@ -874,7 +884,8 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
         $mobile_section = 'bottom';
 
         $desktop_values = $navigation_slot_values($db, $navigation_registry, $desktop_slot_group, $desktop_location, $desktop_section, $filtered_audience, 6);
-        $mobile_values = $navigation_slot_values($db, $navigation_registry, $mobile_slot_group, $mobile_location, $mobile_section, $filtered_audience, 5);
+        $mobile_values = $navigation_slot_values($db, $navigation_registry, $mobile_slot_group, $mobile_location, $mobile_section, $filtered_audience, 4);
+        $mobile_more_values = $navigation_slot_values($db, $navigation_registry, 'mobile_more_' . $filtered_level, 'mobile_more', 'more', $filtered_audience, 4);
         ?>
 
         <nav class="launch-tabs" style="margin-bottom: 4px;" aria-label="Level filter">
@@ -921,7 +932,7 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                 <div class="launch-slot-group">
                     <h4><i class="fas fa-mobile-screen-button"></i> Mobile Bottom Nav (<?php echo $level_labels[$current_level]; ?>)</h4>
                     <div class="launch-slot-grid">
-                        <?php for ($slot = 1; $slot <= 5; $slot++): ?>
+                        <?php for ($slot = 1; $slot <= 4; $slot++): ?>
                             <label>
                                 Slot <?php echo (int) $slot; ?>
                                 <select name="mobile_slots[<?php echo (int) $slot; ?>]">
@@ -936,8 +947,26 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                         <?php endfor; ?>
                     </div>
                 </div>
+                <div class="launch-slot-group">
+                    <h4><i class="fas fa-ellipsis-h"></i> Mobile More Menu (<?php echo $level_labels[$current_level]; ?>)</h4>
+                    <div class="launch-slot-grid">
+                        <?php for ($slot = 1; $slot <= 4; $slot++): ?>
+                            <label>
+                                Slot <?php echo (int) $slot; ?>
+                                <select name="mobile_more_slots[<?php echo (int) $slot; ?>]">
+                                    <option value="">Empty slot</option>
+                                    <?php foreach ($mobile_more_options as $option): ?>
+                                        <option value="<?php echo htmlspecialchars((string) $option['key'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) ($mobile_more_values[$slot] ?? '') === (string) $option['key'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $option['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        <?php endfor; ?>
+                    </div>
+                </div>
             </div>
-            <p class="launch-mobile-note">Feature Access still controls whether a selected page is live during MVP launch. Select <strong>Empty slot</strong> to leave a position unset.</p>
+            <p class="launch-mobile-note">Feature Access still controls whether a selected page is live during MVP launch. The center More button is reserved; configure the four direct links and four More links above.</p>
         </form>
 
         <section class="launch-create-card">

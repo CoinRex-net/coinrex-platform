@@ -170,7 +170,8 @@ $navigation_context = [
     'taskhub_mission_completed' => $taskhub_mission_completed_for_nav,
 ];
 $header_primary_items = getManagedNavigationSlotItems('desktop', 'header', 'primary', 6, $navigation_context);
-$mobile_navigation_items = getManagedNavigationSlotItems('mobile', 'mobile', 'bottom', 5, $navigation_context);
+$mobile_navigation_items = getManagedNavigationSlotItems('mobile', 'mobile', 'bottom', 4, $navigation_context);
+$mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more', 'more', 4, $navigation_context);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -471,29 +472,31 @@ $mobile_navigation_items = getManagedNavigationSlotItems('mobile', 'mobile', 'bo
 </nav>
 
 <!-- Mobile Bottom Navigation Bar (appears only on mobile) -->
-<div class="mobile-bottom-nav">
-    <?php foreach ($mobile_navigation_items as $nav_item): ?>
-        <?php
-            $mobile_item_classes = ['mobile-nav-item'];
-            if (in_array((string) ($nav_item['nav_key'] ?? ''), ['mobile_home_guest', 'mobile_home_member'], true)) {
-                $mobile_item_classes[] = 'mobile-nav-home';
-            }
-            if (!empty($nav_item['is_active'])) {
-                $mobile_item_classes[] = 'active';
-            }
-            $mobile_badge = trim((string) ($nav_item['badge_text'] ?? ''));
-            $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle';
-        ?>
-        <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo htmlspecialchars(implode(' ', $mobile_item_classes), ENT_QUOTES, 'UTF-8'); ?>">
-            <?php if ($mobile_badge !== ''): ?>
-                <span class="mobile-nav-icon-wrap">
-                    <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
-                    <span class="mobile-hot-badge"><?php echo htmlspecialchars($mobile_badge, ENT_QUOTES, 'UTF-8'); ?></span>
-                </span>
-            <?php else: ?>
-                <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
-            <?php endif; ?>
-            <span class="<?php echo $mobile_badge !== '' ? 'mobile-nav-label' : ''; ?>"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+<div class="mobile-bottom-nav" id="mobileBottomNav">
+    <?php foreach (array_slice($mobile_navigation_items, 0, 2) as $nav_item): ?>
+        <?php $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle'; ?>
+        <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="mobile-nav-item<?php echo !empty($nav_item['is_active']) ? ' active' : ''; ?>">
+            <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
+            <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+        </a>
+    <?php endforeach; ?>
+    <button type="button" class="mobile-nav-item mobile-nav-more" id="mobileMoreToggle" aria-label="Open more navigation links" aria-expanded="false" aria-controls="mobileMoreMenu">
+        <i class="fas fa-ellipsis-h"></i><span>More</span>
+    </button>
+    <?php foreach (array_slice($mobile_navigation_items, 2, 2) as $nav_item): ?>
+        <?php $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle'; ?>
+        <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="mobile-nav-item<?php echo !empty($nav_item['is_active']) ? ' active' : ''; ?>">
+            <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
+            <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+        </a>
+    <?php endforeach; ?>
+</div>
+<div class="mobile-more-menu" id="mobileMoreMenu" hidden>
+    <?php foreach ($mobile_more_items as $nav_item): ?>
+        <?php $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle'; ?>
+        <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="mobile-more-link<?php echo !empty($nav_item['is_active']) ? ' active' : ''; ?>">
+            <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
+            <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
         </a>
     <?php endforeach; ?>
 </div>
@@ -507,6 +510,41 @@ $mobile_navigation_items = getManagedNavigationSlotItems('mobile', 'mobile', 'bo
 <?php endif; ?>
 
 <script>
+// Mobile More menu toggle
+(function() {
+    const toggle = document.getElementById('mobileMoreToggle');
+    const menu = document.getElementById('mobileMoreMenu');
+    if (!toggle || !menu) return;
+    let closeTimer = null;
+    const closeMenu = function() {
+        if (menu.hidden) return;
+        menu.classList.remove('is-open');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.classList.remove('active');
+        if (closeTimer) window.clearTimeout(closeTimer);
+        closeTimer = window.setTimeout(function() {
+            menu.hidden = true;
+        }, 420);
+    };
+    toggle.addEventListener('click', function(event) {
+        event.stopPropagation();
+        if (!menu.hidden) {
+            closeMenu();
+            return;
+        }
+        if (closeTimer) window.clearTimeout(closeTimer);
+        menu.hidden = false;
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.classList.add('active');
+        window.requestAnimationFrame(function() {
+            menu.classList.add('is-open');
+        });
+    });
+    menu.addEventListener('click', function(event) { event.stopPropagation(); });
+    menu.querySelectorAll('a').forEach(function(link) { link.addEventListener('click', closeMenu); });
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', function(event) { if (event.key === 'Escape') closeMenu(); });
+})();
 // User dropdown functionality
 const userAvatar = document.getElementById('userAvatar');
 const userDropdown = document.getElementById('userDropdown');
