@@ -370,6 +370,56 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </section>
 
+        <!-- ===== WALLET CARD ===== -->
+        <?php
+        $wallet_address_display = strtolower(trim((string) ($user['wallet_address'] ?? '')));
+        $wallet_linked = $wallet_address_display !== '' && preg_match('/^0x[a-f0-9]{40}$/', $wallet_address_display);
+        ?>
+        <section class="wallet-card <?php echo $wallet_linked ? 'is-linked' : ''; ?>" aria-label="Wallet status">
+            <div class="wallet-card-main">
+                <span class="wallet-card-icon">
+                    <?php if ($wallet_linked): ?>
+                        <i class="fas fa-wallet"></i>
+                    <?php else: ?>
+                        <i class="fas fa-plug"></i>
+                    <?php endif; ?>
+                </span>
+                <div class="wallet-card-copy">
+                    <span class="wallet-card-label">Wallet Address</span>
+                    <?php if ($wallet_linked): ?>
+                        <div class="wallet-card-address">
+                            <code><?php echo htmlspecialchars($wallet_address_display, ENT_QUOTES, 'UTF-8'); ?></code>
+                            <button type="button" class="wallet-card-address-copy" data-copy-text="<?php echo htmlspecialchars($wallet_address_display, ENT_QUOTES, 'UTF-8'); ?>" title="Copy wallet address" aria-label="Copy wallet address">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    <?php else: ?>
+                        <span class="wallet-card-empty-text">Not linked yet</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="wallet-card-side">
+                <span class="wallet-card-badge">
+                    <?php if ($wallet_linked): ?>
+                        <i class="fas fa-circle-check"></i> Linked
+                    <?php else: ?>
+                        <i class="fas fa-clock"></i> Not Linked
+                    <?php endif; ?>
+                </span>
+                <?php if ($wallet_linked): ?>
+                    <a href="<?php echo BASE_URL; ?>/public/link-wallet.php" class="wallet-card-btn wallet-card-btn--reset">
+                        <i class="fas fa-rotate-left"></i>
+                        Reset Wallet
+                    </a>
+                <?php else: ?>
+                    <a href="<?php echo BASE_URL; ?>/public/link-wallet.php" class="wallet-card-btn">
+                        <i class="fas fa-link"></i>
+                        Link Wallet
+                    </a>
+                <?php endif; ?>
+            </div>
+        </section>
+
         <?php
         // Early Adopter Airdrop Widget
         $pending_airdrop_details = getPendingAirdropDetails((int) $user['id'], $db);
@@ -828,7 +878,26 @@ document.querySelectorAll('.pro-requirement-action[data-copy-text]').forEach((bu
     });
 });
 
-document.querySelectorAll('[data-copy-text]:not(.pro-requirement-action)').forEach((button) => {
+document.querySelectorAll('.wallet-card-address-copy[data-copy-text]').forEach((button) => {
+    button.addEventListener('click', async function() {
+        const text = this.dataset.copyText || '';
+        if (!text) return;
+        const originalHtml = this.innerHTML;
+        try {
+            const copied = await copyTextToClipboard(text);
+            this.innerHTML = copied ? '<i class="fas fa-check"></i>' : '<i class="fas fa-triangle-exclamation"></i>';
+            this.classList.toggle('is-copied', copied);
+        } catch (error) {
+            this.innerHTML = '<i class="fas fa-triangle-exclamation"></i>';
+        }
+        window.setTimeout(() => {
+            this.innerHTML = originalHtml;
+            this.classList.remove('is-copied');
+        }, 1500);
+    });
+});
+
+document.querySelectorAll('[data-copy-text]:not(.pro-requirement-action):not(.wallet-card-address-copy)').forEach((button) => {
     button.addEventListener('click', async function() {
         const text = this.dataset.copyText || '';
         if (!text) return;

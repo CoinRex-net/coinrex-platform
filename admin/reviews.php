@@ -89,6 +89,7 @@ $db = getDBConnection();
 ensureLevelEngineSchema($db);
 ensureRewardClaimSchema($db);
 ensureReviewEligibilitySchema($db);
+reviewEligibilityMonitoringEnsureSchema($db);
 $current_admin = getCurrentAdmin();
 $message = '';
 $message_type = 'success';
@@ -249,6 +250,10 @@ $stmt = $db->prepare("
         r.holding_amount, r.holding_days, r.calculated_rex, {$final_rex_select}, {$wallet_select}, {$score_select},
         {$correction_select},
         {$eligibility_select},
+        monitor.id AS monitoring_session_id, monitor.status AS monitoring_status,
+        monitor.reason AS monitoring_reason, monitor.token_symbol AS monitoring_token_symbol,
+        monitor.required_amount AS monitoring_required_amount, monitor.started_at AS monitoring_started_at,
+        monitor.eligible_at AS monitoring_eligible_at, monitor.completed_at AS monitoring_completed_at,
         r.pros, r.cons,
         u.username, u.email, u.level,
         p.name AS project_name, COALESCE(p.max_reward_rex, 0) AS project_max_reward,
@@ -258,6 +263,7 @@ $stmt = $db->prepare("
     FROM reviews r
     LEFT JOIN users u ON u.id = r.user_id
     LEFT JOIN projects p ON p.id = r.project_id
+    LEFT JOIN review_eligibility_monitoring_sessions monitor ON monitor.id = r.eligibility_monitoring_session_id
     LEFT JOIN (
         SELECT user_id,
             SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved_reviews,
@@ -419,7 +425,11 @@ foreach ($reviews as $queue_review) {
                     elseif ($approval_lane === 'priority') $lane_class = 'is-pro';
                     $helper_badges = [];
                     if (($review['eligibility_status'] ?? '') === 'eligible') $helper_badges[] = ['Eligibility verified', 'is-active'];
-                    if (($review['eligibility_status'] ?? '') === 'manual_pending' || $proof_status === 'pending') $helper_badges[] = ['Manual proof', 'is-pending'];
+                    if (($review['monitoring_status'] ?? '') === 'consumed') $helper_badges[] = ['Holding trace complete', 'is-active'];
+                    $verification_method = (string) ($review['verification_method'] ?? 'live');
+                    if ($verification_method === 'instant') $helper_badges[] = ['Instant check', 'is-active'];
+                    if ($verification_method === 'live') $helper_badges[] = ['Live verification', 'is-active'];
+                    if ($verification_method === 'manual') $helper_badges[] = ['Manual proof', 'is-pending'];
                     if (trim((string) ($review['tx_hash'] ?? '')) === '') $helper_badges[] = ['TX issue', 'is-suspended'];
                     if (trim((string) ($review['screenshot_url'] ?? '')) !== '') $helper_badges[] = ['Screenshot', 'is-active'];
                     if ((int) ($review['correction_count'] ?? 0) > 0) $helper_badges[] = ['Correction used', 'is-pro'];

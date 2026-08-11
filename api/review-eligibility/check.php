@@ -27,14 +27,18 @@ $db = getDBConnection();
 ensureReviewEligibilitySchema($db);
 
 $session_wallet = $_SESSION['review_eligibility_verified_wallet'] ?? null;
+$ownership_verified_at = null;
 $has_review_wallet_session = is_array($session_wallet)
     && (int) ($session_wallet['user_id'] ?? 0) === (int) $actor['user_id']
     && strtolower((string) ($session_wallet['wallet_address'] ?? '')) === $wallet_address
     && time() - (int) ($session_wallet['verified_at'] ?? 0) <= 900;
+if ($has_review_wallet_session) {
+    $ownership_verified_at = date('Y-m-d H:i:s', (int) $session_wallet['verified_at']);
+}
 
 if (!$has_review_wallet_session) {
     $session_stmt = $db->prepare("
-        SELECT id
+        SELECT id, created_at
         FROM rex_signer_sessions
         WHERE user_id = ?
           AND wallet_address = ?
@@ -44,7 +48,11 @@ if (!$has_review_wallet_session) {
         LIMIT 1
     ");
     $session_stmt->execute([(int) $actor['user_id'], $wallet_address]);
-    $has_review_wallet_session = (bool) $session_stmt->fetch();
+    $rex_session = $session_stmt->fetch();
+    $has_review_wallet_session = (bool) $rex_session;
+    if ($rex_session) {
+        $ownership_verified_at = (string) ($rex_session['created_at'] ?? date('Y-m-d H:i:s'));
+    }
 }
 
 if (!$has_review_wallet_session) {
@@ -67,44 +75,17 @@ if (!$project) {
 }
 
 try {
-    $result = reviewEligibilityCheckProject($db, (int) $actor['user_id'], $project_id, $wallet_address);
-    $check = $result['check'] ?? [];
-    $raw_result = [];
-    if (!empty($check['raw_result_json'])) {
-        $decoded_raw = json_decode((string) $check['raw_result_json'], true);
-        if (is_array($decoded_raw)) {
-            $raw_result = $decoded_raw;
-        }
-    }
-    $eligibility_detail = [];
-    foreach (($raw_result['results'] ?? []) as $candidate_detail) {
-        if (is_array($candidate_detail) && isset($candidate_detail['decision'])) {
-            $eligibility_detail = $candidate_detail;
-            break;
-        }
-    }
-    $balances = is_array($eligibility_detail['balances'] ?? null) ? $eligibility_detail['balances'] : [];
-    $requirement = is_array($eligibility_detail['requirement'] ?? null) ? $eligibility_detail['requirement'] : [];
-    apiSuccessResponse([
-        'status' => (string) ($result['status'] ?? 'not_eligible'),
-        'cached' => !empty($result['cached']),
-        'check_id' => (int) ($check['id'] ?? 0),
-        'wallet_address' => $wallet_address,
-        'project_id' => $project_id,
-        'matched_chain_id' => isset($check['matched_chain_id']) ? (int) $check['matched_chain_id'] : null,
-        'matched_project_contract_id' => isset($check['matched_project_contract_id']) ? (int) $check['matched_project_contract_id'] : null,
-        'balance_display' => (string) ($check['balance_display'] ?? ''),
-        'reason' => (string) ($check['reason'] ?? ''),
-        'checked_at' => (string) ($check['checked_at'] ?? ''),
-        'expires_at' => (string) ($check['expires_at'] ?? ''),
-        'current_balance' => isset($balances['current_balance']) ? (float) $balances['current_balance'] : null,
-        'average_balance' => isset($balances['average_balance']) ? (float) $balances['average_balance'] : null,
-        'required_balance' => isset($requirement['min_holding_amount']) ? (float) $requirement['min_holding_amount'] : null,
-        'window_days' => isset($requirement['required_holding_days']) ? (int) $requirement['required_holding_days'] : null,
-        'balance_usd' => isset($balances['current_balance_usd']) ? (float) $balances['current_balance_usd'] : null,
-        'average_balance_usd' => isset($balances['average_balance_usd']) ? (float) $balances['average_balance_usd'] : null,
-    ]);
+    $monitoring = reviewEligibilityMonitoringStart(
+        $db,
+        (int) $actor['user_id'],
+        $project_id,
+        $wallet_address,
+        $ownership_verified_at ?: date('Y-m-d H:i:s')
+    );
+    apiSuccessResponse(array_merge([
+        'message' => (string) ($monitoring['reason'] ?? 'Holding verification started.'),
+    ], reviewEligibilityMonitoringPayload($monitoring)), 201);
 } catch (Throwable $e) {
-    apiErrorResponse(422, $e->getMessage());
+    apiErrorResponse(422, $e->getMessage(), ['reason_code' => 'monitoring_not_started']);
 }
 

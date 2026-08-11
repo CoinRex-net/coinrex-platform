@@ -49,6 +49,8 @@ function ensureReviewEligibilitySchema(PDO $db = null) {
             token_name VARCHAR(120) NULL,
             token_symbol VARCHAR(40) NULL,
             decimals TINYINT UNSIGNED NULL,
+            eligibility_min_amount VARCHAR(120) NULL,
+            eligibility_holding_minutes INT UNSIGNED NULL,
             is_primary TINYINT(1) NOT NULL DEFAULT 0,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             verification_status VARCHAR(30) NOT NULL DEFAULT 'needs_check',
@@ -198,6 +200,11 @@ function reviewEligibilityNormalizeContractRows(array $source, array &$errors = 
     $chain_ids = $source['contract_chain_id'] ?? [];
     $addresses = $source['contract_address_multi'] ?? [];
     $types = $source['contract_token_type'] ?? [];
+    $symbols = $source['contract_token_symbol'] ?? [];
+    $decimals = $source['contract_decimals'] ?? [];
+    $minimum_amounts = $source['contract_min_amount'] ?? [];
+    $holding_values = $source['contract_holding_value'] ?? [];
+    $holding_units = $source['contract_holding_unit'] ?? [];
     $primary = (int) ($source['primary_contract_index'] ?? 0);
     $active = $source['contract_is_active'] ?? [];
     $has_active_inputs = is_array($active) && count($active) > 0;
@@ -217,6 +224,11 @@ function reviewEligibilityNormalizeContractRows(array $source, array &$errors = 
         $address = strtolower(trim((string) ($addresses[$i] ?? '')));
         $chain_id = (int) ($chain_ids[$i] ?? 0);
         $token_type = strtoupper(trim((string) ($types[$i] ?? 'ERC20')));
+        $token_symbol = strtoupper(trim((string) ($symbols[$i] ?? '')));
+        $token_decimals = trim((string) ($decimals[$i] ?? ''));
+        $minimum_amount = trim((string) ($minimum_amounts[$i] ?? ''));
+        $holding_value = (int) ($holding_values[$i] ?? 0);
+        $holding_unit = strtolower(trim((string) ($holding_units[$i] ?? 'hours')));
         if ($token_type === 'NATIVE_TOKEN') {
             $token_type = 'NATIVE';
         }
@@ -244,6 +256,22 @@ function reviewEligibilityNormalizeContractRows(array $source, array &$errors = 
             $errors['contracts'] = 'Every contract address must be a valid EVM address.';
             continue;
         }
+        if ($token_symbol === '' || !preg_match('/^[A-Z0-9._-]{1,40}$/', $token_symbol)) {
+            $errors['contracts'] = 'A valid token symbol is required for every eligibility contract.';
+            continue;
+        }
+        if ($token_decimals === '' || !ctype_digit($token_decimals) || (int) $token_decimals > 36) {
+            $errors['contracts'] = 'Token decimals must be between 0 and 36.';
+            continue;
+        }
+        if ($minimum_amount === '' || !preg_match('/^\d+(?:\.\d{1,36})?$/', $minimum_amount) || (float) $minimum_amount <= 0) {
+            $errors['contracts'] = 'A positive token-specific minimum amount is required.';
+            continue;
+        }
+        if ($holding_value <= 0 || !in_array($holding_unit, ['hours', 'days'], true)) {
+            $errors['contracts'] = 'Holding duration must be a positive number of hours or days.';
+            continue;
+        }
         $is_active = !$has_active_inputs || (array_key_exists($i, $active) && (string) $active[$i] === '1');
         $rows[] = [
             'network_name' => $network_name,
@@ -251,6 +279,10 @@ function reviewEligibilityNormalizeContractRows(array $source, array &$errors = 
             'chain_id' => $chain_id,
             'contract_address' => $address,
             'token_type' => $token_type,
+            'token_symbol' => $token_symbol,
+            'decimals' => (int) $token_decimals,
+            'eligibility_min_amount' => $minimum_amount,
+            'eligibility_holding_minutes' => $holding_value * ($holding_unit === 'days' ? 1440 : 60),
             'is_primary' => $i === $primary ? 1 : 0,
             'is_active' => $is_active ? 1 : 0,
         ];
@@ -297,6 +329,11 @@ function reviewEligibilityParseBulkRows($bulk_text) {
             'chain_id' => $parts[1],
             'contract_address' => $parts[2],
             'token_type' => $token_type,
+            'token_symbol' => strtoupper((string) ($parts[4] ?? 'TOKEN')),
+            'decimals' => (string) ($parts[5] ?? '18'),
+            'minimum_amount' => (string) ($parts[6] ?? '1'),
+            'holding_value' => (string) ($parts[7] ?? '24'),
+            'holding_unit' => strtolower((string) ($parts[8] ?? 'hours')),
         ];
     }
     return $rows;
@@ -312,8 +349,9 @@ function reviewEligibilitySaveProjectContracts(PDO $db, $project_id, array $rows
     $insert = $db->prepare("
         INSERT INTO project_contracts (
             project_id, network_name, network_slug, chain_id, contract_address, token_type,
+            token_symbol, decimals, eligibility_min_amount, eligibility_holding_minutes,
             is_primary, is_active, verification_status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'needs_check', NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'needs_check', NOW(), NOW())
     ");
     foreach ($rows as $row) {
         $insert->execute([
@@ -323,6 +361,10 @@ function reviewEligibilitySaveProjectContracts(PDO $db, $project_id, array $rows
             (int) $row['chain_id'],
             $row['token_type'] === 'NATIVE' ? null : strtolower((string) $row['contract_address']),
             strtoupper((string) $row['token_type']),
+            strtoupper((string) $row['token_symbol']),
+            (int) $row['decimals'],
+            (string) $row['eligibility_min_amount'],
+            (int) $row['eligibility_holding_minutes'],
             (int) $row['is_primary'],
             (int) $row['is_active'],
         ]);
@@ -796,5 +838,280 @@ function reviewEligibilityStoreCheck(PDO $db, $user_id, $project_id, $wallet_add
     $stmt = $db->prepare("SELECT * FROM review_eligibility_checks WHERE id = ? LIMIT 1");
     $stmt->execute([$check_id]);
     return ['status' => (string) ($data['status'] ?? 'not_eligible'), 'cached' => false, 'check' => $stmt->fetch()];
+}
+
+/**
+ * Instant verification: analyze the last 7 days of on-chain activity for a
+ * wallet against a project's active contracts. Computes average balance and
+ * holding days by tracking incoming/outgoing transfers of the same contract.
+ *
+ * Returns an array with status, matched contract, balances, holding analysis,
+ * and a human-readable reason. Stores the result in review_eligibility_checks
+ * with a 30-minute expiry so submission can validate against it.
+ */
+function reviewEligibilityInstantCheck(PDO $db, $user_id, $project_id, $wallet_address) {
+    ensureReviewEligibilitySchema($db);
+    $wallet_address = strtolower(trim((string) $wallet_address));
+    if (!preg_match('/^0x[a-f0-9]{40}$/', $wallet_address)) {
+        throw new InvalidArgumentException('Valid EVM wallet address is required.');
+    }
+
+    $project_stmt = $db->prepare("SELECT id, name, min_holding_amount, required_holding_days FROM projects WHERE id = ? LIMIT 1");
+    $project_stmt->execute([(int) $project_id]);
+    $project = $project_stmt->fetch() ?: [];
+
+    $contracts = reviewEligibilityGetProjectContracts($db, $project_id, true);
+    if (empty($contracts)) {
+        return reviewEligibilityStoreCheck($db, $user_id, $project_id, $wallet_address, [
+            'status' => 'blocked',
+            'reason' => 'No active project contracts are configured for automatic eligibility.',
+            'raw_result_json' => ['contracts' => 0],
+        ]);
+    }
+
+    $api_key = reviewEligibilityEnv('ETHERSCAN_API_KEY', reviewEligibilityEnv('EXPLORER_API_KEY', ''));
+    if ($api_key === '') {
+        return reviewEligibilityStoreCheck($db, $user_id, $project_id, $wallet_address, [
+            'status' => 'blocked',
+            'reason' => 'Eligibility API key is not configured.',
+        ]);
+    }
+    $api_base = reviewEligibilityEnv('ETHERSCAN_API_BASE_URL', 'https://api.etherscan.io/v2/api');
+    $window_days = max(1, (int) ($project['required_holding_days'] ?? 1));
+    $required_amount = max(0.0, (float) ($project['min_holding_amount'] ?? 0));
+    $now = time();
+    $window_start = $now - ($window_days * 86400);
+    $results = [];
+
+    foreach ($contracts as $contract) {
+        $token_type = strtoupper((string) ($contract['token_type'] ?? 'ERC20'));
+        $decimals = isset($contract['decimals']) ? (int) $contract['decimals'] : 18;
+        $symbol = strtoupper(trim((string) ($contract['token_symbol'] ?? '')));
+        if ($symbol === '' && $token_type === 'NATIVE') {
+            $symbol = reviewEligibilityTokenSymbol($contract);
+        }
+        $contract_min = trim((string) ($contract['eligibility_min_amount'] ?? ''));
+        $contract_required = $contract_min !== '' ? (float) $contract_min : $required_amount;
+        $contract_minutes = (int) ($contract['eligibility_holding_minutes'] ?? 0);
+        $contract_days = $contract_minutes > 0 ? max(1, (int) ceil($contract_minutes / 1440)) : $window_days;
+
+        if ($token_type === 'ERC1155') {
+            $results[] = ['contract_id' => (int) $contract['id'], 'status' => 'unsupported', 'reason' => 'ERC1155 requires token ID support.'];
+            continue;
+        }
+
+        $params = [
+            'chainid' => (int) $contract['chain_id'],
+            'module' => 'account',
+            'address' => $wallet_address,
+            'startblock' => 0,
+            'endblock' => 99999999,
+            'page' => 1,
+            'offset' => 10000,
+            'sort' => 'desc',
+            'apikey' => $api_key,
+        ];
+        if ($token_type === 'NATIVE') {
+            $params['action'] = 'txlist';
+        } else {
+            $params['action'] = 'tokentx';
+            $params['contractaddress'] = strtolower((string) $contract['contract_address']);
+        }
+
+        usleep(50000);
+        $response = reviewEligibilityExplorerRequest($api_base, $params);
+        if (!$response['ok']) {
+            $results[] = [
+                'contract_id' => (int) $contract['id'],
+                'chain_id' => (int) $contract['chain_id'],
+                'contract_address' => strtolower((string) $contract['contract_address']),
+                'token_type' => $token_type,
+                'api_status' => $response['status'],
+            ];
+            if (in_array($response['status'], ['rate_limited', 'unavailable'], true)) {
+                return reviewEligibilityStoreCheck($db, $user_id, $project_id, $wallet_address, [
+                    'status' => 'blocked',
+                    'reason' => $response['status'] === 'rate_limited' ? 'Explorer API is rate limited. Recheck later.' : 'Explorer API is unavailable. Recheck later.',
+                    'raw_result_json' => ['results' => $results],
+                ]);
+            }
+            continue;
+        }
+
+        $transactions = is_array($response['result'] ?? null) ? $response['result'] : [];
+        $analysis = reviewEligibilityInstantAnalyzeTransactions($transactions, $wallet_address, $contract_required, $contract_days, $decimals, $token_type);
+
+        $eligible = $analysis['eligible'];
+        $results[] = [
+            'contract_id' => (int) $contract['id'],
+            'chain_id' => (int) $contract['chain_id'],
+            'contract_address' => strtolower((string) $contract['contract_address']),
+            'token_type' => $token_type,
+            'token_symbol' => $symbol,
+            'api_status' => 'ok',
+            'requirement' => [
+                'min_holding_amount' => $contract_required,
+                'required_holding_days' => $contract_days,
+                'unit' => 'token',
+                'token_symbol' => $symbol,
+            ],
+            'balances' => [
+                'current_balance' => (float) $analysis['current_balance'],
+                'average_balance' => (float) $analysis['average_balance'],
+                'required_balance' => $contract_required,
+            ],
+            'holding' => [
+                'holding_days' => (float) $analysis['holding_days'],
+                'required_days' => $contract_days,
+                'total_in' => (float) $analysis['total_in'],
+                'total_out' => (float) $analysis['total_out'],
+                'tx_count' => (int) $analysis['tx_count'],
+                'window_start' => (string) $analysis['window_start'],
+                'window_end' => (string) $analysis['window_end'],
+            ],
+            'decision' => [
+                'status' => $eligible ? 'eligible' : 'not_eligible',
+                'passed' => $eligible,
+            ],
+        ];
+
+        if ($eligible) {
+            $balance_display = rtrim(rtrim(number_format((float) $analysis['average_balance'], 8, '.', ''), '0'), '.');
+            if ($balance_display === '') {
+                $balance_display = '0';
+            }
+            return reviewEligibilityStoreCheck($db, $user_id, $project_id, $wallet_address, [
+                'status' => 'eligible',
+                'matched_project_contract_id' => (int) $contract['id'],
+                'matched_chain_id' => (int) $contract['chain_id'],
+                'balance_raw' => (string) $analysis['current_balance_raw'],
+                'balance_display' => $balance_display . ' ' . $symbol . ' avg',
+                'reason' => sprintf('Average %s balance %.8f meets required %.8f over %d day(s).', $symbol, (float) $analysis['average_balance'], $contract_required, $contract_days),
+                'raw_result_json' => ['results' => $results],
+            ]);
+        }
+    }
+
+    return reviewEligibilityStoreCheck($db, $user_id, $project_id, $wallet_address, [
+        'status' => 'not_eligible',
+        'reason' => 'No qualifying holding period found in the last ' . $window_days . ' day(s). Try Live Verification or Manual Verification.',
+        'raw_result_json' => ['results' => $results],
+    ]);
+}
+
+/**
+ * Analyze a wallet's transaction history for a single contract to compute
+ * average balance and holding days. Tracks incoming transfers as balance
+ * increases and outgoing transfers as decreases. A holding period is the
+ * time between an incoming transfer and the next outgoing transfer that
+ * drops the balance below the required minimum.
+ */
+function reviewEligibilityInstantAnalyzeTransactions(array $transactions, $wallet_address, $required_amount, $required_days, $decimals = 18, $token_type = 'ERC20') {
+    $wallet_address = strtolower((string) $wallet_address);
+    $required_amount = max(0.0, (float) $required_amount);
+    $required_days = max(1, (int) $required_days);
+    $now = time();
+    $window_start = $now - ($required_days * 86400);
+    $decimals = max(0, min(36, (int) $decimals));
+
+    // Sort ascending by timestamp for chronological processing.
+    usort($transactions, static function ($a, $b) {
+        return (int) ($a['timeStamp'] ?? 0) <=> (int) ($b['timeStamp'] ?? 0);
+    });
+
+    $balance = 0.0;
+    $current_balance_raw = '0';
+    $total_in = 0.0;
+    $total_out = 0.0;
+    $tx_count = 0;
+    $holding_seconds = 0.0;
+    $weighted_seconds = 0.0;
+    $period_start = null;
+    $cursor = $window_start;
+    $last_ts = $window_start;
+
+    foreach ($transactions as $tx) {
+        $timestamp = (int) ($tx['timeStamp'] ?? 0);
+        if ($timestamp <= 0 || $timestamp < $window_start || $timestamp > $now) {
+            continue;
+        }
+        $successful = (string) ($tx['isError'] ?? '0') !== '1' && (string) ($tx['txreceipt_status'] ?? '1') !== '0';
+        if (!$successful) {
+            continue;
+        }
+        $from = strtolower((string) ($tx['from'] ?? ''));
+        $to = strtolower((string) ($tx['to'] ?? ''));
+        $is_sender = $from === $wallet_address;
+        $is_receiver = $to === $wallet_address;
+        if (!$is_sender && !$is_receiver) {
+            continue;
+        }
+
+        $value_raw = (string) ($tx['value'] ?? '0');
+        $value = reviewEligibilityDecimalToFloat($value_raw, $decimals);
+        $gas_fee = 0.0;
+        if ($is_sender && $token_type === 'NATIVE') {
+            $gas_used = (string) ($tx['gasUsed'] ?? '0');
+            $gas_price = (string) ($tx['gasPrice'] ?? '0');
+            if (ctype_digit($gas_used) && ctype_digit($gas_price)) {
+                $gas_fee = ((float) $gas_used * (float) $gas_price) / 1000000000000000000;
+            }
+        }
+
+        // Accumulate weighted balance for the time before this tx.
+        $duration = max(0, $timestamp - $cursor);
+        $weighted_seconds += $balance * $duration;
+        if ($period_start !== null && $balance >= $required_amount) {
+            $holding_seconds += $duration;
+        }
+        $cursor = $timestamp;
+        $last_ts = $timestamp;
+
+        if ($is_receiver) {
+            $balance += $value;
+            $total_in += $value;
+            if ($period_start === null && $balance >= $required_amount) {
+                $period_start = $timestamp;
+            }
+        }
+        if ($is_sender) {
+            $balance -= $value;
+            $total_out += $value;
+            if ($token_type === 'NATIVE') {
+                $balance -= $gas_fee;
+            }
+            $balance = max(0.0, $balance);
+            if ($balance < $required_amount) {
+                $period_start = null;
+            }
+        }
+        $current_balance_raw = $value_raw;
+        $tx_count++;
+    }
+
+    // Final segment from last tx to now.
+    $final_duration = max(0, $now - $cursor);
+    $weighted_seconds += $balance * $final_duration;
+    if ($period_start !== null && $balance >= $required_amount) {
+        $holding_seconds += $final_duration;
+    }
+
+    $window_seconds = max(1, $now - $window_start);
+    $average_balance = $weighted_seconds / $window_seconds;
+    $holding_days = $holding_seconds / 86400;
+    $eligible = $average_balance >= $required_amount && $holding_days >= $required_days;
+
+    return [
+        'eligible' => $eligible,
+        'current_balance' => $balance,
+        'current_balance_raw' => $current_balance_raw,
+        'average_balance' => $average_balance,
+        'holding_days' => $holding_days,
+        'total_in' => $total_in,
+        'total_out' => $total_out,
+        'tx_count' => $tx_count,
+        'window_start' => gmdate('c', $window_start),
+        'window_end' => gmdate('c', $now),
+    ];
 }
 ?>

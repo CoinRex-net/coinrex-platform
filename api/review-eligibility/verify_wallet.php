@@ -43,11 +43,41 @@ function verifyReviewEligibilityWalletSignature($wallet_address, $message, $sign
         'signature' => $signature,
     ], JSON_UNESCAPED_SLASHES));
     fclose($pipes[0]);
-    $stdout = stream_get_contents($pipes[1]);
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+    $stdout = '';
+    $stderr = '';
+    $deadline = microtime(true) + 6.0;
+    $timed_out = false;
+    $last_status = null;
+
+    do {
+        $stdout .= (string) stream_get_contents($pipes[1]);
+        $stderr .= (string) stream_get_contents($pipes[2]);
+        $last_status = proc_get_status($process);
+        if (!is_array($last_status) || empty($last_status['running'])) {
+            break;
+        }
+        if (microtime(true) >= $deadline) {
+            $timed_out = true;
+            proc_terminate($process);
+            break;
+        }
+        usleep(10000);
+    } while (true);
+
+    $stdout .= (string) stream_get_contents($pipes[1]);
+    $stderr .= (string) stream_get_contents($pipes[2]);
     fclose($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
     fclose($pipes[2]);
-    $exit_code = proc_close($process);
+    $closed_exit_code = proc_close($process);
+    $exit_code = is_array($last_status) && isset($last_status['exitcode']) && (int) $last_status['exitcode'] >= 0
+        ? (int) $last_status['exitcode']
+        : $closed_exit_code;
+
+    if ($timed_out) {
+        throw new RuntimeException('Wallet signature verification timed out. Please try again.');
+    }
 
     if ($exit_code !== 0) {
         throw new RuntimeException(trim((string) $stderr) ?: 'Wallet signature verification failed.');

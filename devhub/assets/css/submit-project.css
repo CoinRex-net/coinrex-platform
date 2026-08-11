@@ -557,6 +557,28 @@
     grid-column: 1 / -1;
 }
 
+.contract-rule-fields {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--dh-border-subtle);
+}
+
+.contract-rule-fields label {
+    display: grid;
+    gap: 6px;
+}
+
+.contract-rule-fields label:last-child {
+    grid-template-columns: 1fr 1fr;
+}
+
+.contract-rule-fields label:last-child > span {
+    grid-column: 1 / -1;
+}
+
 .contract-address-field.is-disabled input {
     color: var(--dh-text-soft);
     border-style: dashed;
@@ -895,6 +917,10 @@
     .contract-remove-btn {
         grid-column: auto;
         grid-row: auto;
+    }
+
+    .contract-rule-fields {
+        grid-template-columns: 1fr;
     }
 
     .contract-add-btn,

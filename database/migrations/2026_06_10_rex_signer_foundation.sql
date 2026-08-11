@@ -25,13 +25,23 @@ CREATE TABLE IF NOT EXISTS rex_signer_networks (
     KEY idx_rex_signer_networks_enabled (is_enabled, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS rex_signer_activity_cache (
+    wallet_address VARCHAR(42) NOT NULL,
+    network_slug VARCHAR(50) NOT NULL,
+    history_json LONGTEXT NOT NULL,
+    fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (wallet_address, network_slug),
+    KEY idx_rex_signer_activity_cache_fetched (fetched_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO rex_signer_networks
     (slug, name, chain_id, native_symbol, rpc_url, explorer_url, environment, chain_family, claim_enabled, token_support_enabled, is_enabled, sort_order)
 VALUES
     ('polygon', 'Polygon', 137, 'POL', 'https://polygon-rpc.com', 'https://polygonscan.com', 'mainnet', 'evm', 0, 1, 1, 10),
     ('base', 'Base', 8453, 'ETH', 'https://mainnet.base.org', 'https://basescan.org', 'mainnet', 'evm', 0, 1, 1, 20),
     ('plasma', 'Plasma', NULL, 'XPL', NULL, NULL, 'mainnet', 'evm', 0, 0, 1, 30),
-    ('polygon-amoy', 'Polygon Amoy', 80002, 'POL', 'https://rpc-amoy.polygon.technology', 'https://amoy.polygonscan.com', 'staging', 'evm', 1, 1, 1, 90)
+    ('polygon-amoy', 'Polygon Amoy', 80002, 'POL', 'https://rpc-amoy.polygon.technology', 'https://amoy.polygonscan.com', 'staging', 'evm', 1, 1, 0, 90)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     chain_id = VALUES(chain_id),
@@ -46,6 +56,7 @@ ON DUPLICATE KEY UPDATE
     sort_order = VALUES(sort_order);
 
 UPDATE rex_signer_networks SET is_enabled = 0, environment = 'stub' WHERE slug = 'plasma-testnet';
+UPDATE rex_signer_networks SET is_enabled = 0 WHERE slug = 'polygon-amoy' AND environment = 'staging';
 
 CREATE TABLE IF NOT EXISTS rex_signer_pairing_codes (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,

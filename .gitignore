@@ -4,27 +4,16 @@
 # Dependency directories
 /vendor/
 
-# RexLink Expo app source for EAS builds
-/rex-wallet/*
-!/rex-wallet/
-!/rex-wallet/.easignore
-!/rex-wallet/.gitignore
-!/rex-wallet/App.js
-!/rex-wallet/app.json
-!/rex-wallet/eas.json
-!/rex-wallet/index.js
-!/rex-wallet/LICENSE
-!/rex-wallet/metro.config.js
-!/rex-wallet/package-lock.json
-!/rex-wallet/package.json
-!/rex-wallet/README.md
-!/rex-wallet/assets/
-!/rex-wallet/assets/**
-!/rex-wallet/src/
-!/rex-wallet/src/**
+# RexLink Expo local/generated files. Keep the app source and assets visible to
+# Git and EAS; EAS's ignore matcher does not reliably reproduce nested
+# allow-lists beneath an ignored parent directory.
 /rex-wallet/node_modules/
 /rex-wallet/.npm-cache/
 /rex-wallet/.expo/
+/rex-wallet/.tmp/
+/rex-wallet/.tmp-eas-archive/
+/rex-wallet/dist/
+/rex-wallet/web-build/
 /rex-wallet/android/
 /rex-wallet/ios/
 

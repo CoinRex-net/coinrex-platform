@@ -108,6 +108,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
             $contract_source['contract_chain_id'][] = $bulk_row['chain_id'];
             $contract_source['contract_address_multi'][] = $bulk_row['contract_address'];
             $contract_source['contract_token_type'][] = $bulk_row['token_type'];
+            $contract_source['contract_token_symbol'][] = $bulk_row['token_symbol'];
+            $contract_source['contract_decimals'][] = $bulk_row['decimals'];
+            $contract_source['contract_min_amount'][] = $bulk_row['minimum_amount'];
+            $contract_source['contract_holding_value'][] = $bulk_row['holding_value'];
+            $contract_source['contract_holding_unit'][] = $bulk_row['holding_unit'];
             $contract_source['contract_is_active'][] = '1';
         }
     }
@@ -116,6 +121,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
         $contract_source['contract_chain_id'] = [$_POST['chain_id'] ?? ''];
         $contract_source['contract_address_multi'] = [$form['contract_address']];
         $contract_source['contract_token_type'] = [$_POST['token_type'] ?? 'ERC20'];
+        $contract_source['contract_token_symbol'] = [$_POST['token_symbol'] ?? 'TOKEN'];
+        $contract_source['contract_decimals'] = [$_POST['token_decimals'] ?? '18'];
+        $contract_source['contract_min_amount'] = [$form['min_holding_amount'] !== '' ? $form['min_holding_amount'] : '1'];
+        $contract_source['contract_holding_value'] = [$form['required_holding_days'] !== '' ? $form['required_holding_days'] : '1'];
+        $contract_source['contract_holding_unit'] = ['days'];
         $contract_source['primary_contract_index'] = 0;
     }
     $contract_rows = reviewEligibilityNormalizeContractRows($contract_source, $errors);
@@ -126,6 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified) {
         if ((int) $row['is_primary'] === 1) {
             $form['network'] = $row['network_name'];
             $form['contract_address'] = $row['contract_address'];
+            $form['min_holding_amount'] = $row['eligibility_min_amount'];
+            $form['required_holding_days'] = (string) max(1, (int) ceil(((int) $row['eligibility_holding_minutes']) / 1440));
             break;
         }
     }
@@ -520,7 +532,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                             <div class="contract-builder contract-builder-submit" id="contractBuilder">
                                 <div class="contract-row contract-row-head">
-                                    <span>Primary</span><span>Network</span><span>Chain ID</span><span>Contract</span><span>Type</span><span></span>
+                                    <span>Primary</span><span>Network</span><span>Chain ID</span><span>Contract</span><span>Type</span><span>Rule</span><span></span>
                                 </div>
                                 <div id="contractRows">
                                     <div class="contract-row" data-contract-row>
@@ -532,6 +544,12 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <?php endforeach; ?>
                                                 <option value="__other__">Others</option>
                                             </select></label>
+                                        <div class='contract-field contract-rule-fields'>
+                                            <label><span>Symbol</span><input type='text' name='contract_token_symbol[]' placeholder='POL' maxlength='40'></label>
+                                            <label><span>Decimals</span><input type='number' name='contract_decimals[]' value='18' min='0' max='36'></label>
+                                            <label><span>Minimum</span><input type='text' name='contract_min_amount[]' placeholder='10'></label>
+                                            <label><span>Hold</span><input type='number' name='contract_holding_value[]' value='24' min='1'><select name='contract_holding_unit[]'><option value='hours'>Hours</option><option value='days'>Days</option></select></label>
+                                        </div>
                                         <label class="contract-field contract-network-other-field" hidden><span>Network Name</span><input type="text" name="contract_network_other[]" data-network-other placeholder="Enter network name"></label>
                                         <label class="contract-field"><span>Chain ID</span><input type="number" name="contract_chain_id[]" data-chain-id placeholder="1"></label>
                                         <label class="contract-field contract-address-field"><span>Contract Address</span><input type="text" name="contract_address_multi[]" data-contract-address placeholder="0x..."></label>
@@ -686,6 +704,11 @@ require_once __DIR__ . '/../includes/header.php';
     const knownChains = <?php echo json_encode(reviewEligibilityKnownNetworks(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 
     const fieldIds = ['name', 'slug', 'category', 'description', 'website_url', 'twitter_url', 'telegram_url', 'discord_url', 'github_url', 'contract_address', 'network', 'project_live_since', 'status', 'min_holding_amount', 'max_reward_rex', 'required_holding_days'];
+    ['min_holding_amount', 'required_holding_days'].forEach(function(id) {
+        const legacyField = document.getElementById(id);
+        const legacyGroup = legacyField ? legacyField.closest('.form-group') : null;
+        if (legacyGroup) legacyGroup.hidden = true;
+    });
 
     function slugify(value) {
         return (value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -797,6 +820,9 @@ require_once __DIR__ . '/../includes/header.php';
             if (input.type === 'radio') input.checked = false;
             else if (input.type === 'hidden') input.value = '1';
             else if (input.matches('[data-token-type]')) input.value = 'ERC20';
+            else if (input.name === 'contract_decimals[]') input.value = '18';
+            else if (input.name === 'contract_holding_value[]') input.value = '24';
+            else if (input.name === 'contract_holding_unit[]') input.value = 'hours';
             else input.value = '';
         });
         const otherField = clone.querySelector('.contract-network-other-field');

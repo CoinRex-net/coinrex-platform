@@ -54,6 +54,10 @@ if (empty($contract_rows_existing) && !empty($project['contract_address'])) {
         'chain_id' => $known_networks[$network_name]['chain_id'] ?? 0,
         'contract_address' => strtolower((string) $project['contract_address']),
         'token_type' => 'ERC20',
+        'token_symbol' => 'TOKEN',
+        'decimals' => 18,
+        'eligibility_min_amount' => (string) ($project['min_holding_amount'] ?? '1'),
+        'eligibility_holding_minutes' => max(1, (int) ($project['required_holding_days'] ?? 1)) * 1440,
         'is_primary' => 1,
         'is_active' => 1,
     ];
@@ -89,6 +93,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified && $can_edit_now) {
     $form['slug'] = $slugify($form['slug']);
 
     $contract_source = $_POST;
+    foreach ($contract_rows_existing as $rule_index => $existing_rule) {
+        if (!isset($contract_source['contract_token_symbol'][$rule_index])) {
+            $contract_source['contract_token_symbol'][$rule_index] = (string) ($existing_rule['token_symbol'] ?? 'TOKEN');
+        }
+        if (!isset($contract_source['contract_decimals'][$rule_index])) {
+            $contract_source['contract_decimals'][$rule_index] = (string) ($existing_rule['decimals'] ?? 18);
+        }
+        if (!isset($contract_source['contract_min_amount'][$rule_index])) {
+            $contract_source['contract_min_amount'][$rule_index] = (string) ($existing_rule['eligibility_min_amount'] ?? $project['min_holding_amount'] ?? '1');
+        }
+        if (!isset($contract_source['contract_holding_value'][$rule_index])) {
+            $minutes = max(60, (int) ($existing_rule['eligibility_holding_minutes'] ?? (max(1, (int) ($project['required_holding_days'] ?? 1)) * 1440)));
+            $contract_source['contract_holding_value'][$rule_index] = (string) ($minutes % 1440 === 0 ? intdiv($minutes, 1440) : intdiv($minutes, 60));
+            $contract_source['contract_holding_unit'][$rule_index] = $minutes % 1440 === 0 ? 'days' : 'hours';
+        }
+    }
     $bulk_rows = reviewEligibilityParseBulkRows($_POST['contract_bulk'] ?? '');
     if (!empty($bulk_rows)) {
         foreach ($bulk_rows as $bulk_row) {
@@ -96,6 +116,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_verified && $can_edit_now) {
             $contract_source['contract_chain_id'][] = $bulk_row['chain_id'];
             $contract_source['contract_address_multi'][] = $bulk_row['contract_address'];
             $contract_source['contract_token_type'][] = $bulk_row['token_type'];
+            $contract_source['contract_token_symbol'][] = $bulk_row['token_symbol'];
+            $contract_source['contract_decimals'][] = $bulk_row['decimals'];
+            $contract_source['contract_min_amount'][] = $bulk_row['minimum_amount'];
+            $contract_source['contract_holding_value'][] = $bulk_row['holding_value'];
+            $contract_source['contract_holding_unit'][] = $bulk_row['holding_unit'];
             $contract_source['contract_is_active'][] = '1';
         }
     }
@@ -438,6 +463,9 @@ $project_preview_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] 
                                         'is_active' => 1,
                                     ]];
                                     foreach ($rows_for_form as $idx => $contract_row):
+                                        $rule_minutes = max(60, (int) ($contract_row['eligibility_holding_minutes'] ?? (max(1, (int) ($project['required_holding_days'] ?? 1)) * 1440)));
+                                        $rule_unit = $rule_minutes % 1440 === 0 ? 'days' : 'hours';
+                                        $rule_value = $rule_unit === 'days' ? intdiv($rule_minutes, 1440) : intdiv($rule_minutes, 60);
                                     ?>
                                     <div class="contract-row" data-contract-row>
                                         <label class="contract-primary-toggle"><input type="radio" name="primary_contract_index" value="<?php echo (int) $idx; ?>" <?php echo !empty($contract_row['is_primary']) ? 'checked' : ''; ?>><span>Primary</span></label>
@@ -447,6 +475,12 @@ $project_preview_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] 
                                                     <option value="<?php echo $esc($network); ?>" <?php echo (string) ($contract_row['network_name'] ?? '') === $network ? 'selected' : ''; ?>><?php echo $esc($network); ?></option>
                                                 <?php endforeach; ?>
                                             </select></label>
+                                        <div class='contract-field contract-rule-fields'>
+                                            <label><span>Symbol</span><input type='text' name='contract_token_symbol[]' value='<?php echo $esc((string) ($contract_row['token_symbol'] ?? 'TOKEN')); ?>' maxlength='40'></label>
+                                            <label><span>Decimals</span><input type='number' name='contract_decimals[]' value='<?php echo $esc((string) ($contract_row['decimals'] ?? 18)); ?>' min='0' max='36'></label>
+                                            <label><span>Minimum</span><input type='text' name='contract_min_amount[]' value='<?php echo $esc((string) ($contract_row['eligibility_min_amount'] ?? $project['min_holding_amount'] ?? '1')); ?>'></label>
+                                            <label><span>Hold</span><input type='number' name='contract_holding_value[]' value='<?php echo (int) $rule_value; ?>' min='1'><select name='contract_holding_unit[]'><option value='hours' <?php echo $rule_unit === 'hours' ? 'selected' : ''; ?>>Hours</option><option value='days' <?php echo $rule_unit === 'days' ? 'selected' : ''; ?>>Days</option></select></label>
+                                        </div>
                                         <label class="contract-field"><span>Chain ID</span><input type="number" name="contract_chain_id[]" data-chain-id value="<?php echo $esc((string) ($contract_row['chain_id'] ?? '')); ?>" placeholder="1"></label>
                                         <label class="contract-field contract-address-field"><span>Contract Address</span><input type="text" name="contract_address_multi[]" data-contract-address value="<?php echo $esc((string) ($contract_row['contract_address'] ?? '')); ?>" placeholder="0x..."></label>
                                         <label class="contract-field"><span>Token Type</span><select name="contract_token_type[]" data-token-type>
@@ -647,6 +681,11 @@ $project_preview_logo_url = coinrexNormalizeMediaUrl((string) ($project['logo'] 
             if (input.type === 'radio') input.checked = false;
             else if (input.type === 'checkbox') input.checked = true;
             else if (input.matches('[data-token-type]')) input.value = 'ERC20';
+            else if (input.name === 'contract_token_symbol[]') input.value = '';
+            else if (input.name === 'contract_decimals[]') input.value = '18';
+            else if (input.name === 'contract_min_amount[]') input.value = '';
+            else if (input.name === 'contract_holding_value[]') input.value = '24';
+            else if (input.name === 'contract_holding_unit[]') input.value = 'hours';
             else input.value = '';
         });
         contractRows.appendChild(clone);

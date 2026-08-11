@@ -12,7 +12,7 @@ RewriteRule ^ https://coinrex.xyz%{REQUEST_URI} [R=301,L]
     Require all denied
 </FilesMatch>
 
-<FilesMatch "\.(zip|tar|gz|rar|sql|bak)$">
+<FilesMatch "\.(zip|tar|gz|rar|sql|bak|apk)$">
     Require all denied
 </FilesMatch>
 
