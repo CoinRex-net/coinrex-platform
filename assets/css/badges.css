@@ -1,0 +1,30 @@
+﻿/* Badge styles for navigation items */
+.nex-hot-badge {
+    display: inline-block !important;
+    margin-left: 4px !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    background: #f97316 !important;
+    color: #ffffff !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+}
+
+.nex-mobile-badge {
+    display: inline-block !important;
+    margin-left: 4px !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    background: #f97316 !important;
+    color: #ffffff !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+}
