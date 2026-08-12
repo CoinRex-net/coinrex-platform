@@ -367,7 +367,12 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                                             <?php if (trim((string) ($dropdown_child['icon_class'] ?? '')) !== ''): ?>
                                                 <i class="<?php echo htmlspecialchars((string) $dropdown_child['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
                                             <?php endif; ?>
-                                            <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $dropdown_child['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                            <?php $dropdown_child_badge = trim((string) ($dropdown_child['badge_text'] ?? '')); ?>
+                                            <?php if ($dropdown_child_badge !== ''): ?>
+                                                <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $dropdown_child['label'], ENT_QUOTES, 'UTF-8'); ?> <span class="nex-hot-badge"><?php echo htmlspecialchars($dropdown_child_badge, ENT_QUOTES, 'UTF-8'); ?></span></span>
+                                            <?php else: ?>
+                                                <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $dropdown_child['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                            <?php endif; ?>
                                         </a>
                                     <?php endforeach; ?>
                                 <?php else: ?>
