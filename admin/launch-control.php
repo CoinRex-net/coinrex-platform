@@ -884,10 +884,10 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
 
 <div class="launch-wrap">
 <?php if ($success_message !== ''): ?>
-    <div class="launch-message success"><?php echo htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8'); ?></div>
+    <div data-toast data-toast-message="<?php echo htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8'); ?>" data-toast-type="success" style="display:none;"></div>
 <?php endif; ?>
 <?php if ($error_message !== ''): ?>
-    <div class="launch-message error"><?php echo htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8'); ?></div>
+    <div data-toast data-toast-message="<?php echo htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8'); ?>" data-toast-type="error" style="display:none;"></div>
 <?php endif; ?>
 
 <section class="launch-control-hero">
