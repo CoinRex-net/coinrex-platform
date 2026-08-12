@@ -29,7 +29,7 @@
     white-space: nowrap !important;
 }
 
-/* Position mobile badge above the icon (centered on icon) */
+/* Mobile bottom-nav badge placement */
 .mobile-bottom-nav {
     overflow: visible !important;
     height: auto !important;
@@ -40,16 +40,17 @@
     position: relative !important;
 }
 
-/* Position badge relative to the icon, not the container */
-.mobile-nav-item i {
+.mobile-nav-icon-wrap {
     position: relative !important;
+    overflow: visible !important;
 }
 
-.mobile-nav-item i + .nex-mobile-badge {
+.mobile-nav-icon-wrap > .nex-mobile-badge {
     position: absolute !important;
-    top: -12px !important;
+    top: -8px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
+    right: auto !important;
     margin-left: 0 !important;
     z-index: 10 !important;
     font-size: 9px !important;
