@@ -358,6 +358,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             getNavigationControlRegistry(true);
             $success_message = '"' . (string) ($link_item['label'] ?? $link_key) . '" added to "' . (string) ($dropdown_item['label'] ?? $dropdown_key) . '" dropdown.';
+        } elseif ($action === 'edit_navigation_item') {
+            $nav_key = trim((string) ($_POST['edit_nav']['nav_key'] ?? ''));
+            if ($nav_key === '') {
+                throw new RuntimeException('Navigation item key is missing.');
+            }
+
+            $registry = getNavigationControlRegistry();
+            $existing_item = $registry[$nav_key] ?? null;
+            if (!is_array($existing_item)) {
+                throw new RuntimeException('Navigation item was not found.');
+            }
+
+            $label = trim((string) ($_POST['edit_nav']['label'] ?? ''));
+            $custom_url = trim((string) ($_POST['edit_nav']['custom_url'] ?? ''));
+            $icon_class = trim((string) ($_POST['edit_nav']['icon_class'] ?? ''));
+            $badge_text = trim((string) ($_POST['edit_nav']['badge_text'] ?? ''));
+            $sort_order = (int) ($_POST['edit_nav']['sort_order'] ?? 100);
+            $is_enabled = !empty($_POST['edit_nav']['is_enabled']) ? 1 : 0;
+            $item_type = (string) ($existing_item['item_type'] ?? 'link');
+
+            if ($label === '') {
+                throw new RuntimeException('Label is required for a navigation item.');
+            }
+            if ($item_type === 'link' && $custom_url === '') {
+                // Keep existing custom_url if not provided
+                $custom_url = trim((string) ($existing_item['custom_url'] ?? ''));
+                if ($custom_url === '') {
+                    throw new RuntimeException('Custom URL is required for a link navigation item.');
+                }
+            }
+
+            $stmt = $db->prepare("
+                UPDATE navigation_controls
+                SET label = ?,
+                    custom_url = ?,
+                    icon_class = ?,
+                    badge_text = ?,
+                    sort_order = ?,
+                    is_enabled = ?,
+                    updated_by = ?,
+                    updated_at = NOW()
+                WHERE nav_key = ?
+            ");
+            $stmt->execute([
+                $label,
+                $custom_url,
+                $icon_class,
+                $badge_text,
+                $sort_order,
+                $is_enabled,
+                $current_admin_id > 0 ? $current_admin_id : null,
+                $nav_key,
+            ]);
+
+            getNavigationControlRegistry(true);
+            $success_message = 'Navigation item "' . $label . '" updated successfully.';
         } elseif ($action === 'delete_navigation_item') {
             $nav_key = trim((string) ($_POST['nav_key'] ?? ''));
             if ($nav_key === '') {
@@ -1188,6 +1244,89 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
             </form>
         </section>
 
+        <?php
+        // Collect all navigation items for the edit form
+        $edit_nav_items = [];
+        foreach ($navigation_registry as $nav_key => $nav_item) {
+            $edit_nav_items[$nav_key] = [
+                'key' => $nav_key,
+                'label' => (string) ($nav_item['label'] ?? $nav_key),
+                'location' => (string) ($nav_item['location'] ?? ''),
+                'item_type' => (string) ($nav_item['item_type'] ?? 'link'),
+                'custom_url' => (string) ($nav_item['custom_url'] ?? ''),
+                'icon_class' => (string) ($nav_item['icon_class'] ?? ''),
+                'badge_text' => (string) ($nav_item['badge_text'] ?? ''),
+                'sort_order' => (int) ($nav_item['sort_order'] ?? 0),
+                'is_enabled' => !empty($nav_item['is_enabled']),
+            ];
+        }
+        ?>
+
+        <section class="launch-create-card">
+            <h3><i class="fas fa-pen-to-square"></i> Edit Navigation Item</h3>
+            <p>Select a navigation item to edit its label, URL, icon, badge, and visibility.</p>
+            <form method="POST" action="" class="launch-create-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="action" value="edit_navigation_item">
+                <input type="hidden" name="current_tab" value="navigation">
+                <div class="launch-nav-grid-2">
+                    <label>
+                        Navigation Item
+                        <select name="edit_nav[nav_key]" id="editNavItemSelect" required>
+                            <option value="">-- Select item to edit --</option>
+                            <?php foreach ($edit_nav_items as $item): ?>
+                                <option value="<?php echo htmlspecialchars((string) $item['key'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-label="<?php echo htmlspecialchars((string) $item['label'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-url="<?php echo htmlspecialchars((string) $item['custom_url'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-icon="<?php echo htmlspecialchars((string) $item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-badge="<?php echo htmlspecialchars((string) $item['badge_text'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-order="<?php echo (int) $item['sort_order']; ?>"
+                                    data-enabled="<?php echo $item['is_enabled'] ? '1' : '0'; ?>"
+                                    data-type="<?php echo htmlspecialchars((string) $item['item_type'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars((string) $item['label'] . ' [' . ucwords((string) $item['location']) . ']' . ($item['item_type'] === 'dropdown' ? ' [Dropdown]' : ''), ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>
+                        Label
+                        <input type="text" name="edit_nav[label]" id="editNavLabel" required>
+                    </label>
+                </div>
+                <div class="launch-nav-grid-3" style="margin-top:10px;">
+                    <label>
+                        Custom URL
+                        <input type="text" name="edit_nav[custom_url]" id="editNavUrl" placeholder="https://... or /public/page.php">
+                    </label>
+                    <label>
+                        Icon class
+                        <input type="text" name="edit_nav[icon_class]" id="editNavIcon" placeholder="fas fa-link">
+                    </label>
+                    <label>
+                        Badge
+                        <input type="text" name="edit_nav[badge_text]" id="editNavBadge" placeholder="NEW">
+                    </label>
+                </div>
+                <div class="launch-nav-grid-3" style="margin-top:10px;">
+                    <label>
+                        Sort Order
+                        <input type="number" name="edit_nav[sort_order]" id="editNavOrder" value="100">
+                    </label>
+                    <label>
+                        <span style="display:block; margin-bottom:6px;">Enabled</span>
+                        <select name="edit_nav[is_enabled]" id="editNavEnabled">
+                            <option value="1">Yes</option>
+                            <option value="0">No</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="launch-create-actions" style="margin-top:14px;">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <span class="launch-defaults">Tip: dropdowns don't need a URL.</span>
+                </div>
+            </form>
+        </section>
+
         <section class="launch-create-card">
             <h3><i class="fas fa-plus-circle"></i> Add New Link/Page or Dropdown</h3>
             <p>Add a page, custom URL, or dropdown menu, then select it in the slot dropdown above.</p>
@@ -1304,6 +1443,28 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
 
 <script>
 (function() {
+    // Edit Navigation Item form auto-populate
+    const editNavItemSelect = document.getElementById('editNavItemSelect');
+    const editNavLabel = document.getElementById('editNavLabel');
+    const editNavUrl = document.getElementById('editNavUrl');
+    const editNavIcon = document.getElementById('editNavIcon');
+    const editNavBadge = document.getElementById('editNavBadge');
+    const editNavOrder = document.getElementById('editNavOrder');
+    const editNavEnabled = document.getElementById('editNavEnabled');
+
+    if (editNavItemSelect) {
+        editNavItemSelect.addEventListener('change', function() {
+            const selected = editNavItemSelect.options[editNavItemSelect.selectedIndex];
+            if (!selected || !selected.value) return;
+            if (editNavLabel) editNavLabel.value = selected.dataset.label || '';
+            if (editNavUrl) editNavUrl.value = selected.dataset.url || '';
+            if (editNavIcon) editNavIcon.value = selected.dataset.icon || '';
+            if (editNavBadge) editNavBadge.value = selected.dataset.badge || '';
+            if (editNavOrder) editNavOrder.value = selected.dataset.order || '100';
+            if (editNavEnabled) editNavEnabled.value = selected.dataset.enabled || '1';
+        });
+    }
+
     const itemTypeSelect = document.getElementById('newNavItemType');
     const childrenSectionSelect = document.getElementById('newNavChildrenSection');
     const sectionKeySelect = document.getElementById('newNavSectionKey');
