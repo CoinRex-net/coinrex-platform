@@ -484,6 +484,10 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
         <?php $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle'; ?>
         <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="mobile-nav-item<?php echo !empty($nav_item['is_active']) ? ' active' : ''; ?>">
             <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
+            <?php $mobile_badge = trim((string) ($nav_item['badge_text'] ?? '')); ?>
+            <?php if ($mobile_badge !== ''): ?>
+                <span class="nex-mobile-badge"><?php echo htmlspecialchars($mobile_badge, ENT_QUOTES, 'UTF-8'); ?></span>
+            <?php endif; ?>
             <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
         </a>
     <?php endforeach; ?>
@@ -494,6 +498,10 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
         <?php $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle'; ?>
         <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="mobile-nav-item<?php echo !empty($nav_item['is_active']) ? ' active' : ''; ?>">
             <i class="<?php echo htmlspecialchars($mobile_icon_class, ENT_QUOTES, 'UTF-8'); ?>"></i>
+            <?php $mobile_badge = trim((string) ($nav_item['badge_text'] ?? '')); ?>
+            <?php if ($mobile_badge !== ''): ?>
+                <span class="nex-mobile-badge"><?php echo htmlspecialchars($mobile_badge, ENT_QUOTES, 'UTF-8'); ?></span>
+            <?php endif; ?>
             <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
         </a>
     <?php endforeach; ?>
