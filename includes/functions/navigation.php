@@ -1200,7 +1200,6 @@ function seedDefaultNavigationControls(PDO $db = null, bool $resetPresentation =
         if ($existingId > 0) {
             $fields = [
                 'location = ?',
-                'section_key = ?',
                 'audience = ?',
                 'item_type = ?',
                 'children_section_key = ?',
@@ -1210,7 +1209,6 @@ function seedDefaultNavigationControls(PDO $db = null, bool $resetPresentation =
             ];
             $params = [
                 (string) $item['location'],
-                (string) $item['section_key'],
                 (string) ($item['audience'] ?? 'all'),
                 (string) ($item['item_type'] ?? 'link'),
                 (string) ($item['children_section_key'] ?? ''),
@@ -1353,6 +1351,7 @@ function coinrexNavigationSectionLabel(string $location, string $sectionKey): st
         'footer:legal' => 'Footer Legal',
         'footer:bottom' => 'Footer Bottom',
         'mobile:bottom' => 'Mobile Bottom Nav',
+        'mobile_more:more' => 'Mobile More Menu',
     ];
 
     $compound = $location . ':' . $sectionKey;
@@ -1360,7 +1359,17 @@ function coinrexNavigationSectionLabel(string $location, string $sectionKey): st
         return $map[$compound];
     }
 
-    return ucwords(trim($location . ' ' . str_replace('_', ' ', $sectionKey)));
+    $locationLabel = match ($location) {
+        'header' => 'Header',
+        'footer' => 'Footer',
+        'mobile' => 'Mobile',
+        'mobile_more' => 'Mobile More',
+        default => ucwords(str_replace('_', ' ', $location)),
+    };
+
+    $sectionLabel = ucwords(str_replace('_', ' ', $sectionKey));
+
+    return trim($locationLabel . ' ' . $sectionLabel);
 }
 
 function coinrexGenerateNavigationKey(string $location, string $sectionKey, string $label): string {
@@ -1665,14 +1674,9 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
     }
 
     // Only fill slots that are NOT explicitly set to empty in the DB.
-    // Also exclude dropdown items from the fallback pool so empty slots
-    // don't get auto-filled with "Marketplace" or other dropdown triggers.
-    $fallbackPool = array_filter(
-        getManagedNavigationItems($location, $sectionKey, $context),
-        static function (array $fallbackItem): bool {
-            return (string) ($fallbackItem['item_type'] ?? 'link') !== 'dropdown';
-        }
-    );
+    // Custom dropdowns should be included in the fallback pool so newly
+    // created dropdowns show up even before they are assigned to a slot.
+    $fallbackPool = getManagedNavigationItems($location, $sectionKey, $context);
 
     $slotsToFill = $limit - count($items) - count($explicitEmptySlots);
     if ($slotsToFill > 0) {

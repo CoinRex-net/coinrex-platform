@@ -347,7 +347,6 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                                 }
                             }
                         ?>
-                        <?php if (!empty($dropdown_children)): ?>
                         <div class="nex-resource-menu">
                             <button type="button" class="nex-resource-trigger <?php echo $dropdown_active ? 'active' : ''; ?>" aria-haspopup="true" aria-expanded="false">
                                 <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
@@ -357,17 +356,20 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="nex-dropdown nex-resource-dropdown">
-                                <?php foreach ($dropdown_children as $dropdown_child): ?>
-                                    <a href="<?php echo htmlspecialchars((string) $dropdown_child['href'], ENT_QUOTES, 'UTF-8'); ?>">
-                                        <?php if (trim((string) ($dropdown_child['icon_class'] ?? '')) !== ''): ?>
-                                            <i class="<?php echo htmlspecialchars((string) $dropdown_child['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
-                                        <?php endif; ?>
-                                        <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $dropdown_child['label'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                    </a>
-                                <?php endforeach; ?>
+                                <?php if (!empty($dropdown_children)): ?>
+                                    <?php foreach ($dropdown_children as $dropdown_child): ?>
+                                        <a href="<?php echo htmlspecialchars((string) $dropdown_child['href'], ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php if (trim((string) ($dropdown_child['icon_class'] ?? '')) !== ''): ?>
+                                                <i class="<?php echo htmlspecialchars((string) $dropdown_child['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                            <?php endif; ?>
+                                            <span class="nex-dropdown-link-label"><?php echo htmlspecialchars((string) $dropdown_child['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                        </a>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <span class="nex-dropdown-empty">No items yet</span>
+                                <?php endif; ?>
                             </div>
                         </div>
-                        <?php endif; ?>
                     <?php else: ?>
                         <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>" class="<?php echo !empty($nav_item['is_active']) ? 'active' : ''; ?>">
                             <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>

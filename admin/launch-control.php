@@ -196,6 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sort_order = (int) ($_POST['new_nav']['sort_order'] ?? 100);
             $item_type = trim((string) ($_POST['new_nav']['item_type'] ?? 'link'));
             $children_section_key = trim((string) ($_POST['new_nav']['children_section_key'] ?? ''));
+            $new_section_key = trim((string) ($_POST['new_nav']['new_section_key'] ?? ''));
 
             $allowed_sections = [
                 'header' => ['primary', 'resources', 'marketplace'],
@@ -212,11 +213,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($item_type === 'link' && $custom_url === '') {
                 throw new RuntimeException('Custom URL is required for a link navigation item.');
             }
+
+            $is_new_section = false;
+
+            // Handle "create new section" selection
+            if ($section_key === '__new__' || $children_section_key === '__new__') {
+                if ($new_section_key === '') {
+                    throw new RuntimeException('Please enter a name for the new section.');
+                }
+                if (!preg_match('/^[a-z0-9_]{2,40}$/', $new_section_key)) {
+                    throw new RuntimeException('Section key must be 2-40 characters using only lowercase letters, numbers, and underscores.');
+                }
+                if ($item_type === 'dropdown' && $children_section_key === '__new__') {
+                    $children_section_key = $new_section_key;
+                    $is_new_section = true;
+                } elseif ($item_type === 'link' && $section_key === '__new__') {
+                    $section_key = $new_section_key;
+                    $is_new_section = true;
+                }
+            } elseif ($new_section_key !== '') {
+                // User typed a new section key directly
+                if (!preg_match('/^[a-z0-9_]{2,40}$/', $new_section_key)) {
+                    throw new RuntimeException('Section key must be 2-40 characters using only lowercase letters, numbers, and underscores.');
+                }
+                if ($item_type === 'dropdown') {
+                    $children_section_key = $new_section_key;
+                    $is_new_section = true;
+                } else {
+                    $section_key = $new_section_key;
+                    $is_new_section = true;
+                }
+            }
+
             if ($item_type === 'dropdown' && $children_section_key === '') {
                 throw new RuntimeException('A children section is required for a dropdown navigation item.');
             }
-            if (!isset($allowed_sections[$location]) || !in_array($section_key, $allowed_sections[$location], true)) {
-                throw new RuntimeException('Please choose a valid navigation section.');
+            if ($section_key === '__new__' || $children_section_key === '__new__') {
+                throw new RuntimeException('Please enter a name for the new section.');
+            }
+            if (!$is_new_section) {
+                $registry = getNavigationControlRegistry();
+                $section_exists = false;
+                foreach ($registry as $reg_item) {
+                    if ((string) ($reg_item['location'] ?? '') === $location
+                        && (string) ($reg_item['section_key'] ?? '') === $section_key) {
+                        $section_exists = true;
+                        break;
+                    }
+                }
+                if (!$section_exists && (!isset($allowed_sections[$location]) || !in_array($section_key, $allowed_sections[$location], true))) {
+                    throw new RuntimeException('Please choose a valid navigation section.');
+                }
             }
             if (!in_array($audience, ['all', 'guest', 'member'], true)) {
                 $audience = 'all';
@@ -254,6 +301,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success_message = $item_type === 'dropdown'
                 ? 'New dropdown menu added successfully. Add children in the ' . $children_section_key . ' section.'
                 : 'New navigation item added successfully.';
+        } elseif ($action === 'assign_navigation_child') {
+            $link_key = trim((string) ($_POST['assign_child']['link_key'] ?? ''));
+            $dropdown_key = trim((string) ($_POST['assign_child']['dropdown_key'] ?? ''));
+
+            if ($link_key === '' || $dropdown_key === '') {
+                throw new RuntimeException('Please select both a link and a dropdown menu.');
+            }
+
+            $registry = getNavigationControlRegistry();
+            $link_item = $registry[$link_key] ?? null;
+            $dropdown_item = $registry[$dropdown_key] ?? null;
+
+            if (!is_array($link_item)) {
+                throw new RuntimeException('Selected link was not found.');
+            }
+            if (!is_array($dropdown_item)) {
+                throw new RuntimeException('Selected dropdown menu was not found.');
+            }
+            if ((string) ($dropdown_item['item_type'] ?? 'link') !== 'dropdown') {
+                throw new RuntimeException('Selected item is not a dropdown menu.');
+            }
+            if ((string) ($link_item['item_type'] ?? 'link') === 'dropdown') {
+                throw new RuntimeException('Cannot add a dropdown as a child of another dropdown.');
+            }
+
+            $children_section = (string) ($dropdown_item['children_section_key'] ?? '');
+            if ($children_section === '') {
+                throw new RuntimeException('Selected dropdown has no children section configured.');
+            }
+
+            $link_location = (string) ($link_item['location'] ?? '');
+            $dropdown_location = (string) ($dropdown_item['location'] ?? '');
+            if ($link_location !== $dropdown_location) {
+                throw new RuntimeException('Link and dropdown must be in the same location (e.g. both Header).');
+            }
+
+            // Check if link is already a child of this dropdown
+            if ((string) ($link_item['section_key'] ?? '') === $children_section) {
+                throw new RuntimeException('This link is already a child of the selected dropdown.');
+            }
+
+            // Update the link's section_key to the dropdown's children section
+            $stmt = $db->prepare("
+                UPDATE navigation_controls
+                SET section_key = ?,
+                    updated_by = ?,
+                    updated_at = NOW()
+                WHERE nav_key = ?
+            ");
+            $stmt->execute([
+                $children_section,
+                $current_admin_id > 0 ? $current_admin_id : null,
+                $link_key,
+            ]);
+
+            getNavigationControlRegistry(true);
+            $success_message = '"' . (string) ($link_item['label'] ?? $link_key) . '" added to "' . (string) ($dropdown_item['label'] ?? $dropdown_key) . '" dropdown.';
         } elseif ($action === 'delete_navigation_item') {
             $nav_key = trim((string) ($_POST['nav_key'] ?? ''));
             if ($nav_key === '') {
@@ -969,6 +1073,121 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
             <p class="launch-mobile-note">Feature Access still controls whether a selected page is live during MVP launch. The center More button is reserved; configure the four direct links and four More links above.</p>
         </form>
 
+        <?php
+        // Collect all unique section keys from the registry for dynamic dropdown options.
+        // This includes both `section_key` values AND `children_section_key` values from dropdown items,
+        // so newly created dropdown sections appear in the Section dropdown for adding child links.
+        $custom_section_options = [];
+
+        $addSectionOption = static function (array &$map, string $location, string $sectionKey, string $label) {
+            if ($location === '' || $sectionKey === '') {
+                return;
+            }
+            $compound = $location . ':' . $sectionKey;
+            if (isset($map[$compound])) {
+                return;
+            }
+            $map[$compound] = [
+                'location' => $location,
+                'section_key' => $sectionKey,
+                'label' => $label !== '' ? $label : coinrexNavigationSectionLabel($location, $sectionKey),
+            ];
+        };
+
+        foreach ($navigation_registry as $nav_item) {
+            $item_location = (string) ($nav_item['location'] ?? '');
+            $item_section = (string) ($nav_item['section_key'] ?? '');
+            $item_children = (string) ($nav_item['children_section_key'] ?? '');
+            $item_label = (string) ($nav_item['section_label'] ?? '');
+
+            // Add the item's own section
+            $addSectionOption($custom_section_options, $item_location, $item_section, $item_label);
+
+            // If this is a dropdown, also add its children section so child links can be added to it
+            if ((string) ($nav_item['item_type'] ?? 'link') === 'dropdown' && $item_children !== '') {
+                $addSectionOption($custom_section_options, $item_location, $item_children, coinrexNavigationSectionLabel($item_location, $item_children));
+            }
+        }
+        ksort($custom_section_options);
+        ?>
+
+        <?php
+        // Collect dropdown items and available link items for the "Add Existing Link to Dropdown" form
+        $dropdown_items = [];
+        $available_link_items = [];
+        foreach ($navigation_registry as $nav_key => $nav_item) {
+            $item_type = (string) ($nav_item['item_type'] ?? 'link');
+            $item_location = (string) ($nav_item['location'] ?? '');
+            $item_section = (string) ($nav_item['section_key'] ?? '');
+            $item_children = (string) ($nav_item['children_section_key'] ?? '');
+
+            if ($item_type === 'dropdown') {
+                $dropdown_items[$nav_key] = [
+                    'key' => $nav_key,
+                    'label' => (string) ($nav_item['label'] ?? $nav_key),
+                    'location' => $item_location,
+                    'children_section' => $item_children,
+                ];
+            } elseif ($item_type === 'link') {
+                // Only show links that are NOT already children of a dropdown section
+                $is_dropdown_child = false;
+                foreach ($navigation_registry as $check_item) {
+                    if ((string) ($check_item['item_type'] ?? 'link') === 'dropdown'
+                        && (string) ($check_item['children_section_key'] ?? '') === $item_section) {
+                        $is_dropdown_child = true;
+                        break;
+                    }
+                }
+                if (!$is_dropdown_child) {
+                    $available_link_items[$nav_key] = [
+                        'key' => $nav_key,
+                        'label' => (string) ($nav_item['label'] ?? $nav_key),
+                        'location' => $item_location,
+                        'section' => $item_section,
+                    ];
+                }
+            }
+        }
+        ?>
+
+        <section class="launch-create-card">
+            <h3><i class="fas fa-plus-circle"></i> Add Existing Link to Dropdown</h3>
+            <p>Select an existing link and a dropdown menu to add the link as a child of that dropdown.</p>
+            <form method="POST" action="" class="launch-create-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="action" value="assign_navigation_child">
+                <input type="hidden" name="current_tab" value="navigation">
+                <div class="launch-nav-grid-2">
+                    <label>
+                        Dropdown Menu
+                        <select name="assign_child[dropdown_key]" required>
+                            <option value="">-- Select dropdown --</option>
+                            <?php foreach ($dropdown_items as $dropdown): ?>
+                                <option value="<?php echo htmlspecialchars((string) $dropdown['key'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars((string) $dropdown['label'] . ' [' . ucwords((string) $dropdown['location']) . ']', ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>
+                        Existing Link
+                        <select name="assign_child[link_key]" required>
+                            <option value="">-- Select link --</option>
+                            <?php foreach ($available_link_items as $link): ?>
+                                <option value="<?php echo htmlspecialchars((string) $link['key'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars((string) $link['label'] . ' [' . ucwords((string) $link['location']) . ']', ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                </div>
+                <div class="launch-create-actions" style="margin-top:14px;">
+                    <button type="submit" class="btn btn-primary">Add to Dropdown</button>
+                    <span class="launch-defaults">Tip: the link will move into the dropdown's children section.</span>
+                </div>
+            </form>
+        </section>
+
         <section class="launch-create-card">
             <h3><i class="fas fa-plus-circle"></i> Add New Link/Page or Dropdown</h3>
             <p>Add a page, custom URL, or dropdown menu, then select it in the slot dropdown above.</p>
@@ -1004,13 +1223,20 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                     </label>
                     <label>
                         Section
-                        <select name="new_nav[section_key]">
+                        <select name="new_nav[section_key]" id="newNavSectionKey">
                             <option value="primary">Header Primary</option>
                             <option value="resources">Header Resources / Footer Resources</option>
                             <option value="marketplace">Header Marketplace</option>
                             <option value="platform">Footer Platform</option>
                             <option value="legal">Footer Legal</option>
                             <option value="bottom">Footer Bottom / Mobile Bottom</option>
+                            <?php foreach ($custom_section_options as $compound => $section_opt): ?>
+                                <?php if (in_array($section_opt['section_key'], ['primary', 'resources', 'marketplace', 'platform', 'legal', 'bottom'], true)) continue; ?>
+                                <option value="<?php echo htmlspecialchars((string) $section_opt['section_key'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars((string) $section_opt['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="__new__">➕ Create new section...</option>
                         </select>
                     </label>
                 </div>
@@ -1021,6 +1247,14 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                             <option value="">-- None --</option>
                             <option value="resources">Header Resources</option>
                             <option value="marketplace">Header Marketplace</option>
+                            <?php foreach ($custom_section_options as $compound => $section_opt): ?>
+                                <?php if (in_array($section_opt['section_key'], ['resources', 'marketplace'], true)) continue; ?>
+                                <?php if ($section_opt['location'] !== 'header') continue; ?>
+                                <option value="<?php echo htmlspecialchars((string) $section_opt['section_key'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars((string) $section_opt['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="__new__">➕ Create new section...</option>
                         </select>
                     </label>
                     <label>
@@ -1046,6 +1280,17 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
                         <input type="text" name="new_nav[badge_text]" placeholder="NEW">
                     </label>
                 </div>
+                <div class="launch-nav-grid-3" style="margin-top:10px;" id="newSectionKeyRow">
+                    <label>
+                        New Section Key
+                        <input type="text" name="new_nav[new_section_key]" id="newNavSectionKeyInput" placeholder="e.g. community, tools, earn" pattern="[a-z0-9_]{2,40}">
+                    </label>
+                    <label>
+                        <span style="color:#64748b; font-size:11px; line-height:1.5; display:block; margin-top:22px;">
+                            <i class="fas fa-info-circle"></i> Lowercase letters, numbers, underscores only (2-40 chars).
+                        </span>
+                    </label>
+                </div>
                 <div class="launch-create-actions" style="margin-top:14px;">
                     <button type="submit" class="btn btn-primary">Add Link/Page</button>
                     <span class="launch-defaults">Tip: use Header Primary for desktop slots, or Mobile Bottom for mobile slots.</span>
@@ -1061,7 +1306,10 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
 (function() {
     const itemTypeSelect = document.getElementById('newNavItemType');
     const childrenSectionSelect = document.getElementById('newNavChildrenSection');
+    const sectionKeySelect = document.getElementById('newNavSectionKey');
     const customUrlInput = document.querySelector('input[name="new_nav[custom_url]"]');
+    const newSectionKeyRow = document.getElementById('newSectionKeyRow');
+    const newSectionKeyInput = document.getElementById('newNavSectionKeyInput');
 
     function updateCreateForm() {
         if (!itemTypeSelect) return;
@@ -1069,16 +1317,38 @@ $mobile_member_slot_values = $navigation_slot_values($db, $navigation_registry, 
         if (childrenSectionSelect) {
             childrenSectionSelect.closest('label').style.display = isDropdown ? 'grid' : 'none';
         }
+        if (sectionKeySelect) {
+            sectionKeySelect.closest('label').style.display = isDropdown ? 'none' : 'grid';
+        }
         if (customUrlInput) {
             customUrlInput.closest('label').style.display = isDropdown ? 'none' : 'grid';
             customUrlInput.required = !isDropdown;
+        }
+        updateNewSectionRow();
+    }
+
+    function updateNewSectionRow() {
+        if (!newSectionKeyRow) return;
+        const isDropdown = itemTypeSelect && itemTypeSelect.value === 'dropdown';
+        const childrenIsNew = childrenSectionSelect && childrenSectionSelect.value === '__new__';
+        const sectionIsNew = sectionKeySelect && sectionKeySelect.value === '__new__';
+        const shouldShow = (isDropdown && childrenIsNew) || (!isDropdown && sectionIsNew);
+        newSectionKeyRow.style.display = shouldShow ? 'grid' : 'none';
+        if (newSectionKeyInput) {
+            newSectionKeyInput.required = shouldShow;
         }
     }
 
     if (itemTypeSelect) {
         itemTypeSelect.addEventListener('change', updateCreateForm);
-        updateCreateForm();
     }
+    if (childrenSectionSelect) {
+        childrenSectionSelect.addEventListener('change', updateNewSectionRow);
+    }
+    if (sectionKeySelect) {
+        sectionKeySelect.addEventListener('change', updateNewSectionRow);
+    }
+    updateCreateForm();
 })();
 </script>
 
