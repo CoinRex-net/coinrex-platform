@@ -352,7 +352,12 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                                 <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
                                     <i class="<?php echo htmlspecialchars((string) $nav_item['icon_class'], ENT_QUOTES, 'UTF-8'); ?>"></i>
                                 <?php endif; ?>
-                                <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php $dropdown_badge = trim((string) ($nav_item['badge_text'] ?? '')); ?>
+                                <?php if ($dropdown_badge !== ''): ?>
+                                    <span class="nex-nav-label"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?> <span class="nex-hot-badge"><?php echo htmlspecialchars($dropdown_badge, ENT_QUOTES, 'UTF-8'); ?></span></span>
+                                <?php else: ?>
+                                    <span><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php endif; ?>
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="nex-dropdown nex-resource-dropdown">
