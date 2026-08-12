@@ -32,6 +32,8 @@
 /* Position mobile badge above the icon */
 .mobile-bottom-nav {
     overflow: visible !important;
+    height: auto !important;
+    padding-top: 16px !important;
 }
 
 .mobile-nav-item {
@@ -40,7 +42,7 @@
 
 .mobile-nav-item .nex-mobile-badge {
     position: absolute !important;
-    top: -12px !important;
+    top: 0 !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     margin-left: 0 !important;
