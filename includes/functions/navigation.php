@@ -1223,11 +1223,13 @@ function seedDefaultNavigationControls(PDO $db = null, bool $resetPresentation =
             }
 
             if ($resetPresentation) {
+                $fields[] = 'section_key = ?';
                 $fields[] = 'label = ?';
                 $fields[] = 'custom_url = ?';
                 $fields[] = 'icon_class = ?';
                 $fields[] = 'badge_text = ?';
                 $fields[] = 'sort_order = ?';
+                $params[] = (string) $item['section_key'];
                 $params[] = (string) $item['label'];
                 $params[] = '';
                 $params[] = (string) ($item['icon_class'] ?? '');
