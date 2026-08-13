@@ -8,22 +8,51 @@
  */
 
 // ── Base URLs ─────────────────────────────────────────────────────
-$walletScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$walletForwardedProto = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+$walletScheme = $walletForwardedProto === 'https'
+    ? 'https'
+    : ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
 $walletHost   = trim((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
 
 define('WALLET_ROOT', dirname(__DIR__));
 
-// Derive the web base path from the wallet folder relative to DOCUMENT_ROOT,
-// so the base URL is correct no matter which script inside /wallet/ runs.
-$walletDocRoot = str_replace('\\', '/', (string) realpath($_SERVER['DOCUMENT_ROOT'] ?? 'C:/xampp/htdocs'));
-$walletRootPath = str_replace('\\', '/', (string) realpath(WALLET_ROOT));
+// Build the base URL so assets, images, and internal links always resolve
+// correctly regardless of deployment:
+//   1. COINREX_WALLET_BASE_URL env var (explicit, recommended on production)
+//   2. The request path itself (works when the platform is the subdomain root,
+//      a subfolder, or behind shared hosting) — matches exactly where the
+//      browser loaded the page, so styles/images can never 404.
+//   3. Document-root-relative path (local dev fallback).
+$walletEnvBase = trim((string) (getenv('COINREX_WALLET_BASE_URL') ?: ''));
 $walletBasePath = '';
-if ($walletDocRoot !== '' && strpos($walletRootPath, $walletDocRoot) === 0) {
-    $walletBasePath = rtrim(substr($walletRootPath, strlen($walletDocRoot)), '/');
+
+if ($walletEnvBase === '') {
+    // 2) Derive from the current request path. The wallet platform always
+    // lives in a folder whose basename equals the platform folder name,
+    // no matter how deep the entry script is (e.g. .../wallet/index.php
+    // or .../wallet/api/rexlink_download.php).
+    $walletScriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    $walletFolderName = basename(WALLET_ROOT);
+    if ($walletFolderName !== '' && strpos($walletScriptName, '/' . $walletFolderName . '/') !== false) {
+        $walletCut = strpos($walletScriptName, '/' . $walletFolderName . '/') + 1 + strlen($walletFolderName);
+        $walletBasePath = rtrim(substr($walletScriptName, 0, $walletCut), '/');
+    } else {
+        $walletBasePath = '';
+    }
 }
 
-define('WALLET_BASE_URL', rtrim(trim((string) (getenv('COINREX_WALLET_BASE_URL') ?: '')), '/')
-    ?: ($walletScheme . '://' . $walletHost . $walletBasePath));
+if ($walletEnvBase === '' && $walletBasePath === '') {
+    // 3) Fallback: wallet folder relative to the server document root.
+    $walletDocRoot = str_replace('\\', '/', (string) realpath($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    $walletRootPath = str_replace('\\', '/', (string) realpath(WALLET_ROOT));
+    if ($walletDocRoot !== '' && $walletRootPath !== '' && strpos($walletRootPath, $walletDocRoot) === 0) {
+        $walletBasePath = rtrim(substr($walletRootPath, strlen($walletDocRoot)), '/');
+    }
+}
+
+define('WALLET_BASE_URL', $walletEnvBase !== ''
+    ? rtrim($walletEnvBase, '/')
+    : ($walletScheme . '://' . $walletHost . $walletBasePath));
 define('WALLET_ASSETS_URL', WALLET_BASE_URL . '/assets');
 define('WALLET_APK_URL', WALLET_BASE_URL . '/apk/RexLink.apk');
 
