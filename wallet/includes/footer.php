@@ -22,7 +22,9 @@
                     <li><a href="<?php echo htmlspecialchars(WALLET_MAIN_SITE_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">CoinRex Home</a></li>
                     <li><a href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/index.php#how-it-works', ENT_QUOTES, 'UTF-8'); ?>">How it Works</a></li>
                     <li><a href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/index.php#faq', ENT_QUOTES, 'UTF-8'); ?>">FAQ</a></li>
-                    <li><a href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8'); ?>">Download APK</a></li>
+                    <?php if (WALLET_DOWNLOADS_ENABLED): ?>
+                        <li><a href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8'); ?>">Download APK</a></li>
+                    <?php endif; ?>
                 </ul>
             </div>
 

@@ -104,6 +104,38 @@ function walletDownloadCount(): int
     }
 }
 
+// ── Download availability (temporary kill-switch) ─────────────
+// Set to false to disable every "Download APK" button across the
+// wallet platform. Flip back to true to re-enable downloads.
+define('WALLET_DOWNLOADS_ENABLED', false);
+
+/**
+ * Render the platform's primary "Download APK" button.
+ * When downloads are disabled it renders a muted "Coming Soon" state.
+ */
+function walletDownloadButton(): string
+{
+    if (WALLET_DOWNLOADS_ENABLED) {
+        return '<a class="wallet-btn-download" href="' . htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8') . '">'
+            . '<i class="fas fa-download"></i> Download APK</a>';
+    }
+    return '<span class="wallet-btn-download is-disabled" aria-disabled="true" title="Downloads coming soon">'
+        . '<i class="fas fa-download"></i> Coming Soon</span>';
+}
+
+/**
+ * Render the nav "Download APK" CTA (respects the kill-switch too).
+ */
+function walletNavDownloadCta(string $class = 'wallet-nav-cta'): string
+{
+    if (WALLET_DOWNLOADS_ENABLED) {
+        return '<a class="' . $class . '" href="' . htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8') . '">'
+            . '<i class="fas fa-download"></i> Download APK</a>';
+    }
+    return '<span class="' . $class . ' is-disabled" aria-disabled="true" title="Downloads coming soon">'
+        . '<i class="fas fa-download"></i> Coming Soon</span>';
+}
+
 /**
  * APK existence + size metadata.
  */

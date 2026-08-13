@@ -305,6 +305,21 @@ h1, h2, h3, h4 { color: var(--color-text-heading); margin: 0 0 0.5em; line-heigh
     transition: transform .15s ease, box-shadow .15s ease;
 }
 .wallet-btn-download:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(212, 175, 55, 0.4); }
+.wallet-btn-download.is-disabled,
+.wallet-nav-cta.is-disabled {
+    background: rgba(148, 163, 184, 0.18);
+    color: var(--color-text-caption-alt);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+.wallet-btn-download.is-disabled:hover,
+.wallet-nav-cta.is-disabled:hover {
+    background: rgba(148, 163, 184, 0.18);
+    color: var(--color-text-caption-alt);
+    box-shadow: none;
+    transform: none;
+}
 .wallet-btn-secondary {
     display: inline-flex;
     align-items: center;

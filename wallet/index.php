@@ -35,10 +35,7 @@ require_once __DIR__ . '/includes/header.php';
                         no browser extension needed.
                     </p>
                     <div class="wallet-hero-actions">
-                        <a class="wallet-btn-download" href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8'); ?>">
-                            <i class="fas fa-download"></i>
-                            <?php echo $apkInfo['exists'] ? 'Download APK' : 'Get the App'; ?>
-                        </a>
+                        <?php echo walletDownloadButton(); ?>
                         <a class="wallet-btn-secondary" href="#how-it-works"><i class="fas fa-arrow-down"></i> How it works</a>
                     </div>
                     <div class="wallet-hero-meta">
@@ -168,9 +165,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
                 <div class="wallet-download-actions">
-                    <a class="wallet-btn-download" href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8'); ?>">
-                        <i class="fas fa-download"></i> Download APK
-                    </a>
+                    <?php echo walletDownloadButton(); ?>
                     <span class="wallet-download-count"><i class="fas fa-arrow-down"></i> <?php echo number_format($totalDl); ?> downloads</span>
                 </div>
             </div>

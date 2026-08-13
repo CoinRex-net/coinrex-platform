@@ -88,18 +88,14 @@ $walletNav = [
                     <span><?php echo htmlspecialchars($walletLink['label'], ENT_QUOTES, 'UTF-8'); ?></span>
                 </a>
             <?php endforeach; ?>
-            <a class="wallet-nav-cta wallet-nav-cta-mobile" href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8'); ?>">
-                <i class="fas fa-download"></i> Download APK
-            </a>
+            <?php echo walletNavDownloadCta('wallet-nav-cta wallet-nav-cta-mobile'); ?>
         </div>
 
         <div class="wallet-nav-actions">
             <a class="wallet-nav-coinrex" href="<?php echo htmlspecialchars(WALLET_MAIN_SITE_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer">
                 CoinRex/ <i class="fas fa-arrow-up-right-from-square"></i>
             </a>
-            <a class="wallet-nav-cta" href="<?php echo htmlspecialchars(WALLET_BASE_URL . '/download.php', ENT_QUOTES, 'UTF-8'); ?>">
-                <i class="fas fa-download"></i> Download APK
-            </a>
+            <?php echo walletNavDownloadCta(); ?>
         </div>
     </div>
 </nav>
