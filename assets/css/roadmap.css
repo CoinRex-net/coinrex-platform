@@ -447,6 +447,29 @@
     background: var(--roadmap-gold);
 }
 
+.roadmap-stage-completed .roadmap-card {
+    border-color: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 22px 68px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(34, 197, 94, 0.08), 0 0 38px rgba(34, 197, 94, 0.16);
+}
+
+.roadmap-stage-completed .roadmap-node {
+    background:
+        radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.22), transparent 36%),
+        linear-gradient(145deg, rgba(34, 197, 94, 0.92), rgba(11, 16, 32, 0.9));
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.1), 0 0 34px rgba(34, 197, 94, 0.42);
+}
+
+.roadmap-stage-completed .roadmap-node span {
+    color: #dcfce7;
+    font-size: 17px;
+}
+
+.roadmap-stage-completed .roadmap-badge {
+    color: #052e16;
+    border-color: rgba(34, 197, 94, 0.7);
+    background: #22c55e;
+}
+
 .roadmap-stage-next .roadmap-badge {
     color: #dbeafe;
     border-color: rgba(96, 165, 250, 0.44);

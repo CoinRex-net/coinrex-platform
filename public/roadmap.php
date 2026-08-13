@@ -75,9 +75,10 @@ $renderRoadmapTitle = static function (string $title, string $goldWord): string 
 
             <div class="roadmap-stages">
                 <?php foreach ($roadmap_stages as $index => $stage): ?>
-                <article class="roadmap-stage roadmap-reveal roadmap-stage-<?php echo htmlspecialchars($stage['tone'], ENT_QUOTES, 'UTF-8'); ?>" style="--roadmap-delay: <?php echo (int) $index * 110; ?>ms">
+                <?php $stageTone = normalizeRoadmapTone($stage['tone'] ?? ''); $stageBadge = $stageTone === 'completed' ? 'COMPLETED' : normalizeRoadmapBadge($stage['badge'] ?? 'PLANNED'); ?>
+                <article class="roadmap-stage roadmap-reveal roadmap-stage-<?php echo htmlspecialchars($stageTone, ENT_QUOTES, 'UTF-8'); ?>" style="--roadmap-delay: <?php echo (int) $index * 110; ?>ms">
                     <div class="roadmap-node" aria-hidden="true">
-                        <span><?php echo htmlspecialchars($stage['number'], ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span><?php echo $stageTone === 'completed' ? '&#10003;' : htmlspecialchars($stage['number'], ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
 
                     <div class="roadmap-card">
@@ -89,7 +90,7 @@ $renderRoadmapTitle = static function (string $title, string $goldWord): string 
                                 <span class="roadmap-stage-kicker">Stage <?php echo htmlspecialchars($stage['number'], ENT_QUOTES, 'UTF-8'); ?></span>
                                 <h2><?php echo htmlspecialchars($stage['title'], ENT_QUOTES, 'UTF-8'); ?></h2>
                             </div>
-                            <span class="roadmap-badge"><?php echo htmlspecialchars($stage['badge'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="roadmap-badge"><?php echo htmlspecialchars($stageBadge, ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
 
                         <p class="roadmap-status"><?php echo htmlspecialchars($stage['status'], ENT_QUOTES, 'UTF-8'); ?></p>

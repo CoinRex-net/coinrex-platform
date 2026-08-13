@@ -98,12 +98,12 @@ function getDefaultRoadmapData(): array {
 
 function normalizeRoadmapTone($tone): string {
     $tone = strtolower(trim((string) $tone));
-    return in_array($tone, ['current', 'next', 'planned', 'future'], true) ? $tone : 'planned';
+    return in_array($tone, ['current', 'next', 'planned', 'future', 'completed'], true) ? $tone : 'planned';
 }
 
 function normalizeRoadmapBadge($badge): string {
     $badge = strtoupper(trim((string) $badge));
-    return in_array($badge, ['CURRENT', 'NEXT', 'PLANNED', 'FUTURE'], true) ? $badge : 'PLANNED';
+    return in_array($badge, ['CURRENT', 'NEXT', 'PLANNED', 'FUTURE', 'COMPLETED'], true) ? $badge : 'PLANNED';
 }
 
 function sanitizeRoadmapIcon($icon): string {
@@ -158,8 +158,8 @@ function ensureRoadmapSchema(PDO $db = null): void {
             stage_number VARCHAR(20) NOT NULL,
             title VARCHAR(160) NOT NULL,
             status_label VARCHAR(120) NOT NULL DEFAULT '',
-            badge ENUM('CURRENT','NEXT','PLANNED','FUTURE') NOT NULL DEFAULT 'PLANNED',
-            tone ENUM('current','next','planned','future') NOT NULL DEFAULT 'planned',
+            badge ENUM('CURRENT','NEXT','PLANNED','FUTURE','COMPLETED') NOT NULL DEFAULT 'PLANNED',
+            tone ENUM('current','next','planned','future','completed') NOT NULL DEFAULT 'planned',
             icon VARCHAR(80) NOT NULL DEFAULT 'fa-circle-nodes',
             milestone_note TEXT NULL,
             sort_order INT NOT NULL DEFAULT 0,
@@ -170,6 +170,12 @@ function ensureRoadmapSchema(PDO $db = null): void {
             KEY idx_roadmap_stages_status_sort (version_status, sort_order),
             KEY idx_roadmap_stages_visible (is_visible)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    $db->exec("
+        ALTER TABLE roadmap_stages
+        MODIFY badge ENUM('CURRENT','NEXT','PLANNED','FUTURE','COMPLETED') NOT NULL DEFAULT 'PLANNED',
+        MODIFY tone ENUM('current','next','planned','future','completed') NOT NULL DEFAULT 'planned'
     ");
 
     $db->exec("

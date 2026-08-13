@@ -345,7 +345,7 @@ $modalStages[] = $stageTemplate;
                             <article class="roadmap-stage-card <?php echo empty($stage['is_visible']) ? 'is-hidden' : ''; ?>">
                                 <div class="roadmap-stage-card-top">
                                     <div class="roadmap-stage-title">
-                                        <span class="roadmap-stage-pill <?php echo normalizeRoadmapTone($stage['tone'] ?? '') === 'current' ? 'is-current' : ''; ?>"><?php echo htmlspecialchars(normalizeRoadmapBadge($stage['badge'] ?? 'PLANNED'), ENT_QUOTES, 'UTF-8'); ?></span>
+                                        <span class="roadmap-stage-pill <?php echo normalizeRoadmapTone($stage['tone'] ?? '') === 'current' ? 'is-current' : ''; ?>"><?php echo htmlspecialchars(normalizeRoadmapTone($stage['tone'] ?? '') === 'completed' ? 'COMPLETED' : normalizeRoadmapBadge($stage['badge'] ?? 'PLANNED'), ENT_QUOTES, 'UTF-8'); ?></span>
                                         <h4>Stage <?php echo htmlspecialchars((string) ($stage['stage_number'] ?? $stage['number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> - <?php echo htmlspecialchars((string) ($stage['title'] ?? 'Stage'), ENT_QUOTES, 'UTF-8'); ?></h4>
                                         <small><?php echo htmlspecialchars((string) ($stage['status_label'] ?? $stage['status'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></small>
                                     </div>
@@ -397,8 +397,8 @@ $modalStages[] = $stageTemplate;
                         </div>
                         <div class="roadmap-admin-grid is-three">
                             <label>Status Label <input name="stages[<?php echo $stageIndex; ?>][status_label]" value="<?php echo htmlspecialchars((string) ($stage['status_label'] ?? $stage['status'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"><span class="roadmap-field-note">Example: Current Stage</span></label>
-                            <label>Badge <select name="stages[<?php echo $stageIndex; ?>][badge]"><?php foreach (['CURRENT', 'NEXT', 'PLANNED', 'FUTURE'] as $badge): ?><option value="<?php echo $badge; ?>" <?php echo normalizeRoadmapBadge($stage['badge'] ?? '') === $badge ? 'selected' : ''; ?>><?php echo $badge; ?></option><?php endforeach; ?></select></label>
-                            <label>Tone <select name="stages[<?php echo $stageIndex; ?>][tone]"><?php foreach (['current', 'next', 'planned', 'future'] as $tone): ?><option value="<?php echo $tone; ?>" <?php echo normalizeRoadmapTone($stage['tone'] ?? '') === $tone ? 'selected' : ''; ?>><?php echo ucfirst($tone); ?></option><?php endforeach; ?></select></label>
+                            <label>Badge <select name="stages[<?php echo $stageIndex; ?>][badge]"><?php foreach (['CURRENT', 'COMPLETED', 'NEXT', 'PLANNED', 'FUTURE'] as $badge): ?><option value="<?php echo $badge; ?>" <?php echo normalizeRoadmapBadge($stage['badge'] ?? '') === $badge ? 'selected' : ''; ?>><?php echo $badge; ?></option><?php endforeach; ?></select></label>
+                            <label>Tone <select name="stages[<?php echo $stageIndex; ?>][tone]"><?php foreach (['current', 'completed', 'next', 'planned', 'future'] as $tone): ?><option value="<?php echo $tone; ?>" <?php echo normalizeRoadmapTone($stage['tone'] ?? '') === $tone ? 'selected' : ''; ?>><?php echo ucfirst($tone); ?></option><?php endforeach; ?></select></label>
                         </div>
                         <div class="roadmap-admin-grid">
                             <label>FontAwesome Icon <input name="stages[<?php echo $stageIndex; ?>][icon]" value="<?php echo htmlspecialchars((string) ($stage['icon'] ?? 'fa-circle-nodes'), ENT_QUOTES, 'UTF-8'); ?>" placeholder="fa-rocket"><span class="roadmap-field-note">Examples: fa-rocket, fa-coins, fa-chart-line.</span></label>
