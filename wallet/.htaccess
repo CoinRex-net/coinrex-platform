@@ -7,6 +7,12 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Clean URLs: strip "/index.php" from any script so
+    #   wallet.coinrex.xyz/index.php  ->  wallet.coinrex.xyz/
+    #   coinrex.xyz/wallet/index.php  ->  coinrex.xyz/wallet/
+    RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /([^?]*?)index\.php[\s\?]
+    RewriteRule ^index\.php$ /%1 [R=301,L,NE,QSA]
+
     # Block direct access to includes/
     RewriteRule ^includes/ - [F,L]
 
