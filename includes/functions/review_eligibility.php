@@ -124,6 +124,24 @@ function ensureReviewEligibilitySchema(PDO $db = null) {
         $db->exec("UPDATE project_contracts SET contract_address = NULL WHERE token_type = 'NATIVE' AND TRIM(COALESCE(contract_address, '')) = ''");
     } catch (Throwable $e) {}
 
+    // Idempotent self-heal for project_contracts: existing tables created by the
+    // 2026_06_25 migration lack the eligibility rule columns that the
+    // 2026_08_01 migration adds. CREATE TABLE IF NOT EXISTS cannot alter an
+    // existing table, so backfill missing columns explicitly (guarded by
+    // tableHasColumn). Each column is added independently so a missing
+    // prerequisite column never blocks the others.
+    $project_contract_columns = [
+        'eligibility_min_amount' => "ALTER TABLE project_contracts ADD COLUMN eligibility_min_amount VARCHAR(120) NULL AFTER decimals",
+        'eligibility_holding_minutes' => "ALTER TABLE project_contracts ADD COLUMN eligibility_holding_minutes INT UNSIGNED NULL AFTER eligibility_min_amount",
+    ];
+    foreach ($project_contract_columns as $column => $sql) {
+        if (!tableHasColumn('project_contracts', $column)) {
+            try {
+                $db->exec($sql);
+            } catch (Throwable $e) {}
+        }
+    }
+
     $ready = true;
 }
 

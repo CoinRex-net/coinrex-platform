@@ -579,6 +579,79 @@
     grid-column: 1 / -1;
 }
 
+/* ========================================
+   Submit builder: beginner-friendly layout
+   ======================================== */
+
+.contract-builder-submit .contract-row:not(.contract-row-head) {
+    grid-template-columns: 1fr;
+}
+
+.contract-builder-submit .contract-row-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    grid-column: 1 / -1;
+}
+
+.contract-builder-submit .contract-row-toolbar .contract-primary-toggle,
+.contract-builder-submit .contract-row-toolbar .contract-remove-btn {
+    grid-column: auto;
+    grid-row: auto;
+}
+
+.contract-builder-submit .contract-row-toolbar .contract-primary-toggle {
+    margin-right: auto;
+}
+
+.contract-builder-submit .contract-row-toolbar-hint {
+    color: var(--dh-text-soft);
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.contract-builder-submit .contract-network-fields {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.contract-builder-submit .contract-network-other-field {
+    grid-column: 1 / -1;
+}
+
+.contract-builder-submit .contract-address-field {
+    grid-column: 1 / -1;
+}
+
+.contract-builder-submit .contract-rule-container {
+    grid-column: 1 / -1;
+    padding: 14px;
+    border: 1px solid var(--dh-border-soft);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.contract-builder-submit .contract-rule-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--dh-accent-soft);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.contract-builder-submit .contract-rule-fields {
+    padding-top: 0;
+    border-top: 0;
+}
+
 .contract-address-field.is-disabled input {
     color: var(--dh-text-soft);
     border-style: dashed;
@@ -919,8 +992,30 @@
         grid-row: auto;
     }
 
-    .contract-rule-fields {
+.contract-rule-fields {
         grid-template-columns: 1fr;
+    }
+
+    .contract-builder-submit .contract-network-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .contract-builder-submit .contract-row-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .contract-builder-submit .contract-row-toolbar .contract-primary-toggle,
+    .contract-builder-submit .contract-row-toolbar-hint,
+    .contract-builder-submit .contract-row-toolbar .contract-remove-btn {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+    }
+
+    .contract-builder-submit .contract-row-toolbar-hint {
+        text-align: center;
+        margin: 0;
     }
 
     .contract-add-btn,

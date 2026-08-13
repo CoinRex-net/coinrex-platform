@@ -398,6 +398,10 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="submit-notice error"><p><?php echo $esc($errors['general']); ?></p></div>
         <?php endif; ?>
 
+        <?php if (empty($errors['general']) && !empty($errors['contracts'])): ?>
+            <div class="submit-notice error"><p><?php echo $esc($errors['contracts']); ?></p></div>
+        <?php endif; ?>
+
         <form id="projectWizardForm" class="wizard-form" method="POST" action="" enctype="multipart/form-data" novalidate>
             <input type="hidden" name="action" value="final_submit">
 
@@ -531,36 +535,48 @@ require_once __DIR__ . '/../includes/header.php';
                             </div>
 
                             <div class="contract-builder contract-builder-submit" id="contractBuilder">
-                                <div class="contract-row contract-row-head">
-                                    <span>Primary</span><span>Network</span><span>Chain ID</span><span>Contract</span><span>Type</span><span>Rule</span><span></span>
+<div class="contract-row contract-row-head">
+                                    <span>Primary</span><span>Network / Token Type</span><span>Chain ID</span><span>Contract</span><span>Rule</span><span></span>
                                 </div>
                                 <div id="contractRows">
                                     <div class="contract-row" data-contract-row>
-                                        <label class="contract-primary-toggle"><input type="radio" name="primary_contract_index" value="0" checked><span>Primary</span></label>
-                                        <label class="contract-field"><span>Network</span><select name="contract_network_name[]" data-network-select>
-                                                <option value="">Network</option>
-                                                <?php foreach (array_keys(reviewEligibilityKnownNetworks()) as $network): ?>
-                                                    <option value="<?php echo $esc($network); ?>"><?php echo $esc($network); ?></option>
-                                                <?php endforeach; ?>
-                                                <option value="__other__">Others</option>
-                                            </select></label>
-                                        <div class='contract-field contract-rule-fields'>
-                                            <label><span>Symbol</span><input type='text' name='contract_token_symbol[]' placeholder='POL' maxlength='40'></label>
-                                            <label><span>Decimals</span><input type='number' name='contract_decimals[]' value='18' min='0' max='36'></label>
-                                            <label><span>Minimum</span><input type='text' name='contract_min_amount[]' placeholder='10'></label>
-                                            <label><span>Hold</span><input type='number' name='contract_holding_value[]' value='24' min='1'><select name='contract_holding_unit[]'><option value='hours'>Hours</option><option value='days'>Days</option></select></label>
+                                        <div class="contract-row-toolbar">
+                                            <label class="contract-primary-toggle"><input type="radio" name="primary_contract_index" value="0" checked><span>Primary</span></label>
+                                            <span class="contract-row-toolbar-hint">Main eligibility chain</span>
+                                            <button type="button" class="contract-remove-btn" data-remove-contract><i class="fas fa-times"></i><span>Remove</span></button>
                                         </div>
-                                        <label class="contract-field contract-network-other-field" hidden><span>Network Name</span><input type="text" name="contract_network_other[]" data-network-other placeholder="Enter network name"></label>
-                                        <label class="contract-field"><span>Chain ID</span><input type="number" name="contract_chain_id[]" data-chain-id placeholder="1"></label>
+
+                                        <div class="contract-network-fields">
+                                            <label class="contract-field"><span>Network</span><select name="contract_network_name[]" data-network-select>
+                                                    <option value="">Network</option>
+                                                    <?php foreach (array_keys(reviewEligibilityKnownNetworks()) as $network): ?>
+                                                        <option value="<?php echo $esc($network); ?>"><?php echo $esc($network); ?></option>
+                                                    <?php endforeach; ?>
+                                                    <option value="__other__">Others</option>
+                                                </select></label>
+                                            <label class="contract-field"><span>Token Type</span><select name="contract_token_type[]" data-token-type>
+                                                    <option value="ERC20">ERC20</option>
+                                                    <option value="NATIVE">Native Token</option>
+                                                    <option value="ERC721">ERC721</option>
+                                                    <option value="ERC1155">ERC1155</option>
+                                                </select></label>
+                                            <label class="contract-field"><span>Chain ID</span><input type="number" name="contract_chain_id[]" data-chain-id placeholder="1"></label>
+                                            <label class="contract-field contract-network-other-field" hidden><span>Network Name</span><input type="text" name="contract_network_other[]" data-network-other placeholder="Enter network name"></label>
+                                        </div>
+
                                         <label class="contract-field contract-address-field"><span>Contract Address</span><input type="text" name="contract_address_multi[]" data-contract-address placeholder="0x..."></label>
-                                        <label class="contract-field"><span>Token Type</span><select name="contract_token_type[]" data-token-type>
-                                                <option value="ERC20">ERC20</option>
-                                                <option value="NATIVE">Native Token</option>
-                                                <option value="ERC721">ERC721</option>
-                                                <option value="ERC1155">ERC1155</option>
-                                            </select></label>
+
+                                        <div class="contract-rule-container">
+                                            <span class="contract-rule-title"><i class="fas fa-coins"></i> Token Details &amp; Eligibility Rule</span>
+                                            <div class="contract-rule-fields">
+                                                <label><span>Symbol</span><input type="text" name="contract_token_symbol[]" placeholder="POL" maxlength="40"></label>
+                                                <label><span>Decimals</span><input type="number" name="contract_decimals[]" value="18" min="0" max="36"></label>
+                                                <label><span>Minimum</span><input type="text" name="contract_min_amount[]" placeholder="10"></label>
+                                                <label><span>Hold</span><input type="number" name="contract_holding_value[]" value="24" min="1"><select name="contract_holding_unit[]"><option value="hours">Hours</option><option value="days">Days</option></select></label>
+                                            </div>
+                                        </div>
+
                                         <input type="hidden" name="contract_is_active[]" value="1">
-                                        <button type="button" class="contract-remove-btn" data-remove-contract><i class="fas fa-times"></i><span>Remove</span></button>
                                     </div>
                                 </div>
                                 <button type="button" class="btn-ghost contract-add-btn" id="addContractRow"><i class="fas fa-plus"></i> Add another chain</button>
@@ -777,11 +793,12 @@ require_once __DIR__ . '/../includes/header.php';
             networkOther.required = isOther;
             if (!isOther) networkOther.value = '';
         }
-        function syncNativeAddressState() {
+function syncNativeAddressState() {
             if (!address || !tokenType) return;
             const isNative = tokenType.value === 'NATIVE';
             if (addressField) addressField.classList.toggle('is-disabled', isNative);
             address.readOnly = isNative;
+            address.disabled = isNative;
             address.placeholder = isNative ? 'Native balance uses chain only' : '0x...';
             if (isNative) address.value = '';
         }
@@ -923,6 +940,8 @@ require_once __DIR__ . '/../includes/header.php';
                 const chainId = row.querySelector('[data-chain-id]')?.value.trim() || '';
                 const address = row.querySelector('[data-contract-address]')?.value.trim() || '';
                 const tokenType = row.querySelector('[data-token-type]')?.value.trim() || 'ERC20';
+                const symbol = row.querySelector('input[name="contract_token_symbol[]"]')?.value.trim() || '';
+                const minAmount = row.querySelector('input[name="contract_min_amount[]"]')?.value.trim() || '';
                 if (!network || !/^\d+$/.test(chainId)) {
                     alert('Every contract row needs a network name and positive chain ID.');
                     valid = false;
@@ -930,6 +949,14 @@ require_once __DIR__ . '/../includes/header.php';
                 }
                 if (tokenType !== 'NATIVE' && !/^0x[a-fA-F0-9]{40}$/.test(address)) {
                     alert('ERC20, ERC721, and ERC1155 rows need a valid 0x contract address. Native token rows do not need an address.');
+                    valid = false;
+                }
+                if (!symbol || !/^[A-Za-z0-9._-]{1,40}$/.test(symbol)) {
+                    alert('Every contract row needs a token symbol (e.g. POL).');
+                    valid = false;
+                }
+                if (!minAmount || Number.isNaN(Number(minAmount)) || Number(minAmount) <= 0) {
+                    alert('Every contract row needs a positive minimum holding amount (e.g. 10).');
                     valid = false;
                 }
             });
