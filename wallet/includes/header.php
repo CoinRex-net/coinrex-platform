@@ -31,8 +31,6 @@ $walletNav = [
     ['label' => 'Contact','href' => WALLET_BASE_URL . '/contact.php',  'icon' => 'fas fa-envelope',       'page' => 'contact.php'],
     ['label' => 'Privacy','href' => WALLET_BASE_URL . '/privacy.php',  'icon' => 'fas fa-shield-alt',     'page' => 'privacy.php'],
     ['label' => 'Terms',  'href' => WALLET_BASE_URL . '/terms.php',    'icon' => 'fas fa-file-contract',  'page' => 'terms.php'],
-    ['label' => 'How it Works', 'href' => WALLET_BASE_URL . '/index.php#how-it-works', 'icon' => 'fas fa-route', 'page' => ''],
-    ['label' => 'FAQ',    'href' => WALLET_BASE_URL . '/index.php#faq', 'icon' => 'fas fa-circle-question', 'page' => ''],
 ];
 ?>
 <!DOCTYPE html>
