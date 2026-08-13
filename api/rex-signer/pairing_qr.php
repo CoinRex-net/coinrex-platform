@@ -71,11 +71,41 @@ try {
         'margin' => 2,
     ], JSON_UNESCAPED_SLASHES));
     fclose($pipes[0]);
-    $svg = stream_get_contents($pipes[1]);
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+    $svg = '';
+    $stderr = '';
+    $deadline = microtime(true) + 6.0;
+    $timed_out = false;
+    $last_status = null;
+
+    do {
+        $svg .= (string) stream_get_contents($pipes[1]);
+        $stderr .= (string) stream_get_contents($pipes[2]);
+        $last_status = proc_get_status($process);
+        if (!is_array($last_status) || empty($last_status['running'])) {
+            break;
+        }
+        if (microtime(true) >= $deadline) {
+            $timed_out = true;
+            proc_terminate($process);
+            break;
+        }
+        usleep(10000);
+    } while (true);
+
+    $svg .= (string) stream_get_contents($pipes[1]);
+    $stderr .= (string) stream_get_contents($pipes[2]);
     fclose($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
     fclose($pipes[2]);
-    $exit_code = proc_close($process);
+    $closed_exit_code = proc_close($process);
+    $exit_code = is_array($last_status) && isset($last_status['exitcode']) && (int) $last_status['exitcode'] >= 0
+        ? (int) $last_status['exitcode']
+        : $closed_exit_code;
+
+    if ($timed_out) {
+        apiErrorResponse(504, 'QR generation timed out. Please generate a new code.');
+    }
 
     if ($exit_code !== 0 || trim((string) $svg) === '') {
         apiErrorResponse(500, trim((string) $stderr) ?: 'QR render failed.');

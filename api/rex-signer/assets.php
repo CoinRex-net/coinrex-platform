@@ -11,6 +11,49 @@ function rexSignerReadDeploymentJson($relative_path) {
     return is_array($decoded) ? $decoded : [];
 }
 
+function rexSignerNetworkTokenDeployment($network_slug) {
+    $slug = trim((string) $network_slug);
+    if ($slug === '') {
+        return [];
+    }
+
+    $deployment = rexSignerReadDeploymentJson("deployments/{$slug}-rex-token.json");
+    if (!empty($deployment['contractAddress'])) {
+        return $deployment;
+    }
+
+    if ($slug === 'polygon') {
+        $fallback = rexSignerReadDeploymentJson('deployments/polygon-amoy-rex-token.json');
+        if (!empty($fallback['contractAddress'])) {
+            return $fallback;
+        }
+    }
+
+    return [];
+}
+
+function rexSignerReliableRpcUrl($network_slug, $configured_url) {
+    $slug = strtolower(trim((string) $network_slug));
+    $configured = rtrim(trim((string) $configured_url), '/');
+    $known_bad = [
+        'https://polygon-rpc.com',
+        'https://polygon.llamarpc.com',
+        'https://base.llamarpc.com',
+        'https://plasma-mainnet.g.alchemy.com/public',
+    ];
+    $preferred = [
+        'polygon' => 'https://polygon-bor-rpc.publicnode.com',
+        'base' => 'https://mainnet.base.org',
+        'plasma' => 'https://rpc.plasma.to',
+    ];
+
+    if ($configured === '' || in_array(strtolower($configured), $known_bad, true)) {
+        return (string) ($preferred[$slug] ?? $configured);
+    }
+
+    return $configured;
+}
+
 function rexSignerCachedCoinGeckoPrices() {
     $cache_file = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'coinrex_rex_signer_prices.json';
     $cache_ttl = 90;
@@ -22,7 +65,7 @@ function rexSignerCachedCoinGeckoPrices() {
         }
     }
 
-    $url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=polygon-ecosystem-token,plasma&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h';
+    $url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=polygon-ecosystem-token,ethereum,plasma&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h';
     $context = stream_context_create([
         'http' => [
             'method' => 'GET',
@@ -51,6 +94,8 @@ function rexSignerCachedCoinGeckoPrices() {
         $symbol = null;
         if ($id === 'polygon-ecosystem-token') {
             $symbol = 'POL';
+        } elseif ($id === 'ethereum') {
+            $symbol = 'ETH';
         } elseif ($id === 'plasma') {
             $symbol = 'XPL';
         }
@@ -79,11 +124,11 @@ function rexSignerCachedCoinGeckoPrices() {
 function rexSignerTokenPrice($symbol, array $price_cache) {
     $symbol = strtoupper((string) $symbol);
 
-    if ($symbol === 'REX') {
+    if ($symbol === 'USDT0' || $symbol === 'USDT' || $symbol === 'USDC') {
         return [
-            'price_usd' => 0.0,
-            'price_change_24h' => 0.0,
-            'price_status' => 'testnet_unpriced',
+            'price_usd' => 1.0,
+            'price_change_24h' => null,
+            'price_status' => 'stable',
         ];
     }
 
@@ -111,30 +156,14 @@ try {
     ");
     $network_rows = $stmt->fetchAll();
 
-    $rex_deployment = rexSignerReadDeploymentJson('deployments/polygon-rex-token.json');
-    if (empty($rex_deployment['contractAddress'])) {
-        $rex_deployment = rexSignerReadDeploymentJson('deployments/polygon-amoy-rex-token.json');
-    }
-    $rex_contract = (string) ($rex_deployment['contractAddress'] ?? '0x995C586c19De4003522b3A23dD7C9c9b112e4c71');
     $price_cache = rexSignerCachedCoinGeckoPrices();
 
     $network_meta = [
         'polygon' => [
             'logo_key' => 'polygon',
             'logo_url' => 'https://assets.coingecko.com/coins/images/32440/standard/polygon.png',
-            'tokens' => [
-                [
-                    'symbol' => 'REX',
-                    'name' => 'CoinRex Token',
-                    'decimals' => (int) ($rex_deployment['decimals'] ?? 18),
-                    'asset_type' => 'erc20',
-                    'contract_address' => $rex_contract,
-                    'logo_key' => 'rex',
-                    'logo_url' => null,
-                    'send_enabled' => true,
-                    'receive_enabled' => true,
-                    'balance_placeholder' => '0.00',
-                ],
+            'tokens' => static function(array $row) {
+                return [
                 [
                     'symbol' => 'POL',
                     'name' => 'Polygon Gas',
@@ -147,12 +176,26 @@ try {
                     'receive_enabled' => true,
                     'balance_placeholder' => '0.000',
                 ],
-            ],
+                [
+                    'symbol' => 'USDT0',
+                    'name' => 'USDT0',
+                    'decimals' => 6,
+                    'asset_type' => 'erc20',
+                    'contract_address' => '0xC2132D05D31c914A87C6611C10748AaCB04B58e8F',
+                    'logo_key' => 'usdt0',
+                    'logo_url' => null,
+                    'send_enabled' => true,
+                    'receive_enabled' => true,
+                    'balance_placeholder' => '0.00',
+                ],
+            ];
+            },
         ],
         'base' => [
             'logo_key' => 'base',
             'logo_url' => null,
-            'tokens' => [
+            'tokens' => static function(array $row) {
+                return [
                 [
                     'symbol' => 'ETH',
                     'name' => 'Base Gas',
@@ -165,24 +208,15 @@ try {
                     'receive_enabled' => true,
                     'balance_placeholder' => '0.000',
                 ],
-                [
-                    'symbol' => 'REX',
-                    'name' => 'CoinRex Token',
-                    'decimals' => 18,
-                    'asset_type' => 'planned',
-                    'contract_address' => null,
-                    'logo_key' => 'rex',
-                    'logo_url' => null,
-                    'send_enabled' => false,
-                    'receive_enabled' => true,
-                    'balance_placeholder' => '0.00',
-                ],
-            ],
+            ];
+            },
         ],
         'plasma' => [
             'logo_key' => 'plasma',
             'logo_url' => null,
-            'tokens' => [
+            'tokens' => static function(array $row) {
+                $has_rpc = !empty($row['rpc_url']);
+                return [
                 [
                     'symbol' => 'XPL',
                     'name' => 'Plasma Gas',
@@ -191,40 +225,30 @@ try {
                     'contract_address' => null,
                     'logo_key' => 'plasma',
                     'logo_url' => null,
-                    'send_enabled' => false,
+                    'send_enabled' => $has_rpc,
                     'receive_enabled' => true,
                     'balance_placeholder' => '0.000',
                 ],
                 [
-                    'symbol' => 'REX',
-                    'name' => 'CoinRex Token',
-                    'decimals' => 18,
-                    'asset_type' => 'planned',
-                    'contract_address' => null,
-                    'logo_key' => 'rex',
+                    'symbol' => 'USDT0',
+                    'name' => 'USDT0',
+                    'decimals' => 6,
+                    'asset_type' => 'erc20',
+                    'contract_address' => '0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb',
+                    'logo_key' => 'usdt0',
                     'logo_url' => null,
-                    'send_enabled' => false,
+                    'send_enabled' => $has_rpc,
                     'receive_enabled' => true,
                     'balance_placeholder' => '0.00',
                 ],
-            ],
+            ];
+            },
         ],
         'polygon-amoy' => [
             'logo_key' => 'polygon',
             'logo_url' => 'https://assets.coingecko.com/coins/images/32440/standard/polygon.png',
-            'tokens' => [
-                [
-                    'symbol' => 'REX',
-                    'name' => 'CoinRex Token',
-                    'decimals' => (int) ($rex_deployment['decimals'] ?? 18),
-                    'asset_type' => 'erc20',
-                    'contract_address' => $rex_contract,
-                    'logo_key' => 'rex',
-                    'logo_url' => null,
-                    'send_enabled' => true,
-                    'receive_enabled' => true,
-                    'balance_placeholder' => '0.00',
-                ],
+            'tokens' => static function(array $row) {
+                return [
                 [
                     'symbol' => 'POL',
                     'name' => 'Polygon Gas',
@@ -237,12 +261,15 @@ try {
                     'receive_enabled' => true,
                     'balance_placeholder' => '0.000',
                 ],
-            ],
+            ];
+            },
         ],
         'plasma-testnet' => [
             'logo_key' => 'plasma',
             'logo_url' => null,
-            'tokens' => [
+            'tokens' => static function(array $row) {
+                $has_rpc = !empty($row['rpc_url']);
+                return [
                 [
                     'symbol' => 'XPL',
                     'name' => 'Plasma Gas',
@@ -251,25 +278,16 @@ try {
                     'contract_address' => null,
                     'logo_key' => 'plasma',
                     'logo_url' => null,
-                    'send_enabled' => false,
+                    'send_enabled' => $has_rpc,
                     'receive_enabled' => true,
                     'balance_placeholder' => '0.000',
                 ],
-                [
-                    'symbol' => 'REX',
-                    'name' => 'CoinRex Token',
-                    'decimals' => 18,
-                    'asset_type' => 'planned',
-                    'contract_address' => null,
-                    'logo_key' => 'rex',
-                    'logo_url' => null,
-                    'send_enabled' => false,
-                    'receive_enabled' => true,
-                    'balance_placeholder' => '0.00',
-                ],
-            ],
+            ];
+            },
         ],
     ];
+
+    $wallet_address = isset($_GET['wallet_address']) ? trim((string) $_GET['wallet_address']) : null;
 
     $networks = [];
     foreach ($network_rows as $row) {
@@ -277,8 +295,52 @@ try {
         $meta = $network_meta[$slug] ?? ['logo_key' => 'network', 'logo_url' => null, 'tokens' => []];
         $tokens = [];
 
-        foreach ($meta['tokens'] as $token) {
-            $tokens[] = array_merge($token, rexSignerTokenPrice($token['symbol'], $price_cache));
+        $meta_tokens = is_callable($meta['tokens'] ?? null) ? $meta['tokens']($row) : ($meta['tokens'] ?? []);
+        $meta_tokens = array_values(array_filter($meta_tokens, static function ($token) {
+            return strtoupper((string) ($token['symbol'] ?? '')) !== 'REX';
+        }));
+
+        $native_balance = ['balance_wei' => '0', 'balance_formatted' => '0.000', 'balance_status' => 'unavailable'];
+        $erc20_balances = [];
+
+        if ($wallet_address && !empty($row['rpc_url'])) {
+            $rpc_url = rexSignerReliableRpcUrl($slug, $row['rpc_url']);
+            try {
+                $native_balance = rexSignerRpcGetNativeBalance($rpc_url, $wallet_address);
+            } catch (Throwable $e) {
+                $native_balance = ['balance_wei' => '0', 'balance_formatted' => '0.000', 'balance_status' => 'rpc_error'];
+            }
+
+            foreach ($meta_tokens as $token) {
+                if (($token['asset_type'] ?? '') !== 'erc20' || empty($token['contract_address'])) continue;
+                try {
+                    $erc20_balances[$token['symbol']] = rexSignerRpcGetErc20Balance(
+                        $rpc_url,
+                        $token['contract_address'],
+                        $wallet_address,
+                        (int) ($token['decimals'] ?? 18)
+                    );
+                } catch (Throwable $e) {
+                    $erc20_balances[$token['symbol']] = ['balance_wei' => '0', 'balance_formatted' => '0.00', 'balance_status' => 'rpc_error'];
+                }
+            }
+        }
+
+        foreach ($meta_tokens as $token) {
+            $enriched = array_merge($token, rexSignerTokenPrice($token['symbol'], $price_cache));
+
+            if (($token['asset_type'] ?? '') === 'native') {
+                $enriched['balance_placeholder'] = $native_balance['balance_formatted'];
+                $enriched['balance_wei'] = $native_balance['balance_wei'];
+                $enriched['balance_status'] = $native_balance['balance_status'];
+            } elseif (($token['asset_type'] ?? '') === 'erc20') {
+                $erc20 = $erc20_balances[$token['symbol']] ?? ['balance_formatted' => '0.00', 'balance_wei' => '0', 'balance_status' => 'unavailable'];
+                $enriched['balance_placeholder'] = $erc20['balance_formatted'];
+                $enriched['balance_wei'] = $erc20['balance_wei'];
+                $enriched['balance_status'] = $erc20['balance_status'];
+            }
+
+            $tokens[] = $enriched;
         }
 
         $networks[] = [
@@ -286,7 +348,7 @@ try {
             'name' => (string) $row['name'],
             'chain_id' => isset($row['chain_id']) ? (int) $row['chain_id'] : null,
             'native_symbol' => (string) $row['native_symbol'],
-            'rpc_url' => $row['rpc_url'],
+            'rpc_url' => rexSignerReliableRpcUrl($slug, $row['rpc_url']),
             'explorer_url' => $row['explorer_url'],
             'environment' => (string) $row['environment'],
             'chain_family' => (string) ($row['chain_family'] ?? 'evm'),
@@ -295,6 +357,7 @@ try {
             'is_enabled' => (int) $row['is_enabled'],
             'logo_key' => $meta['logo_key'],
             'logo_url' => $meta['logo_url'],
+            'wallet_address' => $wallet_address,
             'tokens' => $tokens,
         ];
     }

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Navigation management helpers for shared header/footer/mobile menus.
  */
@@ -46,7 +46,7 @@ function getDefaultNavigationControls(): array {
             'label' => 'Projects',
             'route_key' => 'projects',
             'icon_class' => 'fas fa-chart-line',
-            'badge_text' => '',
+            'badge_text' => 'Soon',
             'sort_order' => 20,
             'is_enabled' => 1,
             'audience' => 'all',
@@ -134,7 +134,7 @@ function getDefaultNavigationControls(): array {
             'icon_class' => 'fas fa-store',
             'badge_text' => '',
             'sort_order' => 22,
-            'is_enabled' => 0,
+            'is_enabled' => 1,
             'audience' => 'all',
             'item_type' => 'dropdown',
             'children_section_key' => 'marketplace',
@@ -167,7 +167,7 @@ function getDefaultNavigationControls(): array {
             'label' => 'Projects',
             'route_key' => 'projects',
             'icon_class' => 'fas fa-chart-line',
-            'badge_text' => '',
+            'badge_text' => 'Soon',
             'sort_order' => 20,
             'is_enabled' => 1,
             'audience' => 'all',
@@ -312,7 +312,7 @@ function getDefaultNavigationControls(): array {
             'label' => 'Projects',
             'route_key' => 'projects',
             'icon_class' => 'fas fa-chart-line',
-            'badge_text' => '',
+            'badge_text' => 'Soon',
             'sort_order' => 20,
             'is_enabled' => 1,
             'audience' => 'all',
@@ -672,7 +672,7 @@ function getDefaultNavigationControls(): array {
             'label' => 'Projects',
             'route_key' => 'projects',
             'icon_class' => 'fas fa-chart-line',
-            'badge_text' => '',
+            'badge_text' => 'Soon',
             'sort_order' => 40,
             'is_enabled' => 1,
             'audience' => 'member',
@@ -870,7 +870,7 @@ function getDefaultNavigationControls(): array {
             'label' => 'Projects',
             'route_key' => 'projects',
             'icon_class' => 'fas fa-chart-line',
-            'badge_text' => '',
+            'badge_text' => 'Soon',
             'sort_order' => 10,
             'is_enabled' => 1,
             'audience' => 'all',
@@ -1335,6 +1335,10 @@ function getNavigationControlRegistry(bool $refresh = false): array {
                 'admin_route_hint' => trim((string) ($row['admin_route_hint'] ?? '')) !== '' ? trim((string) $row['admin_route_hint']) : (string) ($cache[$key]['admin_route_hint'] ?? ''),
                 'is_system' => (int) ($row['is_system'] ?? ($cache[$key]['is_system'] ?? 0)),
             ]);
+
+            if ($key === 'header_marketplace_project' && trim((string) ($cache[$key]['badge_text'] ?? '')) === '') {
+                $cache[$key]['badge_text'] = 'Soon';
+            }
         }
     } catch (Throwable $e) {
         $cache = $defaults;
@@ -1698,3 +1702,4 @@ function getManagedNavigationSlotItems(string $slotGroup, string $location, stri
 
     return array_slice($items, 0, $limit);
 }
+

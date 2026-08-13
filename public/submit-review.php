@@ -826,8 +826,8 @@ require_once __DIR__ . '/../includes/header.php';
                                 <strong id="linkedWalletText"><?php echo !empty($user['wallet_address']) ? esc(strtolower((string) $user['wallet_address'])) : 'No wallet linked yet'; ?></strong>
                             </div>
                             <div class="linked-wallet-types" aria-label="Wallet connection types">
-                                <span class="wallet-type-badge wallet-type-rexlink"><i class="fas fa-link"></i> RexLink</span>
-                                <span class="wallet-type-badge wallet-type-external"><i class="fas fa-wallet"></i> External</span>
+                                <span class="wallet-type-badge wallet-type-rexlink"><i class="fas fa-link"></i> RexLink Wallet</span>
+                                <span class="wallet-type-badge wallet-type-external"><i class="fas fa-wallet"></i> External Wallet</span>
                             </div>
                         </div>
                         <input type="hidden" name="wallet_address" id="wallet_address" value="<?php echo esc($form['wallet_address']); ?>">
@@ -835,13 +835,13 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="wallet-proof-card wallet-proof-select" id="btnSelectRexLinkWallet">
                                 <div class="wallet-proof-card-head">
                                     <i class="fas fa-link"></i>
-                                    <div><strong>RexLink</strong></div>
+                                    <div><strong>RexLink Wallet</strong></div>
                                 </div>
                             </button>
                             <button type="button" class="wallet-proof-card wallet-proof-select" id="btnSelectExternalWallet">
                                 <div class="wallet-proof-card-head">
                                     <i class="fas fa-wallet"></i>
-                                    <div><strong>External</strong></div>
+                                    <div><strong>External Wallet</strong></div>
                                 </div>
                             </button>
                         </div>
@@ -2235,8 +2235,8 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         rexSetStep('qr');
         if (rexModalTag) {
             rexModalTag.innerHTML = walletProofMode === 'rexlink'
-                ? '<i class="fas fa-link"></i> RexLink'
-                : '<i class="fas fa-wallet"></i> External';
+                ? '<i class="fas fa-link"></i> RexLink Wallet'
+                : '<i class="fas fa-wallet"></i> External Wallet';
         }
         if (rexModalTitle) {
             rexModalTitle.textContent = walletProofMode === 'rexlink'

@@ -13,7 +13,7 @@ function loadEnvFile(filePath) {
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
-    if (!(key in process.env)) process.env[key] = value;
+    process.env[key] = value;
   }
 }
 
@@ -24,12 +24,27 @@ loadEnvFile(path.join(rootDir, '.env.local'));
 const publicBase = String(process.env.COINREX_PUBLIC_BASE_URL || 'http://localhost/coinrex').replace(/\/+$/, '');
 const apiPort = Number(process.env.REXLINK_API_PORT || 18083);
 const apiHost = String(process.env.REXLINK_API_HOST || '0.0.0.0').trim() || '0.0.0.0';
+function defaultNodePublicApiUrl() {
+  try {
+    const url = new URL(publicBase);
+    return `${url.protocol}//${url.hostname}:${apiPort}`;
+  } catch (error) {
+    return `http://localhost:${apiPort}`;
+  }
+}
+function resolvePublicApiUrl() {
+  const explicit = String(process.env.REXLINK_NODE_PUBLIC_API_URL || '').trim();
+  if (explicit) return explicit;
+  const legacy = String(process.env.REXLINK_PUBLIC_API_URL || '').trim();
+  if (legacy && !/\/coinrex\/?$/i.test(legacy)) return legacy;
+  return defaultNodePublicApiUrl();
+}
 
 module.exports = {
   rootDir,
   host: apiHost,
   port: apiPort,
-  publicApiUrl: String(process.env.REXLINK_PUBLIC_API_URL || publicBase.replace(/\/coinrex\/?$/, '') + `:${apiPort}`).replace(/\/+$/, ''),
+  publicApiUrl: String(resolvePublicApiUrl()).replace(/\/+$/, ''),
   phpBaseUrl: publicBase,
   sessionSavePath: process.env.COINREX_SESSION_SAVE_PATH || path.join(rootDir, 'cache', 'sessions'),
   db: {

@@ -171,17 +171,28 @@ body {
 
 .nex-hot-badge,
 .mobile-hot-badge {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-height: 14px;
+    padding: 2px 5px;
     border-radius: 999px;
     background: #dc2626;
     color: #ffffff;
+    font-size: 8px;
     font-weight: 950;
+    letter-spacing: .02em;
     line-height: 1;
+    pointer-events: none;
+    z-index: 2;
     box-shadow: 0 0 0 0 rgba(220, 38, 38, .58);
     animation: navHotPulse 1.12s ease-out infinite;
 }
+
 
 .nex-hot-badge {
     min-height: 17px;
@@ -512,63 +523,76 @@ body {
     background: rgba(2, 6, 23, 0.95);
     backdrop-filter: blur(20px);
     border-top: 1px solid var(--color-border-medium);
-    padding: 8px 10px;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
     z-index: 1000;
     justify-content: space-around;
-    align-items: center;
-    gap: 4px;
+    align-items: stretch;
+    gap: 6px;
+    overflow: visible;
 }
 
 .mobile-nav-item {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    gap: 6px;
     text-decoration: none;
     color: var(--color-text-muted);
     font-size: 12px;
-    padding: 8px 6px;
-    border-radius: 12px;
+    padding: 10px 4px 8px;
+    border-radius: 16px;
     transition: all 0.2s ease;
     flex: 1;
     text-align: center;
     min-width: 0;
+    overflow: visible;
 }
 
 .mobile-nav-item i {
     font-size: 22px;
+    line-height: 1;
 }
 
 .mobile-nav-icon-wrap {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 24px;
-}
-
-.mobile-nav-item span {
-    font-size: 11px;
-    font-weight: 500;
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
 }
 
 .mobile-nav-label {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
+    display: block;
     max-width: 100%;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .mobile-hot-badge {
     position: absolute;
-    top: -10px;
-    right: -15px;
-    min-height: 13px;
-    padding: 2px 4px;
-    font-size: 7px;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    min-height: 14px;
+    padding: 2px 5px;
+    font-size: 8px;
     letter-spacing: .02em;
     pointer-events: none;
+    z-index: 2;
+}
+
+.mobile-nav-icon-wrap .mobile-hot-badge {
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
 }
 
 .mobile-nav-item:hover {
@@ -580,7 +604,6 @@ body {
     color: var(--color-primary);
     background: rgba(29, 78, 216, 0.12);
 }
-
 .mobile-nav-home {
     position: relative;
     margin-top: -18px;
@@ -840,23 +863,23 @@ body {
     }
     
     .mobile-bottom-nav {
-        padding: 6px 12px;
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
     }
     
     .mobile-nav-item i {
         font-size: 20px;
     }
     
-    .mobile-nav-item span {
+    .mobile-nav-label {
         font-size: 10px;
     }
     
     .mobile-nav-item {
-        padding: 6px 4px;
+        padding: 8px 2px 6px;
     }
     
     body {
-        padding-bottom: 65px;
+        padding-bottom: 82px;
     }
 
     .claim-soon-dialog {
@@ -1017,3 +1040,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
     .mobile-more-menu { transition: none; }
 }
+
+
+

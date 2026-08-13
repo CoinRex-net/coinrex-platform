@@ -16,11 +16,32 @@ function phpUnserializeSessionValue(serialized) {
   return null;
 }
 
-function readPhpSession(sessionId) {
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function readPhpSession(sessionId) {
   if (!/^[a-zA-Z0-9,-]{1,128}$/.test(String(sessionId || ''))) return {};
   const file = path.join(config.sessionSavePath, `sess_${sessionId}`);
   if (!fs.existsSync(file)) return {};
-  const raw = fs.readFileSync(file, 'utf8');
+  let raw = '';
+  let lastError = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      raw = await fs.promises.readFile(file, 'utf8');
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!['EBUSY', 'EPERM', 'EACCES'].includes(String(error?.code || ''))) {
+        throw error;
+      }
+      await wait(80 + (attempt * 70));
+    }
+  }
+  if (lastError) return {};
   const out = {};
   const re = /([A-Za-z0-9_]+)\|((?:i:\d+;)|(?:s:\d+:"[^"]*";)|(?:b:[01];)|(?:N;))/g;
   let match;
@@ -33,10 +54,36 @@ async function getUserById(userId) {
   return db.one('SELECT * FROM users WHERE id = ? LIMIT 1', [Number(userId)]);
 }
 
+function safeEqual(left, right) {
+  const leftBuffer = Buffer.from(String(left || ''));
+  const rightBuffer = Buffer.from(String(right || ''));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function verifyWebActorToken(token) {
+  const [payloadPart, signaturePart] = String(token || '').trim().split('.');
+  if (!payloadPart || !signaturePart) return null;
+  const expected = crypto.createHmac('sha256', config.realtimeSecret).update(payloadPart).digest('base64url');
+  if (!safeEqual(expected, signaturePart)) return null;
+  const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'));
+  const userId = Number(payload.user_id || 0);
+  const expiresAt = Number(payload.exp || 0);
+  if (userId <= 0 || expiresAt < Math.floor(Date.now() / 1000)) return null;
+  return { user_id: userId };
+}
+
 async function webActor(req) {
+  const actorToken = req.headers['x-coinrex-web-actor'] || '';
+  const actorPayload = verifyWebActorToken(actorToken);
+  if (actorPayload?.user_id) {
+    const user = await getUserById(actorPayload.user_id);
+    if (!user || String(user.status || '') !== 'active' || Number(user.security_suspended || 0) === 1) return null;
+    return { type: 'web_user', user_id: Number(actorPayload.user_id), user, session_id: null };
+  }
+
   const cookies = parseCookies(req.headers.cookie || '');
   const sessionId = cookies.PHPSESSID || cookies.COINREXSESSID || '';
-  const session = readPhpSession(sessionId);
+  const session = await readPhpSession(sessionId);
   const userId = Number(session.user_id || 0);
   if (!userId) return null;
   const user = await getUserById(userId);

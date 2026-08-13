@@ -5,6 +5,7 @@ require_once __DIR__ . '/auth/_bootstrap.php';
 apiRequireMethod('POST');
 
 try {
+    $complete_pairing_started_at = microtime(true);
     $db = getDBConnection();
     rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
@@ -62,25 +63,27 @@ try {
         apiErrorResponse(422, 'Pairing owner could not be resolved.');
     }
 
-    $wallet_owner = $db->prepare("SELECT id FROM users WHERE wallet_address = ? AND id <> ? LIMIT 1");
-    $wallet_owner->execute([$wallet_address, $pairing_user_id]);
-    if ($wallet_owner->fetch()) {
-        $db->rollBack();
-        apiErrorResponse(409, 'This wallet is already linked to another CoinRex account.');
-    }
+    if ($pairing_purpose !== 'review_eligibility') {
+        $wallet_owner = $db->prepare("SELECT id FROM users WHERE wallet_address = ? AND id <> ? LIMIT 1");
+        $wallet_owner->execute([$wallet_address, $pairing_user_id]);
+        if ($wallet_owner->fetch()) {
+            $db->rollBack();
+            apiErrorResponse(409, 'This wallet is already linked to another CoinRex account.');
+        }
 
-    $wallet_update = $db->prepare("
-        UPDATE users
-        SET wallet_address = ?,
-            wallet_verified_at = COALESCE(wallet_verified_at, NOW()),
-            auth_provider = CASE
-                WHEN auth_provider = 'email' THEN 'hybrid'
-                ELSE auth_provider
-            END,
-            updated_at = NOW()
-        WHERE id = ?
-    ");
-    $wallet_update->execute([$wallet_address, $pairing_user_id]);
+        $wallet_update = $db->prepare("
+            UPDATE users
+            SET wallet_address = ?,
+                wallet_verified_at = COALESCE(wallet_verified_at, NOW()),
+                auth_provider = CASE
+                    WHEN auth_provider = 'email' THEN 'hybrid'
+                    ELSE auth_provider
+                END,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $wallet_update->execute([$wallet_address, $pairing_user_id]);
+    }
 
     $duration = rexSignerClampDuration($pairing['requested_duration_minutes'] ?? 10);
     $session_token = rexSignerRandomToken(32);
@@ -146,6 +149,42 @@ try {
 
     $db->commit();
 
+    if ($pairing_purpose === 'review_eligibility') {
+        @file_put_contents(dirname(__DIR__, 2) . '/cache/rexlink-review-pairing.log', json_encode([
+            'ts' => date('c'),
+            'pairing_id' => (int) $pairing['id'],
+            'session_id' => $session_id,
+            'user_id' => $pairing_user_id,
+            'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'duration_ms' => (int) round((microtime(true) - $complete_pairing_started_at) * 1000),
+            'status' => 'success_before_realtime',
+        ], JSON_UNESCAPED_SLASHES) . PHP_EOL, FILE_APPEND);
+        foreach ($replaced_session_ids as $replaced_session_id) {
+            if ($replaced_session_id > 0) {
+                coinrexRealtimePublish('session.revoked', [
+                    'user_id' => $pairing_user_id,
+                    'session_id' => $replaced_session_id,
+                    'status' => 'revoked',
+                    'reason' => 'Replaced by a new RexLink session',
+                ]);
+            }
+        }
+        coinrexRealtimePublish('session.connected', [
+            'user_id' => $pairing_user_id,
+            'session_id' => $session_id,
+            'status' => 'active',
+            'wallet_address' => $wallet_address,
+            'session' => $session_payload,
+        ]);
+        apiSuccessResponse([
+            'message' => 'RexLink paired successfully.',
+            'session_token' => $session_token,
+            'session' => $session_payload,
+            'pairing_purpose' => $pairing_purpose,
+            'server_timing_ms' => (int) round((microtime(true) - $complete_pairing_started_at) * 1000),
+        ], 201);
+    }
+
     foreach ($replaced_session_ids as $replaced_session_id) {
         if ($replaced_session_id > 0) {
             coinrexRealtimePublish('session.revoked', [
@@ -171,6 +210,13 @@ try {
         'session' => $session_payload,
     ], 201);
 } catch (Throwable $e) {
+    @file_put_contents(dirname(__DIR__, 2) . '/cache/rexlink-review-pairing.log', json_encode([
+        'ts' => date('c'),
+        'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? null,
+        'duration_ms' => isset($complete_pairing_started_at) ? (int) round((microtime(true) - $complete_pairing_started_at) * 1000) : null,
+        'status' => 'error',
+        'message' => $e->getMessage(),
+    ], JSON_UNESCAPED_SLASHES) . PHP_EOL, FILE_APPEND);
     if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
         $db->rollBack();
     }

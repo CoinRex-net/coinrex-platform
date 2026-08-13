@@ -79,6 +79,23 @@ function rexSignerMissingLabel() {
     return 'Not provided by dApp';
 }
 
+function rexSignerLocalNetworkOverrides() {
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $path = dirname(__DIR__, 2) . '/config/rex-signer-networks.local.php';
+    if (!is_file($path)) {
+        $cached = [];
+        return $cached;
+    }
+
+    $loaded = require $path;
+    $cached = is_array($loaded) ? $loaded : [];
+    return $cached;
+}
+
 function rexSignerHostFromUrl($value) {
     $value = trim((string) $value);
     if ($value === '') {
@@ -440,6 +457,18 @@ function rexSignerEnsureSchema(PDO $db = null) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
 
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS rex_signer_activity_cache (
+            wallet_address VARCHAR(42) NOT NULL,
+            network_slug VARCHAR(50) NOT NULL,
+            history_json LONGTEXT NOT NULL,
+            fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (wallet_address, network_slug),
+            KEY idx_rex_signer_activity_cache_fetched (fetched_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
     try {
         $db->exec("ALTER TABLE rex_signer_networks MODIFY environment ENUM('staging','testnet','mainnet','stub') NOT NULL DEFAULT 'testnet'");
     } catch (Throwable $e) {
@@ -464,8 +493,8 @@ function rexSignerEnsureSchema(PDO $db = null) {
         VALUES
             ('polygon', 'Polygon', 137, 'POL', 'https://polygon-rpc.com', 'https://polygonscan.com', 'mainnet', 'evm', 0, 1, 1, 10),
             ('base', 'Base', 8453, 'ETH', 'https://mainnet.base.org', 'https://basescan.org', 'mainnet', 'evm', 0, 1, 1, 20),
-            ('plasma', 'Plasma', NULL, 'XPL', NULL, NULL, 'mainnet', 'evm', 0, 0, 1, 30),
-            ('polygon-amoy', 'Polygon Amoy', 80002, 'POL', 'https://rpc-amoy.polygon.technology', 'https://amoy.polygonscan.com', 'staging', 'evm', 1, 1, 1, 90)
+            ('plasma', 'Plasma Mainnet', 9745, 'XPL', 'https://rpc.plasma.to', 'https://plasmascan.to/', 'mainnet', 'evm', 0, 1, 1, 30),
+            ('polygon-amoy', 'Polygon Amoy', 80002, 'POL', 'https://rpc-amoy.polygon.technology', 'https://amoy.polygonscan.com', 'staging', 'evm', 1, 1, 0, 90)
         ON DUPLICATE KEY UPDATE
             name = VALUES(name),
             chain_id = VALUES(chain_id),
@@ -481,6 +510,73 @@ function rexSignerEnsureSchema(PDO $db = null) {
     ");
 
     $db->exec("UPDATE rex_signer_networks SET is_enabled = 0, environment = 'stub' WHERE slug = 'plasma-testnet'");
+
+    $plasma_chain_id = (int) getenv('REX_PLASMA_CHAIN_ID');
+    $plasma_rpc_url = trim((string) getenv('REX_PLASMA_RPC_URL'));
+    $plasma_explorer_url = trim((string) getenv('REX_PLASMA_EXPLORER_URL'));
+    if ($plasma_chain_id > 0 || $plasma_rpc_url !== '' || $plasma_explorer_url !== '') {
+        $plasma_update = $db->prepare("
+            UPDATE rex_signer_networks
+            SET chain_id = ?,
+                rpc_url = ?,
+                explorer_url = ?,
+                token_support_enabled = 1,
+                is_enabled = 1
+            WHERE slug = 'plasma'
+            LIMIT 1
+        ");
+        $plasma_update->execute([
+            $plasma_chain_id > 0 ? $plasma_chain_id : null,
+            $plasma_rpc_url !== '' ? $plasma_rpc_url : null,
+            $plasma_explorer_url !== '' ? $plasma_explorer_url : null,
+        ]);
+    }
+
+    $local_network_overrides = rexSignerLocalNetworkOverrides();
+    foreach ($local_network_overrides as $slug => $override) {
+        if (!is_array($override)) {
+            continue;
+        }
+
+        $network_slug = trim((string) $slug);
+        if ($network_slug === '') {
+            continue;
+        }
+
+        $chain_id = isset($override['chain_id']) && (int) $override['chain_id'] > 0
+            ? (int) $override['chain_id']
+            : null;
+        $rpc_url = trim((string) ($override['rpc_url'] ?? ''));
+        $explorer_url = trim((string) ($override['explorer_url'] ?? ''));
+        $native_symbol = trim((string) ($override['native_symbol'] ?? ''));
+        $token_support_enabled = array_key_exists('token_support_enabled', $override)
+            ? (int) !empty($override['token_support_enabled'])
+            : 1;
+        $is_enabled = array_key_exists('is_enabled', $override)
+            ? (int) !empty($override['is_enabled'])
+            : 1;
+
+        $override_stmt = $db->prepare("
+            UPDATE rex_signer_networks
+            SET chain_id = COALESCE(?, chain_id),
+                rpc_url = COALESCE(?, rpc_url),
+                explorer_url = COALESCE(?, explorer_url),
+                native_symbol = COALESCE(?, native_symbol),
+                token_support_enabled = ?,
+                is_enabled = ?
+            WHERE slug = ?
+            LIMIT 1
+        ");
+        $override_stmt->execute([
+            $chain_id,
+            $rpc_url !== '' ? $rpc_url : null,
+            $explorer_url !== '' ? $explorer_url : null,
+            $native_symbol !== '' ? $native_symbol : null,
+            $token_support_enabled,
+            $is_enabled,
+            $network_slug,
+        ]);
+    }
 
     $db->exec("
         CREATE TABLE IF NOT EXISTS rex_signer_pairing_codes (
@@ -940,6 +1036,200 @@ function rexSignerBuildSignedClaim(PDO $db, $user_id, $wallet_address, $claim_am
 
         throw $e;
     }
+}
+
+function rexSignerRpcCall(string $rpc_url, string $method, array $params = []) {
+    $payload = json_encode([
+        'jsonrpc' => '2.0',
+        'id' => (string) random_int(1, 999999),
+        'method' => $method,
+        'params' => $params,
+    ], JSON_UNESCAPED_SLASHES);
+
+    $rpc_candidates = array_values(array_unique(array_filter([
+        $rpc_url,
+        stripos($rpc_url, 'polygon-rpc.com') !== false ? 'https://polygon-bor-rpc.publicnode.com' : null,
+        stripos($rpc_url, 'polygon-rpc.com') !== false ? 'https://rpc.ankr.com/polygon' : null,
+        stripos($rpc_url, 'polygon-rpc.com') !== false ? 'https://1rpc.io/matic' : null,
+        stripos($rpc_url, 'polygon-rpc.com') !== false ? 'https://polygon.llamarpc.com' : null,
+    ])));
+
+    $response = null;
+    foreach ($rpc_candidates as $candidate_url) {
+        if (function_exists('curl_init')) {
+            $ch = curl_init($candidate_url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                    'User-Agent: CoinRex-REX-Signer/2.0',
+                ],
+                CURLOPT_TIMEOUT => 8,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+            ]);
+            $curl_response = curl_exec($ch);
+            $http_status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if (is_string($curl_response) && trim($curl_response) !== '' && $http_status >= 200 && $http_status < 500) {
+                $response = $curl_response;
+            }
+        }
+
+        if (!is_string($response) || trim($response) === '') {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'timeout' => 8,
+                    'header' => "Content-Type: application/json\r\nAccept: application/json\r\nUser-Agent: CoinRex-REX-Signer/2.0\r\n",
+                    'content' => $payload,
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                ],
+            ]);
+
+            $response = @file_get_contents($candidate_url, false, $context);
+        }
+
+        if (is_string($response) && trim($response) !== '') {
+            break;
+        }
+    }
+
+    if (!is_string($response) || trim($response) === '') {
+        throw new RuntimeException('RPC returned empty response.');
+    }
+
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('RPC returned invalid JSON.');
+    }
+
+    if (!empty($decoded['error']) && is_array($decoded['error'])) {
+        throw new RuntimeException('RPC error: ' . ($decoded['error']['message'] ?? 'unknown'));
+    }
+
+    return $decoded['result'] ?? null;
+}
+
+function rexSignerHexToDecimalString(string $hex_value) {
+    $hex = strtolower(trim((string) $hex_value));
+    $hex = preg_replace('/^0x/', '', $hex);
+    $hex = ltrim((string) $hex, '0');
+
+    if ($hex === '' || $hex === false) {
+        return '0';
+    }
+
+    if (!preg_match('/^[0-9a-f]+$/', $hex)) {
+        return '0';
+    }
+
+    if (function_exists('gmp_init') && function_exists('gmp_strval')) {
+        $value = gmp_init($hex, 16);
+        return gmp_strval($value, 10);
+    }
+
+    if (function_exists('bcadd') && function_exists('bcmul')) {
+        $decimal = '0';
+        $length = strlen($hex);
+        for ($index = 0; $index < $length; $index++) {
+            $digit = hexdec($hex[$index]);
+            $decimal = bcadd(bcmul($decimal, '16', 0), (string) $digit, 0);
+        }
+        return $decimal;
+    }
+
+    if (strlen($hex) <= 15) {
+        return (string) hexdec($hex);
+    }
+
+    throw new RuntimeException('Neither GMP nor BCMath is available for large integer conversion.');
+}
+
+function rexSignerFormatTokenUnits(string $decimal_value, int $decimals = 18) {
+    $value = ltrim(trim((string) $decimal_value), '0');
+    if ($value === '') {
+        return '0';
+    }
+
+    $decimals = max(0, $decimals);
+    $length = strlen($value);
+
+    if ($decimals === 0) {
+        return $value;
+    }
+
+    if ($length <= $decimals) {
+        $formatted = '0.' . str_pad($value, $decimals, '0', STR_PAD_LEFT);
+    } else {
+        $whole = substr($value, 0, $length - $decimals);
+        $fraction = substr($value, $length - $decimals);
+        $formatted = $whole . '.' . $fraction;
+    }
+
+    $formatted = rtrim(rtrim($formatted, '0'), '.');
+    return $formatted !== '' ? $formatted : '0';
+}
+
+function rexSignerRpcGetNativeBalance(string $rpc_url, string $wallet_address) {
+    $result = rexSignerRpcCall($rpc_url, 'eth_getBalance', [$wallet_address, 'latest']);
+
+    if (!is_string($result)) {
+        return ['balance_wei' => '0', 'balance_formatted' => '0.000', 'balance_status' => 'rpc_error'];
+    }
+
+    $balance_wei = strtolower(preg_replace('/^0x/', '', trim($result)));
+    if ($balance_wei === '' || !preg_match('/^[0-9a-f]+$/', $balance_wei)) {
+        $balance_wei = '0';
+    }
+
+    $decimal_balance = rexSignerHexToDecimalString($balance_wei);
+    $formatted = rexSignerFormatTokenUnits($decimal_balance, 18);
+
+    return [
+        'balance_wei' => $balance_wei,
+        'balance_formatted' => $formatted,
+        'balance_status' => 'live',
+    ];
+}
+
+function rexSignerRpcGetErc20Balance(string $rpc_url, string $contract_address, string $wallet_address, int $decimals = 18) {
+    $balance_of_sig = '0x70a08231';
+    $wallet_padded = str_pad(substr(strtolower($wallet_address), 2), 64, '0', STR_PAD_LEFT);
+    $data = $balance_of_sig . $wallet_padded;
+
+    $result = rexSignerRpcCall($rpc_url, 'eth_call', [[
+        'to' => $contract_address,
+        'data' => $data,
+    ], 'latest']);
+
+    if (!is_string($result)) {
+        return ['balance_wei' => '0', 'balance_formatted' => '0.00', 'balance_status' => 'rpc_error'];
+    }
+
+    $balance_hex = strtolower(preg_replace('/^0x/', '', trim($result)));
+    if ($balance_hex === '' || !preg_match('/^[0-9a-f]+$/', $balance_hex)) {
+        $balance_hex = '0';
+    }
+
+    $decimals = max(0, min(255, $decimals));
+    $balance_string = rexSignerHexToDecimalString($balance_hex);
+    $formatted = rexSignerFormatTokenUnits($balance_string, $decimals);
+
+    return [
+        'balance_wei' => $balance_hex,
+        'balance_formatted' => $formatted,
+        'decimals' => $decimals,
+        'balance_status' => 'live',
+    ];
 }
 
 if (!defined('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT') || !COINREX_SKIP_REX_SIGNER_SCHEMA_INIT) {

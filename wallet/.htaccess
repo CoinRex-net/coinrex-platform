@@ -1,0 +1,22 @@
+# RexLink Wallet Platform — Apache config
+# Location: /coinrex/wallet/.htaccess
+
+Options -Indexes
+
+# Prevent direct access to includes (config has DB credentials)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct access to includes/
+    RewriteRule ^includes/ - [F,L]
+
+    # Block direct access to the raw APK so downloads are tracked via download.php
+    RewriteRule ^apk/ - [F,L]
+</IfModule>
+
+# Basic security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

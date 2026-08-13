@@ -78,6 +78,16 @@ try {
         ]);
         $revoked = $stmt->rowCount() > 0;
         $session_state = $revoked ? 'revoked' : $session_state;
+
+        $review_wallet_session = $_SESSION['review_eligibility_verified_wallet'] ?? null;
+        if (
+            $revoked
+            && is_array($review_wallet_session)
+            && (int) ($review_wallet_session['user_id'] ?? 0) === (int) $actor['user_id']
+            && (int) ($review_wallet_session['session_id'] ?? 0) === $session_id
+        ) {
+            unset($_SESSION['review_eligibility_verified_wallet']);
+        }
     }
     if (in_array($session_state, ['revoked', 'expired'], true)) {
         $cancelled_requests = rexSignerCancelPendingApprovalsForEndedSessions(

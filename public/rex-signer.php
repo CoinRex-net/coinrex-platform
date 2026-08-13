@@ -96,15 +96,21 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script>
 (function() {
-    const createPairingUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/create_pairing.php'); ?>;
-    const sessionsUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/sessions.php'); ?>;
-    const approvalUrl = <?php echo json_encode(BASE_URL . '/api/rex-signer/create_approval_request.php'); ?>;
+    const rexlinkApiBase = <?php echo json_encode(defined('REXLINK_API_BASE_URL') ? REXLINK_API_BASE_URL : BASE_URL); ?>;
+    const createPairingUrl = rexlinkApiBase.replace(/\/+$/, '') + '/api/rex-signer/create_pairing.php';
+    const sessionsUrl = rexlinkApiBase.replace(/\/+$/, '') + '/api/rex-signer/sessions.php';
+    const approvalUrl = rexlinkApiBase.replace(/\/+$/, '') + '/api/rex-signer/create_approval_request.php';
+    const realtimeAuthUrl = rexlinkApiBase.replace(/\/+$/, '') + '/api/rex-signer/realtime_auth.php';
     const createPairingButton = document.getElementById('createPairingButton');
     const refreshSessionsButton = document.getElementById('refreshSessionsButton');
     const createApprovalButton = document.getElementById('createApprovalButton');
     const pairingCodeBox = document.getElementById('pairingCodeBox');
     const signerStatus = document.getElementById('signerStatus');
     const sessionsList = document.getElementById('sessionsList');
+    let activeSessionId = 0;
+    let sessionPollTimer = null;
+    let realtimeSocket = null;
+    let realtimePingTimer = null;
 
     function setStatus(message) {
         signerStatus.textContent = message;
@@ -113,7 +119,7 @@ require_once __DIR__ . '/../includes/header.php';
     async function postJson(url, body) {
         const response = await fetch(url, {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body || {}),
         });
@@ -122,21 +128,26 @@ require_once __DIR__ . '/../includes/header.php';
 
     function renderSessions(items) {
         if (!Array.isArray(items) || items.length === 0) {
+            activeSessionId = 0;
             sessionsList.innerHTML = '<p class="signer-note">No sessions yet.</p>';
             return;
         }
 
+        const activeSession = items.find(function(session) {
+            return String(session.status || '') === 'active' && Number(session.remaining_seconds || 0) > 0;
+        }) || null;
+        activeSessionId = Number(activeSession && (activeSession.id || activeSession.session_id) || 0);
         sessionsList.innerHTML = items.map(function(session) {
             return '<div class="signer-session-row">' +
                 '<div><strong>' + String(session.device_name || 'RexLink') + '</strong><span>Expires: ' + String(session.expires_at || '-') + '</span></div>' +
-                '<span>' + String(session.status || '-') + '</span>' +
+                '<span>' + String(session.status || '-') + (Number(session.remaining_seconds || 0) > 0 ? ' · ' + String(session.remaining_seconds) + 's' : '') + '</span>' +
             '</div>';
         }).join('');
     }
 
     async function refreshSessions() {
         setStatus('Loading sessions...');
-        const response = await fetch(sessionsUrl, { credentials: 'same-origin' });
+        const response = await fetch(sessionsUrl, { credentials: 'include' });
         const data = await response.json();
         if (!data.success) {
             setStatus(data.message || 'Could not load sessions.');
@@ -144,6 +155,51 @@ require_once __DIR__ . '/../includes/header.php';
         }
         renderSessions(data.sessions || []);
         setStatus('Sessions refreshed. Active: ' + String(data.active_session_count || 0));
+        if (Number(data.active_session_count || 0) > 0) {
+            connectRealtime();
+        }
+    }
+
+    function realtimeUrlWithToken(wsUrl, token) {
+        return String(wsUrl || '') + (String(wsUrl || '').includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token || '');
+    }
+
+    async function connectRealtime() {
+        if (!('WebSocket' in window)) return;
+        if (realtimeSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(realtimeSocket.readyState)) return;
+        try {
+            const data = await postJson(realtimeAuthUrl, {});
+            if (!data.success || !data.ws_url || !data.token) return;
+            realtimeSocket = new WebSocket(realtimeUrlWithToken(data.ws_url, data.token));
+            realtimeSocket.addEventListener('open', function() {
+                if (realtimePingTimer) window.clearInterval(realtimePingTimer);
+                realtimePingTimer = window.setInterval(function() {
+                    if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+                        realtimeSocket.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 25000);
+            });
+            realtimeSocket.addEventListener('message', function(message) {
+                let event = null;
+                try { event = JSON.parse(String(message.data || '{}')); } catch (error) {}
+                const type = String(event && event.type || '');
+                if (!type || type === 'realtime.ready' || type === 'pong') return;
+                if (type === 'session.connected') {
+                    refreshSessions();
+                    return;
+                }
+                if (type === 'session.revoked' || type === 'session.expired') {
+                    const eventSessionId = Number((event.payload && event.payload.session_id) || event.session_id || 0);
+                    if (eventSessionId > 0 && activeSessionId > 0 && eventSessionId !== activeSessionId) return;
+                    refreshSessions();
+                }
+            });
+            realtimeSocket.addEventListener('close', function() {
+                if (realtimePingTimer) window.clearInterval(realtimePingTimer);
+                realtimePingTimer = null;
+                realtimeSocket = null;
+            });
+        } catch (error) {}
     }
 
     createPairingButton.addEventListener('click', async function() {
@@ -190,6 +246,23 @@ require_once __DIR__ . '/../includes/header.php';
 
     refreshSessions().catch(function() {
         setStatus('Ready to create a pairing code.');
+    });
+    sessionPollTimer = window.setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            refreshSessions().catch(function() {});
+        }
+    }, 2000);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            refreshSessions().catch(function() {});
+        }
+    });
+    window.addEventListener('beforeunload', function() {
+        if (sessionPollTimer) window.clearInterval(sessionPollTimer);
+        if (realtimePingTimer) window.clearInterval(realtimePingTimer);
+        if (realtimeSocket) {
+            try { realtimeSocket.close(); } catch (error) {}
+        }
     });
 })();
 </script>
