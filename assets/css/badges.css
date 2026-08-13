@@ -45,6 +45,7 @@
     position: relative !important;
 }
 
+/* Polished mobile badge: position values below are unchanged */
 .mobile-nav-item i + .nex-mobile-badge {
     position: absolute !important;
     top: -12px !important;
@@ -53,4 +54,32 @@
     z-index: 10 !important;
     font-size: 9px !important;
     padding: 1px 5px !important;
+    line-height: 1 !important;
+    letter-spacing: .03em !important;
+    border-radius: 999px !important;
+    background: linear-gradient(180deg, #ff5a5a 0%, #e11d48 100%) !important;
+    color: #ffffff !important;
+    text-transform: uppercase !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+    text-shadow: 0 1px 1px rgba(127, 29, 29, .45) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .25), 0 2px 6px rgba(2, 6, 23, .35) !important;
+    pointer-events: none !important;
+    animation: mobileNavHotPulse 1.12s ease-out infinite !important;
+}
+
+/* Pulse that keeps the badge perfectly centered (translate preserved) */
+@keyframes mobileNavHotPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(225, 29, 72, .55), 0 2px 6px rgba(2, 6, 23, .35), 0 0 0 1px rgba(255, 255, 255, .25);
+        transform: translateX(-50%) scale(1);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(225, 29, 72, 0), 0 3px 8px rgba(2, 6, 23, .4), 0 0 0 1px rgba(255, 255, 255, .25);
+        transform: translateX(-50%) scale(1.06);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(225, 29, 72, 0), 0 2px 6px rgba(2, 6, 23, .35), 0 0 0 1px rgba(255, 255, 255, .25);
+        transform: translateX(-50%) scale(1);
+    }
 }
