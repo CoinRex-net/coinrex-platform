@@ -280,6 +280,30 @@ if ($project) {
     }
 }
 
+$project_token_symbol = '';
+$project_min_hold = 0.0;
+$project_hold_days = 1;
+$project_max_reward = 0.0;
+if ($project) {
+    $project_min_hold = max(0.0, (float) ($project['min_holding_amount'] ?? 0));
+    $project_hold_days = max(1, (int) ($project['required_holding_days'] ?? 1));
+    $project_max_reward = max(0.0, (float) ($project['max_reward_rex'] ?? 0));
+
+    $primary_symbol = trim((string) ($eligibility_primary_rule['token_symbol'] ?? ''));
+    if ($primary_symbol === '' && $eligibility_primary_rule) {
+        $primary_symbol = reviewEligibilityTokenSymbol($eligibility_primary_rule);
+    }
+    if ($primary_symbol === '' || strtoupper($primary_symbol) === 'TOKEN' || strtoupper($primary_symbol) === 'NATIVE') {
+        $primary_symbol = strtoupper(preg_replace('/[^a-zA-Z0-9]+/', '', (string) $project['name']));
+    }
+    $project_token_symbol = strtoupper(trim($primary_symbol));
+}
+
+$format_clean_amount = static function ($value): string {
+    $amount = rtrim(rtrim(number_format(max(0.0, (float) $value), 8, '.', ''), '0'), '.');
+    return $amount === '' ? '0' : $amount;
+};
+
 if ($project_id > 0 && !isset($_SESSION['submit_review_started_at'][$project_id])) {
     $_SESSION['submit_review_started_at'][$project_id] = time();
 }
@@ -719,28 +743,58 @@ require_once __DIR__ . '/../includes/header.php';
         <?php else: ?>
 
         <div class="selected-project-card selected-project-card-upgraded">
-            <div class="project-info-mini">
-                <div class="project-logo-mini">
-                    <?php if($project_logo_url !== ''): ?>
-                        <img src="<?php echo esc($project_logo_url); ?>" alt="<?php echo esc($project['name']); ?>">
-                    <?php else: ?>
-                        <div class="logo-placeholder-mini"><?php echo strtoupper(substr($project['name'], 0, 2)); ?></div>
-                    <?php endif; ?>
-                </div>
-                <div class="project-details-mini">
-                    <span class="project-card-kicker">Selected project</span>
-                    <h3>
-                        <?php echo esc($project['name']); ?>
-                        <?php if($project['is_verified']): ?>
-                            <i class="fas fa-check-circle verified-badge" title="Verified Project"></i>
+            <span class="project-card-kicker">Selected project</span>
+            <div class="project-card-body">
+                <div class="project-card-left">
+                    <div class="project-logo-mini<?php echo $project_logo_url !== '' ? ' has-logo-image' : ''; ?>"<?php if ($project_logo_url !== ''): ?> style="background-image: url('<?php echo esc($project_logo_url); ?>');" aria-label="<?php echo esc($project['name']); ?> logo"<?php endif; ?>>
+                        <?php if($project_logo_url !== ''): ?>
+                            <img src="<?php echo esc($project_logo_url); ?>" alt="<?php echo esc($project['name']); ?>">
+                        <?php else: ?>
+                            <div class="logo-placeholder-mini"><?php echo strtoupper(substr($project['name'], 0, 2)); ?></div>
                         <?php endif; ?>
-                    </h3>
-                    <div class="project-summary-pills">
-                        <span>Min hold $<?php echo number_format((float)$project['min_holding_amount'], 2); ?></span>
-                        <span><?php echo (int)$project['required_holding_days']; ?> holding days</span>
-                        <span>One review per user</span>
                     </div>
-                    <p>Checked in <strong><?php echo esc($user_level_state['approval_label']); ?></strong>. Better proof helps more.</p>
+                    <div class="project-card-left-info">
+                        <h3>
+                            <?php echo esc($project['name']); ?>
+                            <?php if($project['is_verified']): ?>
+                                <i class="fas fa-check-circle verified-badge" title="Verified Project"></i>
+                            <?php endif; ?>
+                        </h3>
+                        <p class="project-card-desc"><?php echo esc(mb_strimwidth((string) ($project['description'] ?? 'No description available.'), 0, 140, '...')); ?></p>
+                    </div>
+                </div>
+                <div class="project-card-right">
+                    <h4 class="project-card-right-title">Review Requirements</h4>
+                    <div class="project-card-reqs">
+                        <div class="project-card-req">
+                            <i class="fas fa-coins"></i>
+                            <div>
+                                <span>Min hold</span>
+                                <strong><?php echo esc($format_clean_amount($project_min_hold)); ?> <?php echo esc($project_token_symbol); ?></strong>
+                            </div>
+                        </div>
+                        <div class="project-card-req">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <span>Duration</span>
+                                <strong><?php echo (int)$project_hold_days; ?> day<?php echo $project_hold_days != 1 ? 's' : ''; ?></strong>
+                            </div>
+                        </div>
+                        <div class="project-card-req">
+                            <i class="fas fa-gift"></i>
+                            <div>
+                                <span>Reward</span>
+                                <strong>Up to <?php echo esc(number_format($project_max_reward, 0)); ?> $REX</strong>
+                </div>
+            </div>
+        </div>
+                    <div class="project-card-req">
+                        <i class="fas fa-shield-halved"></i>
+                        <div>
+                            <span>Limit</span>
+                            <strong>One review per user</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -753,12 +807,11 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <div class="wizard-progress wizard-progress-upgraded">
-                <div class="wizard-track"></div>
-                <div class="wizard-fill" id="wizardFill"></div>
-                <div class="wizard-step-nav active" data-nav-step="1"><span>1</span><strong>Method</strong><small>Choose</small></div>
-                <div class="wizard-step-nav" data-nav-step="2"><span>2</span><strong>Wallet</strong><small>Check</small></div>
-                <div class="wizard-step-nav" data-nav-step="3"><span>3</span><strong>Review</strong><small>Text</small></div>
-                <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Submit</strong><small>Confirm</small></div>
+                <div class="wizard-track"><div class="wizard-fill" id="wizardFill"></div></div>
+                <div class="wizard-step-nav active" data-nav-step="1"><span>1</span><strong>Method</strong><small>Choose Submission method</small></div>
+                <div class="wizard-step-nav" data-nav-step="2"><span>2</span><strong>Wallet</strong><small>Verify Your Wallet</small></div>
+                <div class="wizard-step-nav" data-nav-step="3"><span>3</span><strong>Review</strong><small>Put You Opinion</small></div>
+                <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Submit</strong><small>Review & Confirm</small></div>
             </div>
 
             <div class="submit-card submit-card-upgraded">
@@ -769,44 +822,47 @@ require_once __DIR__ . '/../includes/header.php';
                             <h3><i class="fas fa-route"></i> Choose Verification Method</h3>
                             <p class="section-note">Pick the method that fits how you hold the project token.</p>
                         </div>
-                        <aside class="step-tip-card">
-                            <strong><i class="fas fa-lightbulb"></i> Recommended</strong>
-                            <p>Instant is fastest if you hold the token.</p>
+                        <aside class="step-tip-card" id="stepTipCard">
+                            <strong id="stepTipTitle"><i class="fas fa-lightbulb"></i> Recommended</strong>
+                            <p id="stepTipText">Instant is fastest if you hold the token.</p>
                         </aside>
                     </div>
 
                     <input type="hidden" name="wallet_type" value="non_custodial">
 
                     <div class="proof-path-summary" role="radiogroup" aria-label="Verification method">
-                        <label class="proof-path-card" data-method-card="instant">
+                        <label class="proof-path-card" data-method-card="instant" data-method-icon="fa-bolt" data-method-tip-title="Instant is fastest" data-method-tip="Checks on-chain holding from the last 30 days — done in seconds if you already hold the token.">
                             <input type="radio" name="proof_method" value="instant" <?php echo $form['proof_method'] === 'instant' ? 'checked' : ''; ?>>
+                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
                             <span class="proof-path-icon"><i class="fas fa-bolt"></i></span>
                             <span class="proof-path-copy">
                                 <strong>Instant Verification</strong>
                                 <small class="method-recommended">Recommended</small>
                                 <p>Checks on-chain holding from the last 30 days. Fastest if you already hold the token.</p>
+                                <span class="proof-path-eta"><i class="fas fa-stopwatch"></i>≈ 10 seconds</span>
                             </span>
-                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
                         </label>
-                        <label class="proof-path-card" data-method-card="live">
+                        <label class="proof-path-card" data-method-card="live" data-method-icon="fa-video" data-method-tip-title="Live needs ongoing balance" data-method-tip="Receive the project token, pair the wallet, then keep the balance until the countdown completes.">
                             <input type="radio" name="proof_method" value="live" <?php echo $form['proof_method'] === 'live' ? 'checked' : ''; ?>>
+                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
                             <span class="proof-path-icon"><i class="fas fa-video"></i></span>
                             <span class="proof-path-copy">
                                 <strong>Live Verification</strong>
                                 <small>Forward monitoring</small>
                                 <p>Pair wallet, receive token, then maintain balance until the countdown completes.</p>
+                                <span class="proof-path-eta"><i class="fas fa-stopwatch"></i>≈ 10 minutes monitoring</span>
                             </span>
-                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
                         </label>
-                        <label class="proof-path-card" data-method-card="manual">
+                        <label class="proof-path-card" data-method-card="manual" data-method-icon="fa-keyboard" data-method-tip-title="Manual proof + patience" data-method-tip="Submit wallet address, TX hash, and a screenshot; moderation reviews in 24–48 hours.">
                             <input type="radio" name="proof_method" value="manual" <?php echo $form['proof_method'] === 'manual' ? 'checked' : ''; ?>>
+                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
                             <span class="proof-path-icon"><i class="fas fa-keyboard"></i></span>
                             <span class="proof-path-copy">
                                 <strong>Manual Verification</strong>
                                 <small>Fallback</small>
                                 <p>Submit TX hash and screenshot. Moderate review in 24-48 hours.</p>
+                                <span class="proof-path-eta"><i class="fas fa-stopwatch"></i>24–48 hours review</span>
                             </span>
-                            <span class="proof-path-check"><i class="fas fa-check"></i></span>
                         </label>
                     </div>
                 </section>
@@ -815,7 +871,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="step-intro step-intro-tight">
                         <div>
                             <span class="step-kicker">Step 2</span>
-                            <h3><i class="fas fa-shield-alt"></i> Check Wallet</h3>
+                            <h3><i class="fas fa-shield-alt"></i> Verify & Check Your Wallet</h3>
                         </div>
                     </div>
 
@@ -864,15 +920,15 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="proof-grid step2-proof-details" id="step2ProofDetails">
                         <input type="hidden" name="holding_amount" id="holdingAmount" value="<?php echo esc($form['holding_amount'] !== '' ? $form['holding_amount'] : (string) ($project['min_holding_amount'] ?? '1')); ?>">
                         <input type="hidden" name="holding_days" id="holdingDays" value="<?php echo esc($form['holding_days'] !== '' ? $form['holding_days'] : (string) ($project['required_holding_days'] ?? '1')); ?>">
-                        <div class="manual-moderation-note manual-proof-field">
+                        <div class="manual-moderation-note manual-proof-field step2-proof-note">
                             <i class="fas fa-hourglass-half"></i>
-                            <span>Manual proof can submit, but it will stay pending until moderation checks the TX hash and screenshot.</span>
+                            <span>Manual proof stays pending until moderation checks the TX hash and screenshot. Never upload seed phrases, private keys, or recovery phrases.</span>
                         </div>
-                        <div class="form-group full-width manual-proof-field">
+                        <div class="form-group manual-proof-field">
                             <label>Manual Wallet Address <span class="required-asterisk">*</span></label>
                             <input type="text" name="manual_wallet_address" id="manual_wallet_address" value="<?php echo $form['proof_method'] === 'manual' ? esc($form['wallet_address']) : ''; ?>" placeholder="Paste wallet address: 0x..." autocomplete="off">
                         </div>
-                        <div class="form-group full-width manual-proof-field">
+                        <div class="form-group manual-proof-field">
                             <label>Transaction Hash <span class="manual-required required-asterisk">*</span></label>
                             <input type="text" name="tx_hash" id="tx_hash" value="<?php echo esc($form['tx_hash']); ?>" placeholder="Paste the TX hash that shows activity with this project">
                         </div>
@@ -882,18 +938,13 @@ require_once __DIR__ . '/../includes/header.php';
                             <div id="filePreview" class="file-preview" style="display:none;"><i class="fas fa-image"></i><span id="fileName"></span><button type="button" id="removeFile">x</button></div>
                         </div>
                     </div>
-
-                    <div class="proof-safety-note manual-proof-field">
-                        <i class="fas fa-circle-info"></i>
-                        <span>Manual proof goes to moderation. Never upload seed phrases, private keys, or recovery phrases.</span>
-                    </div>
                 </section>
 
                 <section class="wizard-step" data-step="3">
                     <div class="step-intro">
                         <div>
                             <span class="step-kicker">Step 3</span>
-                            <h3><i class="fas fa-star"></i> Your Review</h3>
+                            <h3><i class="fas fa-star"></i> Write Your Review</h3>
                             <p class="section-note">Keep it real and specific.</p>
                         </div>
                     </div>
@@ -1685,6 +1736,7 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
 
     function syncProofMethodUI() {
         const method = getProofMethod();
+        updateMethodTip();
         if (method === 'manual') {
             renderVerificationReport(null, method);
             const confirmed = document.getElementById('verificationConfirmed');
@@ -1724,6 +1776,19 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         }
         renderWalletSessionState();
         saveDraft();
+    }
+
+    function updateMethodTip() {
+        const tipCard = document.getElementById('stepTipCard');
+        const tipTitle = document.getElementById('stepTipTitle');
+        const tipText = document.getElementById('stepTipText');
+        const card = document.querySelector('.proof-path-card:has(input[name="proof_method"]:checked)');
+        if (!tipCard || !card) return;
+        const method = card.getAttribute('data-method-card') || '';
+        tipCard.classList.remove('is-instant', 'is-live', 'is-manual');
+        if (method) tipCard.classList.add('is-' + method);
+        if (tipTitle) tipTitle.innerHTML = '<i class="fas ' + (card.getAttribute('data-method-icon') || 'fa-lightbulb') + '"></i> ' + (card.getAttribute('data-method-tip-title') || 'Recommended');
+        if (tipText) tipText.textContent = card.getAttribute('data-method-tip') || '';
     }
 
     async function postJson(url, payload, options = {}) {
