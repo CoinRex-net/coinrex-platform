@@ -533,9 +533,12 @@ const cfg = window.CoinRexClaimsConfig || {};
 
     function startPairingExpiry(seconds, expiresAtUnix) {
         clearPairingExpiry();
-        const ttl = Math.max(1, Number(seconds || 300));
+        const ttl = Math.min(300, Math.max(1, Number(seconds || 300)));
+        const localDeadline = Date.now() + ttl * 1000;
         const suppliedDeadline = Number(expiresAtUnix || 0) * 1000;
-        pairingExpiresAtMs = suppliedDeadline > Date.now() ? suppliedDeadline : Date.now() + ttl * 1000;
+        pairingExpiresAtMs = suppliedDeadline > Date.now()
+            ? Math.min(suppliedDeadline, localDeadline)
+            : localDeadline;
         pairingExpired = false;
         renderPairingExpiry();
         pairingCountdownTimer = window.setInterval(renderPairingExpiry, 1000);

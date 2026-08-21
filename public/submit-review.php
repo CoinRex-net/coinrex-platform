@@ -2036,10 +2036,12 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
 
     function startRexCountdown(seconds, expiresAtUnix = 0) {
         const startedAtMs = Date.now();
-        const ttlSeconds = Math.max(0, Number(seconds || 300));
-        const expiresAtMs = Number(expiresAtUnix || 0) > 0
-            ? Number(expiresAtUnix) * 1000
-            : startedAtMs + ttlSeconds * 1000;
+        const ttlSeconds = Math.min(300, Math.max(0, Number(seconds || 300)));
+        const localDeadline = startedAtMs + ttlSeconds * 1000;
+        const suppliedDeadline = Number(expiresAtUnix || 0) * 1000;
+        const expiresAtMs = suppliedDeadline > startedAtMs
+            ? Math.min(suppliedDeadline, localDeadline)
+            : localDeadline;
         stopRexCountdown();
         const tick = () => {
             const remaining = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));

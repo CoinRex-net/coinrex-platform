@@ -228,11 +228,12 @@ const linkConfig = window.CoinRexLinkWalletConfig || {};
     }
 
     function startCountdown(seconds, expiresAtUnix) {
-        const fallbackSeconds = Math.max(0, Number(seconds || 300));
+        const fallbackSeconds = Math.min(300, Math.max(0, Number(seconds || 300)));
+        const localDeadline = Date.now() + fallbackSeconds * 1000;
         const suppliedDeadline = Number(expiresAtUnix || 0) * 1000;
         const deadlineMs = suppliedDeadline > Date.now()
-            ? suppliedDeadline
-            : Date.now() + fallbackSeconds * 1000;
+            ? Math.min(suppliedDeadline, localDeadline)
+            : localDeadline;
         stopCountdown();
         const update = function() {
             const remaining = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));

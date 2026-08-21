@@ -130,7 +130,8 @@
     }
     function stopCountdown() { if (countdown) window.clearInterval(countdown); countdown = null; }
     function startCountdown(seconds, activeGeneration) {
-      var deadline = Date.now() + Number(seconds || 300) * 1000;
+      var ttlSeconds = Math.min(300, Math.max(0, Number(seconds || 300)));
+      var deadline = Date.now() + ttlSeconds * 1000;
       stopCountdown();
       function tick() {
         if (activeGeneration !== generation) return stopCountdown();
