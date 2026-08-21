@@ -17,6 +17,14 @@
 /rex-wallet/android/
 /rex-wallet/ios/
 
+# Proprietary Rex Wallet application (not part of the public CoinRex repository)
+/rex-wallet/
+
+# Runtime PHP session caches
+/api/cache/
+/auth/cache/
+/public/cache/
+
 # Runtime uploads and user-generated content
 /uploads/
 /assets/uploads/
@@ -45,11 +53,19 @@
 !/assets/js/rexlink-auth.js
 !/assets/js/rexlink-claims.js
 !/assets/js/rexlink-pairing.js
+!/assets/js/rexlink-sdk.js
+!/assets/js/rexlink-widget.js
 /docs/REXLINK_ARCHITECTURE.md
 /config/rex-signer-networks.local.php*
 /rexlink-service/lib/
 /rexlink-service/routes/
 /rexlink-service/services/
+!/rexlink-service/lib/
+!/rexlink-service/lib/*.js
+!/rexlink-service/routes/
+!/rexlink-service/routes/*.js
+!/rexlink-service/services/
+!/rexlink-service/services/*.js
 
 # OS / editor noise
 .DS_Store

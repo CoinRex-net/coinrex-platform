@@ -5,7 +5,7 @@
  */
 
 $rex_signer_endpoint = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-if (in_array($rex_signer_endpoint, ['create_pairing.php', 'pairing_qr.php', 'login_from_session.php'], true)) {
+if (in_array($rex_signer_endpoint, ['create_pairing.php', 'pairing_qr.php', 'login_from_session.php', 'sessions.php', 'realtime_auth.php'], true)) {
     define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
     define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
 }
@@ -204,6 +204,46 @@ function rexSignerNetworkContext(PDO $db, $network_slug = '', $chain_id = null) 
         'is_known' => true,
         'mismatch' => $chain_id_value > 0 && $resolved_chain_id > 0 && $chain_id_value !== $resolved_chain_id,
     ];
+}
+
+function rexSignerRequestedNetworkSlugs($value) {
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        $value = is_array($decoded) ? $decoded : explode(',', $value);
+    }
+    if (!is_array($value)) {
+        return [];
+    }
+    $slugs = array_map(static function ($slug) {
+        return strtolower(trim((string) $slug));
+    }, $value);
+    return array_values(array_unique(array_filter($slugs)));
+}
+
+function rexSignerResolvePairingNetworks(PDO $db, $value = []) {
+    $requested = rexSignerRequestedNetworkSlugs($value);
+    $rows = $db->query('SELECT slug, name, chain_id, native_symbol FROM rex_signer_networks WHERE is_enabled = 1 AND chain_family = \'evm\' AND chain_id IS NOT NULL ORDER BY sort_order ASC')->fetchAll();
+    $by_slug = [];
+    foreach ($rows as $row) {
+        $network = [
+            'slug' => strtolower((string) $row['slug']),
+            'name' => (string) $row['name'],
+            'chain_id' => (int) $row['chain_id'],
+            'native_symbol' => (string) ($row['native_symbol'] ?? ''),
+        ];
+        $by_slug[$network['slug']] = $network;
+    }
+    if (!$requested) {
+        return array_values($by_slug);
+    }
+    $resolved = [];
+    foreach ($requested as $slug) {
+        if (!isset($by_slug[$slug])) {
+            throw new InvalidArgumentException('Unsupported RexLink network: ' . $slug . '.');
+        }
+        $resolved[] = $by_slug[$slug];
+    }
+    return $resolved;
 }
 
 function rexSignerBuildDisplayContext(PDO $db, array $raw = []) {
@@ -788,10 +828,14 @@ function rexSignerGetAnySessionByToken(PDO $db, $token) {
     return $session ?: null;
 }
 
-function rexSignerGetActor(PDO $db = null) {
+function rexSignerGetActor(PDO $db = null, array $options = []) {
     $db = $db ?: getDBConnection();
-    rexSignerEnsureSchema($db);
-    rexSignerExpireOldRows($db);
+    if (empty($options['skip_schema'])) {
+        rexSignerEnsureSchema($db);
+    }
+    if (empty($options['skip_maintenance'])) {
+        rexSignerExpireOldRows($db);
+    }
 
     $token = rexSignerGetBearerToken();
     $session = rexSignerGetSessionByToken($db, $token);
@@ -822,8 +866,8 @@ function rexSignerGetActor(PDO $db = null) {
     ];
 }
 
-function rexSignerRequireUserActor(PDO $db = null) {
-    $actor = rexSignerGetActor($db);
+function rexSignerRequireUserActor(PDO $db = null, array $options = []) {
+    $actor = rexSignerGetActor($db, $options);
     if (!empty($actor['user_id'])) {
         return $actor;
     }

@@ -41,6 +41,7 @@ if (!$has_review_wallet_session) {
         SELECT id, created_at
         FROM rex_signer_sessions
         WHERE user_id = ?
+          AND app_id = 'coinrex'
           AND wallet_address = ?
           AND status = 'active'
           AND expires_at > NOW()

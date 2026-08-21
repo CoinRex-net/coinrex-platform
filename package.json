@@ -12,7 +12,8 @@
     "realtime:start": "node realtime/server.js",
     "realtime:check": "node --check realtime/server.js",
     "rexlink:start": "node rexlink-service/server.js",
-    "rexlink:check": "node --check rexlink-service/server.js"
+    "rexlink:check": "node --check rexlink-service/server.js && node --check assets/js/rexlink-sdk.js && node --check assets/js/rexlink-pairing.js && node --check assets/js/rexlink-widget.js",
+    "rexlink:test": "node --test test/rexlink-service.test.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "3.0.8",

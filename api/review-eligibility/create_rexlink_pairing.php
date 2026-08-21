@@ -11,7 +11,9 @@ try {
     }
 
     $db = coinrexFastDb();
-    $duration = max(5, min((int) coinrexFastInput('duration_minutes', 10), 60));
+    $pairing_networks = coinrexFastResolvePairingNetworks($db, coinrexFastInput('network_slugs', []));
+    $preferred_network = $pairing_networks[0] ?? null;
+    $duration = max(5, min((int) coinrexFastInput('duration_minutes', 5), 60));
     $qr_ttl_minutes = 5;
     $qr_ttl_seconds = $qr_ttl_minutes * 60;
     $force_new_pairing = filter_var(coinrexFastInput('force_new_pairing', false), FILTER_VALIDATE_BOOLEAN);
@@ -66,7 +68,7 @@ try {
         }
 
         $pending_stmt = $db->prepare("
-            SELECT id, display_code, requested_duration_minutes, expires_at,
+            SELECT id, display_code, requested_duration_minutes, requested_networks_json, expires_at,
                    GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 0) AS expires_in_seconds,
                    UNIX_TIMESTAMP(expires_at) AS expires_at_unix
             FROM rex_signer_pairing_codes
@@ -80,7 +82,15 @@ try {
         $pending_stmt->execute([$user_id]);
         $pending = $pending_stmt->fetch();
         if ($pending) {
-            if ((int) ($pending['requested_duration_minutes'] ?? 0) !== $duration || (int) ($pending['expires_in_seconds'] ?? 0) > $qr_ttl_seconds) {
+            $stored_networks = coinrexFastRequestedNetworkSlugs($pending['requested_networks_json'] ?? []);
+            $current_networks = array_column($pairing_networks, 'slug');
+            sort($stored_networks);
+            sort($current_networks);
+            if (
+                (int) ($pending['requested_duration_minutes'] ?? 0) !== $duration
+                || (int) ($pending['expires_in_seconds'] ?? 0) > $qr_ttl_seconds
+                || ($stored_networks && $stored_networks !== $current_networks)
+            ) {
                 $db->prepare("UPDATE rex_signer_pairing_codes SET status = 'expired' WHERE id = ?")->execute([(int) $pending['id']]);
             } else {
             $display_code = (string) $pending['display_code'];
@@ -98,12 +108,18 @@ try {
                     'version' => 2,
                     'code' => $display_code,
                     'purpose' => 'review_eligibility',
+                    'app_id' => 'coinrex',
+                    'app_name' => 'CoinRex',
+                    'network_scope' => 'multi',
+                    'supported_networks' => $pairing_networks,
+                    'preferred_network' => $preferred_network,
                     'api_base_url' => $api_base_url,
                     'base_url' => $api_base_url,
                     'dapp_name' => $dapp_name !== '' ? $dapp_name : 'CoinRex Review',
                     'dapp_url' => $dapp_url !== '' ? $dapp_url : $public_base_url,
-                    'network_slug' => 'polygon',
-                    'chain_id' => 137,
+                    'network_slug' => (string) ($preferred_network['slug'] ?? ''),
+                    'network_name' => (string) ($preferred_network['name'] ?? 'Multiple networks'),
+                    'chain_id' => (int) ($preferred_network['chain_id'] ?? 0),
                     'requested_duration_minutes' => (int) ($pending['requested_duration_minutes'] ?? $duration),
                     'expires_in_seconds' => $expires_in_seconds,
                     'expires_at_unix' => $expires_at_unix,
@@ -134,12 +150,13 @@ try {
 
     $insert = $db->prepare("
         INSERT INTO rex_signer_pairing_codes
-            (user_id, code_hash, display_code, pairing_purpose, requested_duration_minutes, expires_at, ip_address, user_agent)
+            (user_id, app_id, network_scope, requested_networks_json, code_hash, display_code, pairing_purpose, requested_duration_minutes, expires_at, ip_address, user_agent)
         VALUES
-            (?, ?, ?, 'review_eligibility', ?, DATE_ADD(NOW(), INTERVAL " . (int) $qr_ttl_minutes . " MINUTE), ?, ?)
+            (?, 'coinrex', 'multi', ?, ?, ?, 'review_eligibility', ?, DATE_ADD(NOW(), INTERVAL " . (int) $qr_ttl_minutes . " MINUTE), ?, ?)
     ");
     $insert->execute([
         $user_id,
+        json_encode(array_column($pairing_networks, 'slug'), JSON_UNESCAPED_SLASHES),
         $code_hash,
         $display_code,
         $duration,
@@ -175,12 +192,18 @@ try {
             'version' => 2,
             'code' => $display_code,
             'purpose' => 'review_eligibility',
+            'app_id' => 'coinrex',
+            'app_name' => 'CoinRex',
+            'network_scope' => 'multi',
+            'supported_networks' => $pairing_networks,
+            'preferred_network' => $preferred_network,
             'api_base_url' => $api_base_url,
             'base_url' => $api_base_url,
             'dapp_name' => $dapp_name !== '' ? $dapp_name : 'CoinRex Review',
             'dapp_url' => $dapp_url !== '' ? $dapp_url : $public_base_url,
-            'network_slug' => 'polygon',
-            'chain_id' => 137,
+            'network_slug' => (string) ($preferred_network['slug'] ?? ''),
+            'network_name' => (string) ($preferred_network['name'] ?? 'Multiple networks'),
+            'chain_id' => (int) ($preferred_network['chain_id'] ?? 0),
             'requested_duration_minutes' => $duration,
             'expires_in_seconds' => $expires_in_seconds,
             'expires_at_unix' => $expires_at_unix,

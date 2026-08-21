@@ -317,7 +317,7 @@ function userAuthIdentityVerified(array $user) {
     }
 
     $provider = strtolower(trim((string) ($user['auth_provider'] ?? 'email')));
-    if ($provider === 'rex_signer' || $provider === 'hybrid') {
+    if ($provider === 'rex_signer') {
         return !empty($user['wallet_address']) && !empty($user['wallet_verified_at']);
     }
 

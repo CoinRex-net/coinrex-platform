@@ -4,6 +4,24 @@ ob_start();
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+function claimsB64Url($value)
+{
+    return rtrim(strtr(base64_encode((string) $value), '+/', '-_'), '=');
+}
+
+function claimsNodeActorToken($user_id)
+{
+    $secret = (string) (getenv('COINREX_REALTIME_SECRET') ?: (getenv('COINREX_ENCRYPTION_KEY') ?: (getenv('COINREX_CSRF_KEY') ?: 'coinrex-dev-realtime-secret')));
+    $payload = claimsB64Url(json_encode([
+        'user_id' => (int) $user_id,
+        'iat' => time(),
+        'exp' => time() + 900,
+        'scope' => 'review_pairing',
+    ], JSON_UNESCAPED_SLASHES));
+    $signature = claimsB64Url(hash_hmac('sha256', $payload, $secret, true));
+    return $payload . '.' . $signature;
+}
+
 requireFeatureAccess('claim_center');
 
 if (!isLoggedIn()) {
@@ -19,6 +37,7 @@ $level_state = syncUserLevelStatus((int) $user['id'], $db) ?: getUserLevelState(
 if (!$claim_pairing_test_mode && !userCanAccessClaimCenter($level_state)) {
     http_response_code(403);
     $page_title = 'Claim Center Locked';
+    @session_write_close();
     require_once __DIR__ . '/../includes/header.php';
     ?>
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/reward-pages.css">
@@ -178,6 +197,10 @@ function claimTokenDeploymentConfig() {
 
 $rex_token = claimTokenDeploymentConfig();
 
+// Release the session file lock before rendering so the browser's RexLink
+// pairing/polling requests never block behind this page render.
+@session_write_close();
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -328,10 +351,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="claim-duration-panel" id="claimModalDurationPanel">
                         <span>Session time</span>
                         <div class="claim-duration-options" id="claimModalDurationOptions">
-                            <button type="button" class="duration-option" data-duration="5">5 min</button>
-                            <button type="button" class="duration-option is-active" data-duration="10">10 min</button>
-                            <button type="button" class="duration-option" data-duration="30">30 min</button>
-                            <button type="button" class="duration-option" data-duration="60">60 min</button>
+                            <button type="button" class="duration-option is-active" data-duration="5">5 min</button>
                         </div>
                     </div>
                 </section>
@@ -434,14 +454,16 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script src="<?php echo ASSETS_URL; ?>/js/qrcode-browser.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/qrcode-browser.js'); ?>"></script>
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-pairing.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-pairing.js'); ?>"></script>
+<script src="<?php echo ASSETS_URL; ?>/js/rexlink-sdk.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-sdk.js'); ?>"></script>
 <script>
 window.CoinRexClaimsConfig = {
-    overviewUrl: <?php echo json_encode(BASE_URL . '/api/reward_overview.php'); ?>,
+    overviewUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/reward_overview.php'); ?>,
     baseUri: <?php echo json_encode(BASE_URI); ?>,
-    configuredApiBaseUrl: <?php echo json_encode(BASE_URL); ?>,
+    configuredApiBaseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     publicApiBaseUrl: <?php echo json_encode(defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL); ?>,
     hasConfiguredPublicApiBaseUrl: <?php echo defined('PUBLIC_BASE_URL_CONFIGURED') && PUBLIC_BASE_URL_CONFIGURED ? 'true' : 'false'; ?>,
-    rexlinkApiBaseUrl: <?php echo json_encode(BASE_URL); ?>,
+    rexlinkApiBaseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
+    rexlinkNodeApiBaseUrl: <?php echo json_encode(REXLINK_NODE_API_BASE_URL); ?>,
     realtimeDebug: <?php echo in_array(strtolower(trim((string) (getenv('COINREX_REALTIME_DEBUG') ?: ''))), ['1', 'true', 'yes', 'on'], true) ? 'true' : 'false'; ?>,
     serverClaimPairingTestMode: <?php echo $claim_pairing_test_mode ? 'true' : 'false'; ?>,
     serverClaimEligible: <?php echo !empty($claim_eligibility['eligible']) ? 'true' : 'false'; ?>,
@@ -451,7 +473,8 @@ window.CoinRexClaimsConfig = {
     initialOpenClaim: <?php echo $open_claim ? 'true' : 'false'; ?>,
     rexTokenNetworkSlug: <?php echo json_encode((string) ($rex_token['networkSlug'] ?? 'polygon')); ?>,
     rexTokenNetworkLabel: <?php echo json_encode((string) ($rex_token['networkLabel'] ?? 'Polygon')); ?>,
-    rexTokenChainId: <?php echo (int) ($rex_token['chainId'] ?? 137); ?>
+    rexTokenChainId: <?php echo (int) ($rex_token['chainId'] ?? 137); ?>,
+    webActorToken: <?php echo json_encode(claimsNodeActorToken($user_id)); ?>
 };
 </script>
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-claims.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-claims.js'); ?>"></script>

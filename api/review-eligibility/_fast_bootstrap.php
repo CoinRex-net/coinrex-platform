@@ -38,6 +38,12 @@ coinrexFastLoadEnv($coinrex_fast_root . '/.env');
 coinrexFastLoadEnv($coinrex_fast_root . '/.env.local');
 
 if (session_status() === PHP_SESSION_NONE) {
+    $sessionPath = $coinrex_fast_root . '/cache/sessions';
+    if (!is_dir($sessionPath)) {
+        @mkdir($sessionPath, 0777, true);
+    }
+    @ini_set('session.save_path', $sessionPath);
+    @session_save_path($sessionPath);
     @ini_set('session.cookie_samesite', 'Lax');
     session_set_cookie_params([
         'lifetime' => 0,
@@ -131,6 +137,45 @@ function coinrexFastFormatPairCode($code) {
 
 function coinrexFastHash($value) {
     return hash('sha256', trim((string) $value));
+}
+
+function coinrexFastRequestedNetworkSlugs($value) {
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        $value = is_array($decoded) ? $decoded : explode(',', $value);
+    }
+    if (!is_array($value)) {
+        return [];
+    }
+    return array_values(array_unique(array_filter(array_map(static function ($slug) {
+        return strtolower(trim((string) $slug));
+    }, $value))));
+}
+
+function coinrexFastResolvePairingNetworks(PDO $db, $value = []) {
+    $requested = coinrexFastRequestedNetworkSlugs($value);
+    $rows = $db->query('SELECT slug, name, chain_id, native_symbol FROM rex_signer_networks WHERE is_enabled = 1 AND chain_family = \'evm\' AND chain_id IS NOT NULL ORDER BY sort_order ASC')->fetchAll();
+    $by_slug = [];
+    foreach ($rows as $row) {
+        $network = [
+            'slug' => strtolower((string) $row['slug']),
+            'name' => (string) $row['name'],
+            'chain_id' => (int) $row['chain_id'],
+            'native_symbol' => (string) ($row['native_symbol'] ?? ''),
+        ];
+        $by_slug[$network['slug']] = $network;
+    }
+    if (!$requested) {
+        return array_values($by_slug);
+    }
+    $resolved = [];
+    foreach ($requested as $slug) {
+        if (!isset($by_slug[$slug])) {
+            throw new InvalidArgumentException('Unsupported RexLink network: ' . $slug . '.');
+        }
+        $resolved[] = $by_slug[$slug];
+    }
+    return $resolved;
 }
 
 function coinrexFastPublicBaseUrl() {

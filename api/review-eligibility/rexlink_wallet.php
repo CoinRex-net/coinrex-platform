@@ -26,6 +26,7 @@ try {
             FROM rex_signer_pairing_codes
             WHERE id = ?
               AND user_id = ?
+              AND app_id = 'coinrex'
             LIMIT 1
         ");
         $stmt->execute([$pairing_id, $user_id]);
@@ -67,6 +68,7 @@ try {
                 FROM rex_signer_sessions
                 WHERE id = ?
                   AND user_id = ?
+                  AND app_id = 'coinrex'
                 LIMIT 1
             ");
             $session_stmt->execute([$completed_session_id, $user_id]);
@@ -81,6 +83,7 @@ try {
                 FROM rex_signer_sessions
                 WHERE pairing_code_id = ?
                   AND user_id = ?
+                  AND app_id = 'coinrex'
                 ORDER BY id DESC
                 LIMIT 1
             ");
@@ -99,6 +102,7 @@ try {
                 FROM rex_signer_sessions
                 WHERE id = ?
                   AND user_id = ?
+                  AND app_id = 'coinrex'
                 LIMIT 1
             ");
             $stmt->execute([$session_id, $user_id]);
@@ -112,6 +116,7 @@ try {
                        GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS session_remaining_seconds
                 FROM rex_signer_sessions
                 WHERE user_id = ?
+                  AND app_id = 'coinrex'
                   AND status = 'active'
                   AND expires_at > NOW()
                 ORDER BY id DESC
@@ -147,25 +152,34 @@ try {
         coinrexFastError(422, 'RexLink did not return a valid wallet address.');
     }
 
+    // Only the wallet linked to this account may be used for review eligibility.
+    $linked_wallet_stmt = $db->prepare("SELECT wallet_address FROM users WHERE id = ? LIMIT 1");
+    $linked_wallet_stmt->execute([$user_id]);
+    $linked_wallet = strtolower(trim((string) ($linked_wallet_stmt->fetch()['wallet_address'] ?? '')));
+    $linked_wallet = preg_match('/^0x[a-f0-9]{40}$/', $linked_wallet) ? $linked_wallet : '';
+    if ($linked_wallet === '') {
+        coinrexFastSuccess([
+            'status' => 'change_wallet',
+            'message' => 'Your CoinRex account does not have a wallet linked yet. Link a wallet first before submitting a review.',
+            'change_wallet_url' => (coinrexFastPublicBaseUrl()) . '/public/link-wallet.php',
+            'server_timing_ms' => (int) round((microtime(true) - $started) * 1000),
+        ]);
+    }
+    if ($wallet_address !== $linked_wallet) {
+        coinrexFastSuccess([
+            'status' => 'change_wallet',
+            'message' => 'This wallet is not the wallet linked to your CoinRex account. Change or reset your linked wallet to continue.',
+            'change_wallet_url' => (coinrexFastPublicBaseUrl()) . '/public/link-wallet.php',
+            'server_timing_ms' => (int) round((microtime(true) - $started) * 1000),
+        ]);
+    }
+
     $used_review = coinrexFastFindWalletReviewUsage($db, $wallet_address, $project_id);
     if ($used_review) {
         coinrexFastError(409, 'This Wallet already have used to Review the Same Project, Please Switch to Fresh wallet to Check Eligibility', [
             'status' => 'wallet_used',
             'wallet_address' => $wallet_address,
         ]);
-    }
-
-    if (session_status() === PHP_SESSION_NONE) {
-        @session_start();
-    }
-    $_SESSION['review_eligibility_verified_wallet'] = [
-        'user_id' => $user_id,
-        'wallet_address' => $wallet_address,
-        'session_id' => (int) ($row['session_id'] ?? 0),
-        'verified_at' => time(),
-    ];
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_write_close();
     }
 
     coinrexFastSuccess([

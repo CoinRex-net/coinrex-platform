@@ -3,7 +3,6 @@ require_once __DIR__ . '/_bootstrap.php';
 
 try {
     $db = getDBConnection();
-    rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
     $server_time_stmt = $db->query("SELECT UNIX_TIMESTAMP(NOW()) AS server_time_unix");
     $server_time_unix = (int) ($server_time_stmt->fetch()['server_time_unix'] ?? time());
 
@@ -24,7 +23,10 @@ try {
             $session_state = 'expired';
         }
     } else {
-        $actor = rexSignerGetActor($db);
+        $actor = rexSignerGetActor($db, [
+            'skip_schema' => true,
+            'skip_maintenance' => true,
+        ]);
         if (!empty($actor['session'])) {
             $session_state = (string) ($actor['session']['status'] ?? 'active');
         }
@@ -40,19 +42,23 @@ try {
         ]);
     }
 
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+
     $stmt = $db->prepare("
         SELECT *,
                GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds,
                UNIX_TIMESTAMP(expires_at) AS expires_at_unix
         FROM rex_signer_sessions
         WHERE user_id = ?
+          AND app_id = 'coinrex'
         ORDER BY FIELD(status, 'active', 'expired', 'revoked'), created_at DESC
         LIMIT 25
     ");
     $stmt->execute([(int) $actor['user_id']]);
     $session_rows = $stmt->fetchAll();
     $sessions = array_map('rexSignerSessionPayload', $session_rows);
-    $preferred_session_id = (int) ($_SESSION['rex_signer_login_session_id'] ?? ($actor['session_id'] ?? 0));
     $current_session = null;
 
     foreach ($sessions as $session_payload) {
@@ -60,10 +66,6 @@ try {
             && (int) ($session_payload['remaining_seconds'] ?? 0) > 0;
         if (!$is_active) {
             continue;
-        }
-        if ($preferred_session_id > 0 && (int) ($session_payload['id'] ?? 0) === $preferred_session_id) {
-            $current_session = $session_payload;
-            break;
         }
         if ($current_session === null) {
             $current_session = $session_payload;
@@ -74,6 +76,7 @@ try {
         SELECT COUNT(*) AS total
         FROM rex_signer_sessions
         WHERE user_id = ?
+          AND app_id = 'coinrex'
           AND status = 'active'
           AND expires_at > NOW()
     ");

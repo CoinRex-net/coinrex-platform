@@ -32,6 +32,9 @@ try {
     if ($network_slug === '') {
         apiErrorResponse(422, 'network_slug is required.');
     }
+    if ($chain_id === null || $chain_id === '' || (int) $chain_id <= 0) {
+        apiErrorResponse(422, 'chain_id is required.');
+    }
 
     if (!in_array($request_type, ['claim', 'send', 'message'], true)) {
         apiErrorResponse(422, 'Invalid request_type.');
@@ -41,14 +44,11 @@ try {
         apiErrorResponse(422, 'title is required.');
     }
 
-    $network_stmt = $db->prepare("SELECT slug, name, chain_id, native_symbol FROM rex_signer_networks WHERE slug = ? AND is_enabled = 1 LIMIT 1");
-    $network_stmt->execute([$network_slug]);
+    $network_stmt = $db->prepare("SELECT slug, name, chain_id, native_symbol FROM rex_signer_networks WHERE slug = ? AND chain_id = ? AND is_enabled = 1 AND chain_family = 'evm' LIMIT 1");
+    $network_stmt->execute([$network_slug, (int) $chain_id]);
     $network_row = $network_stmt->fetch();
     if (!$network_row) {
-        apiErrorResponse(422, 'Selected network is not enabled for RexLink.');
-    }
-    if ($chain_id !== null && $chain_id !== '' && !empty($network_row['chain_id']) && (int) $chain_id !== (int) $network_row['chain_id']) {
-        apiErrorResponse(422, 'Network slug and chain ID do not match.');
+        apiErrorResponse(422, 'The requested network is disabled, unknown, or does not match its chain ID.');
     }
 
     $expiry_stmt = $db->query("SELECT DATE_ADD(NOW(), INTERVAL {$expires_minutes} MINUTE) AS expires_at");
@@ -97,13 +97,14 @@ try {
 
     $stmt = $db->prepare("
         INSERT INTO rex_signer_approval_requests
-            (user_id, network_slug, request_type, title, summary, amount, fee_estimate, payload_json, expires_at)
+            (user_id, network_slug, chain_id, request_type, title, summary, amount, fee_estimate, payload_json, expires_at)
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL {$expires_minutes} MINUTE))
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL {$expires_minutes} MINUTE))
     ");
     $stmt->execute([
         (int) $actor['user_id'],
         $network_slug,
+        (int) $chain_id,
         $request_type,
         substr($title, 0, 160),
         $summary !== '' ? substr($summary, 0, 255) : null,

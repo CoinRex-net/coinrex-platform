@@ -42,6 +42,7 @@ function resolvePublicApiUrl() {
 
 module.exports = {
   rootDir,
+  environment: String(process.env.COINREX_ENV || 'development').trim().toLowerCase(),
   host: apiHost,
   port: apiPort,
   publicApiUrl: String(resolvePublicApiUrl()).replace(/\/+$/, ''),

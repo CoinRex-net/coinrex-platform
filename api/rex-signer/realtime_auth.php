@@ -3,7 +3,13 @@ require_once __DIR__ . '/_bootstrap.php';
 
 try {
     $db = getDBConnection();
-    $actor = rexSignerRequireUserActor($db);
+    $actor = rexSignerRequireUserActor($db, [
+        'skip_schema' => true,
+        'skip_maintenance' => true,
+    ]);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
 
     $token = coinrexRealtimeClientToken($actor);
 

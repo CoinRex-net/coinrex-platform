@@ -598,6 +598,7 @@ const userNotificationsList = document.getElementById('userNotificationsList');
     let realtimeSocket = null;
     let realtimePingTimer = null;
     let expiryDispatched = false;
+    window.CoinRexActiveRexLinkSession = window.CoinRexActiveRexLinkSession || null;
 
     function formatRexLinkTime(seconds) {
         const safeSeconds = Math.max(0, Number(seconds || 0));
@@ -610,6 +611,7 @@ const userNotificationsList = document.getElementById('userNotificationsList');
         remainingSeconds = 0;
         activeSessionId = 0;
         activeExpiresAtMs = 0;
+        window.CoinRexActiveRexLinkSession = null;
         if (chip) {
             chip.classList.remove('is-visible', 'is-warning');
             chip.hidden = true;
@@ -644,6 +646,9 @@ const userNotificationsList = document.getElementById('userNotificationsList');
             remainingSeconds = activeExpiresAtMs > 0
                 ? Math.max(0, Math.ceil((activeExpiresAtMs - Date.now()) / 1000))
                 : Math.max(0, remainingSeconds - 1);
+            if (window.CoinRexActiveRexLinkSession) {
+                window.CoinRexActiveRexLinkSession.remaining_seconds = remainingSeconds;
+            }
             renderRexLinkChip();
         }, 1000);
     }
@@ -670,6 +675,15 @@ const userNotificationsList = document.getElementById('userNotificationsList');
                 activeExpiresAtMs = Number(currentSession.expires_at_unix || 0) > 0
                     ? Number(currentSession.expires_at_unix) * 1000
                     : Date.now() + nextRemaining * 1000;
+                window.CoinRexActiveRexLinkSession = Object.assign({}, currentSession, {
+                    id: activeSessionId,
+                    session_id: activeSessionId,
+                    status: 'active',
+                    remaining_seconds: nextRemaining,
+                });
+                window.dispatchEvent(new CustomEvent('rexlink:session-active', {
+                    detail: window.CoinRexActiveRexLinkSession,
+                }));
                 renderRexLinkChip();
                 startRexLinkTick();
                 connectRexLinkRealtime();

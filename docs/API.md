@@ -108,6 +108,8 @@ Common response format:
 
 RexLink is the wallet-linking and approval companion for CoinRex. These endpoints are the session, pairing, and approval foundation only: no private keys, seed phrases, custody, real signing, or on-chain broadcasts are implemented.
 
+The canonical browser integration is documented in [`REXLINK_SDK.md`](REXLINK_SDK.md). Clean Node routes are available under `/api/v1`; the legacy `.php`-shaped routes remain compatible with the mobile wallet.
+
 ### `GET /api/rex-signer/networks.php`
 
 - Returns enabled RexLink networks.
@@ -151,7 +153,7 @@ RexLink is the wallet-linking and approval companion for CoinRex. These endpoint
 ### `POST /api/rex-signer/create_approval_request.php`
 
 - Access: logged-in CoinRex user session.
-- Body: `network_slug`, optional `request_type`, `title`, `summary`, `amount`, `fee_estimate`, `payload`, `expires_minutes`.
+- Body: required matching `network_slug` and `chain_id`; optional `request_type`, `title`, `summary`, `amount`, `fee_estimate`, `payload`, `expires_minutes`.
 - Creates a pending approval request for the paired RexLink queue.
 
 ### `GET /api/rex-signer/approval_requests.php`

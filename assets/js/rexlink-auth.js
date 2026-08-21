@@ -25,15 +25,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const rexLinkSuccessMessage = document.getElementById('rexLinkSuccessMessage');
     const rexLinkSuccessCountdown = document.getElementById('rexLinkSuccessCountdown');
     const rexLinkPrimaryButton = document.getElementById('rexLinkPrimaryButton');
-    const rexlinkApiBaseUrl = String(cfg.browserBaseUrl || cfg.baseUrl || cfg.rexlinkApiBaseUrl || window.location.origin).replace(/\/+$/, '');
-    const rexlinkFallbackBaseUrl = String(cfg.browserBaseUrl || cfg.baseUrl || window.location.origin).replace(/\/+$/, '');
-    const rexSignerCreatePairingUrl = rexlinkApiBaseUrl + '/api/rex-signer/create_pairing.php';
-    const rexSignerPairingQrUrl = rexlinkApiBaseUrl + '/api/rex-signer/pairing_qr.php';
-    const rexSignerLoginFromSessionUrl = rexlinkApiBaseUrl + '/api/rex-signer/auth/login_from_session.php';
     const authRedirectTo = String(cfg.authRedirectTo || '');
     const rexLinkReferralCode = String(cfg.rexLinkReferralCode || '');
     const rexLinkAuthAccessible = Boolean(cfg.rexLinkAuthAccessible);
+    const rexLinkAuthGateUrl = String(cfg.rexLinkAuthGateUrl || '');
+    const rexLinkPhpCreateUrl = String(cfg.rexlinkPhpCreateUrl || '');
+    const rexLinkPhpStatusUrl = String(cfg.rexlinkPhpStatusUrl || '');
+    const rexLinkPhpQrUrl = String(cfg.rexlinkPhpQrUrl || '');
+    const REXLINK_WALLET_NOT_LINKED_MESSAGE = 'This Wallet is not Linked with any Account Please Login with email and Password and then Link wallet and try again RexLink PasswordLess authentication';
     const pairing = window.CoinRexPairing || {};
+    const RexLink = window.RexLink;
+
+    if (RexLink && typeof RexLink.init === 'function') {
+        RexLink.init({
+            apiBaseUrl: String(cfg.rexlinkApiBaseUrl || (window.location.protocol + '//' + window.location.hostname + ':18083')),
+            appId: 'coinrex',
+            transport: 'auto',
+            requestTimeoutMs: 2600,
+            autoConnectRealtime: false,
+        });
+    }
     let rexSignerAuthPollTimer = null;
     let rexLinkCountdownTimer = null;
     let rexLinkRedirectTimer = null;
@@ -41,6 +52,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let rexLinkStatusRequestInFlight = false;
     let rexLinkPairingRequestInFlight = false;
     let rexLinkAuthPairingId = 0;
+    let rexLinkAuthUsePhpFallback = false;
+    let rexLinkGateTimer = null;
+    let rexLinkAuthGated = false;
+    let rexLinkAuthGateRequestInFlight = false;
     function buildDeviceFingerprint() {
         const nav = window.navigator || {};
         const screenInfo = window.screen || {};
@@ -78,35 +93,6 @@ document.addEventListener('DOMContentLoaded', function() {
         rexLinkStatus.textContent = message;
         rexLinkStatus.classList.toggle('is-error', state === 'error');
         rexLinkStatus.classList.toggle('is-success', state === 'success');
-    }
-
-    function rexLinkFallbackUrl(url) {
-        const value = String(url || '');
-        return rexlinkFallbackBaseUrl && rexlinkApiBaseUrl && value.indexOf(rexlinkApiBaseUrl) === 0
-            ? rexlinkFallbackBaseUrl + value.slice(rexlinkApiBaseUrl.length)
-            : value;
-    }
-
-    function rexAuthFetchJson(url, body) {
-        return fetch(url, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body || {}),
-        }).then(function(response) {
-            return response.json();
-        });
-    }
-
-    function rexAuthPostJson(url, body) {
-        return rexAuthFetchJson(url, body).catch(function(error) {
-            const fallbackUrl = rexLinkFallbackUrl(url);
-            if (fallbackUrl !== url) {
-                return rexAuthFetchJson(fallbackUrl, body);
-            }
-            const message = error && error.message ? error.message : 'network error';
-            throw new Error('RexLink API is not reachable at ' + url + ' (' + message + '). Open CoinRex with the current LAN URL and make sure the API host in the QR is reachable from your phone.');
-        });
     }
 
     function rexAuthStopPolling() {
@@ -165,7 +151,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function rexLinkResetQr() {
         rexAuthStopPolling();
         rexLinkStopCountdown();
+        rexLinkStopGate();
         rexLinkAuthCompleted = false;
+        rexLinkAuthGated = false;
         rexLinkAuthPairingId = 0;
         rexLinkStatusRequestInFlight = false;
         if (rexLinkRedirectTimer) {
@@ -224,6 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function rexLinkCloseModal() {
         rexAuthStopPolling();
         rexLinkStopCountdown();
+        rexLinkStopGate();
         if (rexLinkRedirectTimer) {
             window.clearTimeout(rexLinkRedirectTimer);
             rexLinkRedirectTimer = null;
@@ -240,6 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         rexAuthStopPolling();
         rexLinkStopCountdown();
+        rexLinkStopGate();
         rexLinkSetStatus(message || 'This RexLink QR expired. Create a fresh code.', 'error');
         if (rexLinkCountdown) {
             rexLinkCountdown.textContent = 'QR expired';
@@ -272,10 +262,105 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function rexLinkStartCountdown(seconds) {
-        let remaining = Math.max(0, Number(seconds || 300));
+    function rexLinkStopGate() {
+        if (rexLinkGateTimer) {
+            window.clearInterval(rexLinkGateTimer);
+            rexLinkGateTimer = null;
+        }
+    }
+
+    function rexAuthWalletNotLinked() {
+        if (rexLinkAuthCompleted || rexLinkAuthGated) {
+            return;
+        }
+        rexLinkAuthGated = true;
+        rexAuthStopPolling();
+        rexLinkStopCountdown();
+        rexLinkStopGate();
+        rexLinkSetStatus(REXLINK_WALLET_NOT_LINKED_MESSAGE, 'error');
+        if (rexLinkPrimaryButton) {
+            rexLinkPrimaryButton.hidden = false;
+            rexLinkPrimaryButton.disabled = false;
+            rexLinkPrimaryButton.textContent = 'Try Again';
+        }
+    }
+
+    async function rexAuthCheckWalletLinkedByWallet(wallet) {
+        if (!rexLinkAuthGateUrl || !wallet) {
+            return true;
+        }
+        try {
+            const response = await fetch(rexLinkAuthGateUrl, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
+                body: JSON.stringify({ wallet_address: wallet }),
+            });
+            const data = await response.json();
+            return Boolean(data && data.success && data.linked);
+        } catch (error) {
+            return true;
+        }
+    }
+
+    async function rexAuthRunGate(pairingId) {
+        if (rexLinkAuthCompleted || rexLinkAuthGated || rexLinkAuthGateRequestInFlight) {
+            return;
+        }
+        if (!rexLinkAuthGateUrl) {
+            return;
+        }
+        const pairing = Number(pairingId || rexLinkAuthPairingId || 0);
+        if (!pairing) {
+            return;
+        }
+        rexLinkAuthGateRequestInFlight = true;
+        try {
+            const response = await fetch(rexLinkAuthGateUrl, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
+                body: JSON.stringify({ pairing_id: pairing }),
+            });
+            const data = await response.json();
+            if (!data || !data.success) {
+                return;
+            }
+            const state = String(data.state || '');
+            if (state === 'connected') {
+                if (data.linked) {
+                    rexLinkStopGate();
+                } else {
+                    rexAuthWalletNotLinked();
+                }
+            }
+        } catch (error) {
+            // Transient network failures are retried by the gate timer.
+        } finally {
+            rexLinkAuthGateRequestInFlight = false;
+        }
+    }
+
+    function rexAuthStartGate(pairingId) {
+        rexLinkStopGate();
+        rexLinkAuthGated = false;
+        rexLinkGateTimer = window.setInterval(function() {
+            rexAuthRunGate(Number(pairingId || 0));
+        }, 1000);
+        rexAuthRunGate(Number(pairingId || 0));
+    }
+
+    function rexLinkStartCountdown(seconds, expiresAtUnix) {
+        const fallbackSeconds = Math.max(0, Number(seconds || 300));
+        const suppliedDeadline = Number(expiresAtUnix || 0) * 1000;
+        const deadlineMs = suppliedDeadline > Date.now()
+            ? suppliedDeadline
+            : Date.now() + fallbackSeconds * 1000;
         rexLinkStopCountdown();
         const updateCountdown = function() {
+            const remaining = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
             const minutes = Math.floor(remaining / 60);
             const secs = String(remaining % 60).padStart(2, '0');
             if (rexLinkCountdown) {
@@ -285,10 +370,63 @@ document.addEventListener('DOMContentLoaded', function() {
                 rexLinkShowExpired('This RexLink QR expired. Create a fresh code.');
                 return;
             }
-            remaining -= 1;
         };
         updateCountdown();
         rexLinkCountdownTimer = window.setInterval(updateCountdown, 1000);
+    }
+
+    function rexAuthPostJson(url, body, timeoutMs) {
+        const controller = 'AbortController' in window ? new AbortController() : null;
+        const timeoutId = controller ? window.setTimeout(function() { controller.abort(); }, Number(timeoutMs || 1200)) : null;
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            signal: controller ? controller.signal : undefined,
+            body: JSON.stringify(body || {}),
+        }).then(function(response) {
+            return response.json().then(function(data) {
+                if (!response.ok || !data || data.success === false) {
+                    throw new Error((data && data.message) || 'RexLink request failed.');
+                }
+                return data;
+            });
+        }).catch(function(error) {
+            if (error && error.name === 'AbortError') {
+                throw new Error('RexLink fallback did not respond in time.');
+            }
+            throw error;
+        }).finally(function() {
+            if (timeoutId) window.clearTimeout(timeoutId);
+        });
+    }
+
+    async function rexAuthHandleConnectedResult(result) {
+        if (rexLinkAuthCompleted || !result) return;
+        const walletAddress = String(result.walletAddress || result.wallet_address || '');
+        if (walletAddress) {
+            const linked = await rexAuthCheckWalletLinkedByWallet(walletAddress);
+            if (!linked) {
+                rexAuthWalletNotLinked();
+                return;
+            }
+        }
+        rexLinkAuthCompleted = true;
+        rexAuthStopPolling();
+        rexLinkStopCountdown();
+        rexLinkStopGate();
+        window.clearTimeout(rexLinkRedirectTimer);
+        if (rexLinkSuccessMessage) {
+            const wallet = rexLinkShortAddress(walletAddress);
+            rexLinkSuccessMessage.textContent = wallet
+                ? 'Wallet ' + wallet + ' connected. Signing you in...'
+                : 'RexLink connected. Signing you in...';
+        }
+        rexLinkSetStep('success');
+        rexLinkRedirectTimer = window.setTimeout(function() {
+            window.location.href = result.redirectUrl || result.redirect_url || authRedirectTo;
+        }, 600);
     }
 
     function rexAuthPollStatus() {
@@ -296,75 +434,56 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         rexLinkStatusRequestInFlight = true;
-        rexAuthPostJson(rexSignerLoginFromSessionUrl, { pairing_id: rexLinkAuthPairingId })
-            .then(function(data) {
-                if (rexLinkAuthCompleted) {
-                    return;
-                }
-                if (!data.success) {
-                    throw new Error(data.message || 'Could not check RexLink status.');
-                }
-                const status = String(data.status || 'pending');
-                if (status === 'authenticated') {
-                    rexLinkAuthCompleted = true;
-                    rexAuthStopPolling();
-                    rexLinkStopCountdown();
-                    window.clearTimeout(rexLinkRedirectTimer);
-                    if (rexLinkSuccessMessage) {
-                        const wallet = rexLinkShortAddress(data.wallet_address || data.wallet || '');
-                        rexLinkSuccessMessage.textContent = wallet
-                            ? 'Wallet ' + wallet + ' connected. Signing you in...'
-                            : 'RexLink connected. Signing you in...';
+        if (rexLinkAuthUsePhpFallback && rexLinkPhpStatusUrl) {
+            rexAuthPostJson(rexLinkPhpStatusUrl, { pairing_id: rexLinkAuthPairingId }, 1400)
+                .then(function(data) {
+                    const status = String(data.status || 'pending');
+                    if (status === 'authenticated') return rexAuthHandleConnectedResult(data);
+                    if (['expired', 'revoked', 'failed', 'none'].includes(status)) {
+                        throw new Error(data.message || 'RexLink pairing is no longer active.');
                     }
-                    if (rexLinkSuccessCountdown) {
-                        rexLinkSuccessCountdown.textContent = 'RexLink session: ' + rexLinkFormatClock(data.session_remaining_seconds || 0) + ' remaining';
+                    return null;
+                }).catch(function(error) {
+                    if (rexLinkAuthCompleted || /fallback did not respond/i.test(error.message || '')) return;
+                    rexLinkSetStatus(error.message || 'Could not check RexLink status.', 'error');
+                }).finally(function() {
+                    rexLinkStatusRequestInFlight = false;
+                });
+            return;
+        }
+        if (RexLink) {
+            RexLink.loginWithPairing({
+                pairingId: rexLinkAuthPairingId,
+                interval: 300,
+                shouldContinue: function() {
+                    return Boolean(rexLinkModal && !rexLinkModal.hidden && !rexLinkAuthCompleted && !rexLinkAuthGated);
+                },
+            })
+                .then(rexAuthHandleConnectedResult)
+                .catch(function(error) {
+                    if (rexLinkAuthCompleted || rexLinkAuthGated || /watch cancelled/i.test(error.message || '')) return;
+                    if (error.message && error.message.indexOf('timed out') !== -1) {
+                        rexLinkShowExpired('This RexLink QR expired. Create a fresh code.');
+                    } else {
+                        rexLinkSetStatus(error.message || 'Could not check RexLink status.', 'error');
+                        if (rexLinkPrimaryButton) rexLinkPrimaryButton.hidden = false;
                     }
-                    rexLinkSetStep('success');
-                    rexLinkRedirectTimer = window.setTimeout(function() {
-                        window.location.href = data.redirect_url || authRedirectTo;
-                    }, 1200);
-                    return;
-                }
-                if (status === 'expired' || status === 'revoked' || status === 'none') {
-                    rexLinkShowExpired(status === 'expired' ? 'This RexLink QR expired. Create a fresh code.' : (data.message || 'This RexLink request is no longer active.'));
-                    return;
-                }
-                rexLinkSetStatus('Waiting for RexLink to connect this browser.', '');
-            })
-            .catch(function(error) {
-                if (rexLinkAuthCompleted) {
-                    return;
-                }
-                rexLinkSetStatus(error.message || 'Could not check RexLink status.', 'error');
-                if (rexLinkPrimaryButton) {
-                    rexLinkPrimaryButton.hidden = false;
-                }
-            })
-            .finally(function() {
-                rexLinkStatusRequestInFlight = false;
-            });
+                })
+                .finally(function() {
+                    rexLinkStatusRequestInFlight = false;
+                });
+        }
     }
 
     function rexLinkRenderQrPayload(qrPayload) {
         if (!rexLinkQrPlaceholder || !qrPayload) {
             return;
         }
-
-        if (pairing.renderQr) {
-            pairing.renderQr(qrPayload, {
-                placeholder: rexLinkQrPlaceholder,
+        if (RexLink) {
+            RexLink.renderQR(qrPayload, rexLinkQrPlaceholder, {
                 image: rexLinkQrImage,
                 logoBadge: rexLinkQrLogoBadge,
-                fallbackUrl: rexSignerPairingQrUrl,
-                fallbackText: 'QR could not load. Use the code below.',
-                payloadDefaults: {
-                    purpose: 'auth',
-                    apiBaseUrl: rexlinkApiBaseUrl,
-                    baseUrl: rexlinkApiBaseUrl,
-                    dappName: 'CoinRex',
-                    dappUrl: cfg.baseUrl || window.location.origin,
-                    durationMinutes: 10,
-                },
+                fallbackUrl: rexLinkAuthUsePhpFallback ? rexLinkPhpQrUrl : '',
             }).then(function(rendered) {
                 if (!rendered) {
                     rexLinkSetStatus('QR could not load. Use the code below.', 'error');
@@ -372,7 +491,19 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             return;
         }
-
+        if (pairing.renderQr) {
+            pairing.renderQr(qrPayload, {
+                placeholder: rexLinkQrPlaceholder,
+                image: rexLinkQrImage,
+                logoBadge: rexLinkQrLogoBadge,
+                fallbackText: 'QR could not load. Use the code below.',
+            }).then(function(rendered) {
+                if (!rendered) {
+                    rexLinkSetStatus('QR could not load. Use the code below.', 'error');
+                }
+            });
+            return;
+        }
         rexLinkQrPlaceholder.innerHTML = '<span>Use the code below.</span>';
     }
 
@@ -390,26 +521,38 @@ document.addEventListener('DOMContentLoaded', function() {
             rexLinkPrimaryButton.textContent = 'Generating QR...';
         }
 
-        rexAuthPostJson(rexSignerCreatePairingUrl, {
-            purpose: 'auth',
-            duration_minutes: 10,
-            referral_code: rexLinkReferralCode,
-            device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '',
-        }).then(function(data) {
-            if (!data.success) {
-                throw new Error(data.message || 'Could not create RexLink code.');
-            }
+        rexLinkAuthUsePhpFallback = false;
+        var nodePairingPromise = RexLink
+            ? RexLink.createPairing({
+                    purpose: 'auth',
+                    durationMinutes: 5,
+                    referralCode: rexLinkReferralCode,
+                    timeoutMs: 2600,
+                    meta: { device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '' },
+                })
+            : Promise.reject(new Error('RexLink Node SDK is unavailable.'));
+        var pairingPromise = nodePairingPromise.catch(function(nodeError) {
+            if (!rexLinkPhpCreateUrl) throw nodeError;
+            return rexAuthPostJson(rexLinkPhpCreateUrl, {
+                purpose: 'auth',
+                duration_minutes: 5,
+                referral_code: rexLinkReferralCode,
+                dapp_name: 'CoinRex',
+                dapp_url: window.location.origin,
+                device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '',
+            }, 3000).then(function(data) {
+                rexLinkAuthUsePhpFallback = true;
+                return data;
+            });
+        });
+
+        pairingPromise.then(function(data) {
             rexLinkAuthPairingId = Number(data.pairing_id || 0);
             if (rexLinkPairingCode) {
                 rexLinkPairingCode.textContent = data.display_code || 'Code ready';
             }
             if (data.qr_payload) {
-                const qrPayload = Object.assign({}, data.qr_payload || {}, {
-                    purpose: 'auth',
-                    base_url: data.qr_payload.base_url || rexlinkApiBaseUrl,
-                    api_base_url: data.qr_payload.api_base_url || rexlinkApiBaseUrl
-                });
-                rexLinkRenderQrPayload(qrPayload);
+                rexLinkRenderQrPayload(data.qr_payload);
             }
             if (rexLinkQrPlaceholder) {
                 rexLinkQrPlaceholder.hidden = !data.qr_payload;
@@ -428,11 +571,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (rexLinkSessionNote) {
                 rexLinkSessionNote.textContent = "You'll be paired with CoinRex for 10 minutes after linking.";
             }
-            rexLinkStartCountdown(data.expires_in_seconds || 300);
+            rexLinkStartCountdown(
+                data.expires_in_seconds || 300,
+                data.expires_at_unix || (data.qr_payload && data.qr_payload.expires_at_unix) || 0
+            );
             rexLinkSetStatus('Open RexLink and connect with this QR or code.', '');
             rexLinkSetStep('link');
-            rexSignerAuthPollTimer = window.setInterval(rexAuthPollStatus, 1000);
+            rexSignerAuthPollTimer = window.setInterval(rexAuthPollStatus, 300);
             rexAuthPollStatus();
+            rexAuthStartGate(rexLinkAuthPairingId);
         }).catch(function(error) {
             rexLinkSetStatus(error.message || 'RexLink sign-in could not start.', 'error');
             rexLinkSetStep('link');
@@ -491,6 +638,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!rexLinkModal || rexLinkModal.hidden) {
             return;
         }
+        rexAuthRunGate(rexLinkAuthPairingId);
         rexAuthPollStatus();
     });
 

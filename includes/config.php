@@ -315,8 +315,14 @@ if ($rexlink_api_base_url === '' && ($rexlink_api_mode === 'node' || $rexlink_us
 $rexlink_api_base_url = $rexlink_api_base_url !== '' ? rtrim($rexlink_api_base_url, '/') : '';
 define('REXLINK_API_BASE_URL', $rexlink_api_base_url !== '' ? $rexlink_api_base_url : BASE_URL);
 $rexlink_node_api_base_url = trim((string) (getenv('REXLINK_NODE_PUBLIC_API_URL') ?: ''));
+$rexlink_node_api_port = max(1, min(65535, (int) (getenv('REXLINK_API_PORT') ?: 18083)));
+if ($rexlink_node_api_base_url === '') {
+    $rexlink_node_scheme = (string) (parse_url(BASE_URL, PHP_URL_SCHEME) ?: $protocol);
+    $rexlink_node_host = (string) (parse_url(BASE_URL, PHP_URL_HOST) ?: preg_replace('/:\\d+$/', '', $host));
+    $rexlink_node_api_base_url = $rexlink_node_scheme . '://' . $rexlink_node_host . ':' . $rexlink_node_api_port;
+}
 $rexlink_node_api_base_url = $rexlink_node_api_base_url !== '' ? rtrim($rexlink_node_api_base_url, '/') : '';
-define('REXLINK_NODE_API_BASE_URL', $rexlink_node_api_base_url !== '' ? $rexlink_node_api_base_url : REXLINK_API_BASE_URL);
+define('REXLINK_NODE_API_BASE_URL', $rexlink_node_api_base_url);
 define('REXLINK_AUTH_BRIDGE_URL', BASE_URL . '/auth/rexlink_bridge.php');
 define('ASSETS_URL', BASE_URL . '/assets');
 define('AUTH_URL', BASE_URL . '/auth');

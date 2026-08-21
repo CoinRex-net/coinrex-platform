@@ -44,12 +44,13 @@ try {
     $pairing_purpose = strtolower((string) ($pairing['pairing_purpose'] ?? 'claim'));
     $pairing_user_id = !empty($pairing['user_id']) ? (int) $pairing['user_id'] : null;
     if ($pairing_purpose === 'auth' && $pairing_user_id === null) {
-        [$auth_user] = rexSignerAuthFindOrCreateUser(
-            $db,
-            $wallet_address,
-            (string) ($pairing['device_fingerprint'] ?? ''),
-            (string) ($pairing['referral_code'] ?? '')
-        );
+        $auth_user_stmt = $db->prepare("SELECT * FROM users WHERE wallet_address = ? AND status = 'active' LIMIT 1");
+        $auth_user_stmt->execute([$wallet_address]);
+        $auth_user = $auth_user_stmt->fetch();
+        if (!$auth_user) {
+            $db->rollBack();
+            apiErrorResponse(403, 'This wallet is not linked to a CoinRex account. Link it after signing in with email first.');
+        }
         $login_error = rexSignerAuthUserCanLogin($auth_user);
         if ($login_error !== '') {
             $db->rollBack();

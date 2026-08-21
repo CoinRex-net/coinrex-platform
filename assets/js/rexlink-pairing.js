@@ -21,28 +21,42 @@
         defaults = defaults && typeof defaults === 'object' ? defaults : {};
         const apiBaseUrl = trimTrailingSlash(payload.api_base_url || payload.base_url || defaults.apiBaseUrl || defaults.baseUrl);
         const baseUrl = trimTrailingSlash(payload.base_url || payload.api_base_url || defaults.baseUrl || apiBaseUrl);
+        // RexLink compact QR envelope v2. Short keys keep the QR modules large
+        // enough for fast mobile scanning. Rex Wallet expands this envelope and
+        // still accepts the original verbose payload for backwards compatibility.
         const compact = {
-            type: payload.type || defaults.type || 'coinrex.rex_signer.pairing',
-            version: Number(payload.version || defaults.version || 2),
+            // Minimum legacy discovery fields let already-installed Rex Wallet
+            // builds recognize the code and API while new builds use short keys.
+            type: 'coinrex.rex_signer.pairing',
             code: payload.code || defaults.code || '',
-            purpose: payload.purpose || defaults.purpose || 'claim',
             api_base_url: apiBaseUrl,
-            base_url: baseUrl,
-            dapp_name: payload.dapp_name || defaults.dappName || 'CoinRex',
-            dapp_url: payload.dapp_url || defaults.dappUrl || baseUrl || window.location.origin,
-            network_slug: payload.network_slug || defaults.networkSlug || 'polygon',
-            chain_id: Number(payload.chain_id || defaults.chainId || 137),
-            requested_duration_minutes: Number(payload.requested_duration_minutes || defaults.durationMinutes || 10),
-            expires_at: payload.expires_at || defaults.expiresAt || '',
-            expires_in_seconds: Number(payload.expires_in_seconds || defaults.expiresInSeconds || 0),
-            expires_at_unix: Number(payload.expires_at_unix || defaults.expiresAtUnix || 0),
+            purpose: payload.purpose || defaults.purpose || 'claim',
+            t: 'rl',
+            v: Number(payload.version || defaults.version || 2),
+            c: payload.code || defaults.code || '',
+            u: apiBaseUrl,
+            a: payload.app_id || defaults.appId || 'coinrex',
+            m: payload.app_name || payload.dapp_name || defaults.appName || defaults.dappName || 'CoinRex',
+            o: payload.dapp_url || defaults.dappUrl || baseUrl || window.location.origin,
+            p: payload.purpose || defaults.purpose || 'claim',
+            s: String(payload.network_scope || defaults.networkScope || 'multi').toLowerCase() === 'multi' ? 'm' : 'l',
+            d: Number(payload.requested_duration_minutes || defaults.durationMinutes || 10),
+            x: Number(payload.expires_at_unix || defaults.expiresAtUnix || 0),
         };
 
+        if (Array.isArray(payload.supported_networks)) {
+            compact.n = payload.supported_networks.map(function(network) {
+                return [String(network.slug || ''), Number(network.chain_id || network.chainId || 0)];
+            }).filter(function(network) {
+                return network[0] && network[1] > 0;
+            });
+        }
+
         if (payload.coinrex_purpose || defaults.coinrexPurpose) {
-            compact.coinrex_purpose = payload.coinrex_purpose || defaults.coinrexPurpose;
+            compact.q = payload.coinrex_purpose || defaults.coinrexPurpose;
         }
         if (payload.requested_wallet_address || defaults.requestedWalletAddress) {
-            compact.requested_wallet_address = String(payload.requested_wallet_address || defaults.requestedWalletAddress).toLowerCase();
+            compact.w = String(payload.requested_wallet_address || defaults.requestedWalletAddress).toLowerCase();
         }
 
         return compact;

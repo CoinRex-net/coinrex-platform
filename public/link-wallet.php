@@ -4,6 +4,24 @@ ob_start();
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+function linkWalletB64Url($value)
+{
+    return rtrim(strtr(base64_encode((string) $value), '+/', '-_'), '=');
+}
+
+function linkWalletNodeActorToken($user_id)
+{
+    $secret = (string) (getenv('COINREX_REALTIME_SECRET') ?: (getenv('COINREX_ENCRYPTION_KEY') ?: (getenv('COINREX_CSRF_KEY') ?: 'coinrex-dev-realtime-secret')));
+    $payload = linkWalletB64Url(json_encode([
+        'user_id' => (int) $user_id,
+        'iat' => time(),
+        'exp' => time() + 900,
+        'scope' => 'review_pairing',
+    ], JSON_UNESCAPED_SLASHES));
+    $signature = linkWalletB64Url(hash_hmac('sha256', $payload, $secret, true));
+    return $payload . '.' . $signature;
+}
+
 if (!isLoggedIn()) {
     redirect(BASE_URL . '/auth/auth.php');
 }
@@ -100,6 +118,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $page_title = 'Link Wallet - ' . SITE_NAME;
+
+$link_wallet_actor_token = linkWalletNodeActorToken((int) ($user['id'] ?? 0));
+
+// Capture session-backed values before releasing the session file lock so the
+// browser's pairing/polling requests never block behind this page render.
+$page_csrf_token = appCsrfToken();
+@session_write_close();
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -198,7 +223,7 @@ require_once __DIR__ . '/../includes/header.php';
                         Connect Another Wallet
                     </button>
                     <form method="POST" class="link-wallet-reset-form" onsubmit="return confirm('Are you sure you want to reset your linked wallet? This will disconnect RexLink and require you to link a new wallet.');">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(appCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($page_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
                         <input type="hidden" name="action" value="reset_wallet">
                         <button type="submit" class="link-wallet-btn-reset">
                             <i class="fas fa-rotate-left"></i>
@@ -304,14 +329,22 @@ require_once __DIR__ . '/../includes/header.php';
 <script src="<?php echo ASSETS_URL; ?>/js/qrcode-browser.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/qrcode-browser.js'); ?>"></script>
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-pairing.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-pairing.js'); ?>"></script>
 <script>
+<?php
+$rexlink_link_api_base = defined('REXLINK_NODE_API_BASE_URL') && REXLINK_NODE_API_BASE_URL !== '' ? REXLINK_NODE_API_BASE_URL : BASE_URL;
+$rexlink_link_persist_url = BASE_URL . '/api/link_wallet_session.php';
+?>
 window.CoinRexLinkWalletConfig = {
-    rexlinkApiBaseUrl: <?php echo json_encode(BASE_URL); ?>,
-    baseUrl: <?php echo json_encode(BASE_URL); ?>,
+    rexlinkApiBaseUrl: <?php echo json_encode($rexlink_link_api_base); ?>,
+    baseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     browserBaseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
-    redirectAfterLink: <?php echo json_encode(BASE_URL . '/public/dashboard.php?wallet=linked'); ?>,
-    walletAlreadyLinked: <?php echo $wallet_linked ? 'true' : 'false'; ?>
+    redirectAfterLink: window.location.origin + <?php echo json_encode(BASE_URI . '/public/dashboard.php?wallet=linked'); ?>,
+    persistUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/link_wallet_session.php'); ?>,
+    csrfToken: <?php echo json_encode($page_csrf_token); ?>,
+    webActorToken: <?php echo json_encode($link_wallet_actor_token); ?>,
+    walletAlreadyLinked: <?php echo $wallet_linked ? 'true' : 'false' ?>
 };
 </script>
+<script src="<?php echo ASSETS_URL; ?>/js/rexlink-sdk.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-sdk.js'); ?>"></script>
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-link.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-link.js'); ?>"></script>
 <script>
 document.querySelectorAll('.link-wallet-copy[data-copy-text]').forEach(function(button) {

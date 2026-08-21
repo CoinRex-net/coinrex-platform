@@ -138,14 +138,15 @@ try {
 
     $stmt = $db->prepare("
         INSERT INTO rex_signer_approval_requests
-            (user_id, session_id, network_slug, request_type, title, summary, amount, fee_estimate, payload_json, expires_at)
+            (user_id, session_id, network_slug, chain_id, request_type, title, summary, amount, fee_estimate, payload_json, expires_at)
         VALUES
-            (?, ?, ?, 'claim', ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+            (?, ?, ?, ?, 'claim', ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
     ");
     $stmt->execute([
         $user_id,
         (int) $active_session['id'],
         $network_slug,
+        $chain_id,
         $request_title,
         $request_summary,
         $request_amount,

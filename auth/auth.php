@@ -181,6 +181,9 @@ if ($is_login_submission) {
 }
 
 // Now include header AFTER all PHP processing
+// Release the session file lock before rendering so the browser's RexLink
+// pairing/polling requests never block behind this page render.
+@session_write_close();
 require_once dirname(__DIR__) . '/includes/header.php';
 ?>
 
@@ -565,13 +568,18 @@ require_once dirname(__DIR__) . '/includes/header.php';
 
 <script src="<?php echo ASSETS_URL; ?>/js/qrcode-browser.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/qrcode-browser.js'); ?>"></script>
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-pairing.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-pairing.js'); ?>"></script>
+<script src="<?php echo ASSETS_URL; ?>/js/rexlink-sdk.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-sdk.js'); ?>"></script>
 <script>
 window.CoinRexAuthConfig = {
-    rexlinkApiBaseUrl: <?php echo json_encode(BASE_URL); ?>,
-    authRedirectTo: <?php echo json_encode($redirect_to !== '' ? BASE_URL . $redirect_to : BASE_URL . '/public/dashboard.php'); ?>,
+    rexlinkApiBaseUrl: <?php echo json_encode(REXLINK_NODE_API_BASE_URL); ?>,
+    rexlinkPhpCreateUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/rex-signer/create_pairing.php'); ?>,
+    rexlinkPhpStatusUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/rex-signer/auth/login_from_session.php'); ?>,
+    rexlinkPhpQrUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/rex-signer/pairing_qr.php'); ?>,
+    rexLinkAuthGateUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/rexlink_auth_gate.php'); ?>,
+    authRedirectTo: window.location.origin + <?php echo json_encode($redirect_to !== '' ? BASE_URI . $redirect_to : BASE_URI . '/public/dashboard.php'); ?>,
     rexLinkReferralCode: <?php echo json_encode((string) $register_referral); ?>,
     rexLinkAuthAccessible: <?php echo $rexlink_auth_accessible ? 'true' : 'false'; ?>,
-    baseUrl: <?php echo json_encode(BASE_URL); ?>,
+    baseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     browserBaseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>
 };
 </script>

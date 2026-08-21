@@ -39,6 +39,32 @@ async function ensureColumn(table, column, ddl) {
 }
 
 async function ensureSchema() {
+  // Create rex_signer_apps table for multi-app support
+  await query(`
+    CREATE TABLE IF NOT EXISTS rex_signer_apps (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      app_id VARCHAR(64) UNIQUE NOT NULL,
+      app_name VARCHAR(128) NOT NULL,
+      app_url VARCHAR(512) DEFAULT NULL,
+      public_key VARCHAR(256) DEFAULT NULL,
+      callback_url VARCHAR(512) DEFAULT NULL,
+      is_active TINYINT(1) DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Add app_id columns to existing tables (safe migration)
+  await ensureColumn('rex_signer_pairing_codes', 'poll_token_hash', 'poll_token_hash CHAR(64) DEFAULT NULL');
+  await ensureColumn('rex_signer_pairing_codes', 'app_id', "app_id VARCHAR(64) DEFAULT 'coinrex'");
+  await ensureColumn('rex_signer_sessions', 'app_id', "app_id VARCHAR(64) DEFAULT 'coinrex'");
+  await ensureColumn('rex_signer_approval_requests', 'app_id', "app_id VARCHAR(64) DEFAULT 'coinrex'");
+
+  await ensureColumn('rex_signer_pairing_codes', 'network_scope', 'network_scope VARCHAR(20) NOT NULL DEFAULT \'multi\' AFTER app_id');
+  await ensureColumn('rex_signer_pairing_codes', 'requested_networks_json', 'requested_networks_json JSON NULL AFTER network_scope');
+  await ensureColumn('rex_signer_approval_requests', 'chain_id', 'chain_id INT UNSIGNED NULL AFTER network_slug');
+
+  // Legacy schema
   await ensureColumn('rex_signer_approval_requests', 'tx_status', "tx_status VARCHAR(30) NULL AFTER tx_hash");
   await ensureColumn('rex_signer_approval_requests', 'tx_submitted_at', "tx_submitted_at DATETIME NULL AFTER tx_status");
   await ensureColumn('rex_signer_approval_requests', 'tx_confirmed_at', "tx_confirmed_at DATETIME NULL AFTER tx_submitted_at");

@@ -17,6 +17,7 @@ const createAuthSessionService = require('./services/auth-session-service');
 const createClaimMonitorService = require('./services/claim-monitor-service');
 const createProviderFactory = require('./services/provider-factory');
 const registerRoutes = require('./routes/register-routes');
+const registerV1Routes = require('./routes/v1-routes');
 const {
   jsonOk,
   jsonError,
@@ -43,7 +44,7 @@ app.use((req, res, next) => {
     res.setHeader('Vary', 'Origin');
   }
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-REX-SIGNER-SESSION, X-CoinRex-Web-Actor');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-REX-SIGNER-SESSION, X-CoinRex-Web-Actor, X-RexLink-App-ID');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
   next();
@@ -92,6 +93,8 @@ const authSessionService = createAuthSessionService({
   config,
   db,
   auth,
+  sessionPayload,
+  sha256,
   jsonOk,
 });
 const claimMonitorService = createClaimMonitorService({
@@ -128,11 +131,50 @@ registerRoutes(app, {
   loginFromSession: authSessionService.loginFromSession,
 }, asyncRoute);
 
+// Register clean v1 API routes
+registerV1Routes(app, {
+  health: assetService.health,
+  createPairing: pairingService.createPairing,
+  createReviewPairing: pairingService.createReviewPairing,
+  reviewWalletStatus: pairingService.reviewWalletStatus,
+  reviewPairingStatus: pairingService.reviewPairingStatus,
+  pairingQr: pairingService.pairingQr,
+  completePairing: pairingService.completePairing,
+  cancelPairing: pairingService.cancelPairing,
+  listSessions: pairingService.listSessions,
+  revokeSession: pairingService.revokeSession,
+  realtimeAuth: assetService.realtimeAuth,
+  networks: assetService.networks,
+  assets: assetService.assets,
+  externalHistory: assetService.externalHistory,
+  createClaimApproval: approvalService.createClaimApproval,
+  getApprovalStatus: approvalService.getApprovalStatus,
+  decideApproval: approvalService.decideApproval,
+  completeClaimTx: claimMonitorService.completeClaimTx,
+  loginFromSession: authSessionService.loginFromSession,
+}, asyncRoute);
+
+// Auto-register CoinRex app on startup
+async function ensureCoinRexApp() {
+  try {
+    await db.pool.execute(
+      `INSERT INTO rex_signer_apps (app_id, app_name, app_url) VALUES ('coinrex', 'CoinRex', ?)
+       ON DUPLICATE KEY UPDATE app_name = VALUES(app_name), app_url = VALUES(app_url), is_active = 1`,
+      [config.phpBaseUrl]
+    );
+  } catch (error) {
+    console.error('Failed to register CoinRex app:', error.message);
+  }
+}
+
 const server = http.createServer(app);
 realtime.attach(server);
 
 db.ensureSchema().then(async () => {
   await providers.init().catch(() => {});
+  await ensureCoinRexApp();
+  maintenance.expireOldRows().catch(() => {});
+  setInterval(() => maintenance.expireOldRows().catch(() => {}), 30000);
   setInterval(() => claimMonitorService.watchPending().catch(() => {}), 5000);
   server.listen(config.port, config.host, () => {
     console.log(`RexLink API listening on ${config.publicApiUrl} via ${config.host}:${config.port}`);
