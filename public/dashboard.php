@@ -48,6 +48,19 @@ $stmt->execute([(int) $user['id']]);
 $user['total_votes'] = (int) (($stmt->fetch()['total_votes'] ?? 0));
 $rexrank_stats = getUserRexRankStats((int) $user['id'], $db);
 
+$my_referrals = getUserReferralList((int) $user['id'], $db);
+$referral_metrics = ['total' => count($my_referrals), 'valid' => 0, 'pending' => 0, 'invalid' => 0];
+foreach ($my_referrals as $ref) {
+    $ref_status = strtolower(trim((string) ($ref['referral_review_status'] ?? 'pending')));
+    if ($ref_status === 'qualified') {
+        $referral_metrics['valid']++;
+    } elseif ($ref_status === 'invalid') {
+        $referral_metrics['invalid']++;
+    } else {
+        $referral_metrics['pending']++;
+    }
+}
+
 $recent_reviews = [];
 try {
     $stmt = $db->prepare("
@@ -796,6 +809,80 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
             </section>
         </div>
+
+        <!-- ===== MY REFERRALS ===== -->
+        <section class="card referral-card">
+            <div class="section-head">
+                <h3>My Referrals</h3>
+                <span class="referral-total-badge"><?php echo (int) $referral_metrics['total']; ?></span>
+            </div>
+
+            <div class="referral-stats-row">
+                <span class="referral-stat-pill referral-stat-pill--valid">
+                    <span class="referral-stat-count"><?php echo (int) $referral_metrics['valid']; ?></span>
+                    <span class="referral-stat-label">Valid</span>
+                </span>
+                <span class="referral-stat-pill referral-stat-pill--pending">
+                    <span class="referral-stat-count"><?php echo (int) $referral_metrics['pending']; ?></span>
+                    <span class="referral-stat-label">Pending</span>
+                </span>
+                <span class="referral-stat-pill referral-stat-pill--invalid">
+                    <span class="referral-stat-count"><?php echo (int) $referral_metrics['invalid']; ?></span>
+                    <span class="referral-stat-label">Invalid</span>
+                </span>
+            </div>
+
+            <div class="referral-link-box">
+                <span class="referral-link-label">Your Referral Link</span>
+                <div class="referral-link-row">
+                    <code class="referral-link-code"><?php echo htmlspecialchars($user_referral_link, ENT_QUOTES, 'UTF-8'); ?></code>
+                    <button type="button" class="referral-link-copy" data-copy-text="<?php echo htmlspecialchars($user_referral_link, ENT_QUOTES, 'UTF-8'); ?>" title="Copy referral link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <?php if (!empty($my_referrals)): ?>
+                <div class="referral-list">
+                    <?php foreach ($my_referrals as $ref): ?>
+                        <?php
+                        $ref_status = strtolower(trim((string) ($ref['referral_review_status'] ?? 'pending')));
+                        $ref_label = getReferralReviewStatusLabel($ref_status);
+                        $ref_class = getReferralReviewStatusClass($ref_status);
+                        $ref_name = trim((string) ($ref['full_name'] ?: $ref['username'] ?: 'User'));
+                        $ref_joined = date('M d, Y', strtotime((string) $ref['created_at']));
+                        $ref_taskhub_days = (int) getCompletedTaskHubDaysCount((int) $ref['id'], $db);
+                        $ref_progress_pct = min(100, round(($ref_taskhub_days / 4) * 100));
+                        ?>
+                        <div class="referral-row">
+                            <div class="referral-row-main">
+                                <div class="referral-row-avatar">
+                                    <?php echo strtoupper(substr($ref_name, 0, 1)); ?>
+                                </div>
+                                <div class="referral-row-info">
+                                    <span class="referral-row-name"><?php echo htmlspecialchars($ref_name, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="referral-row-date">Joined <?php echo htmlspecialchars($ref_joined, ENT_QUOTES, 'UTF-8'); ?></span>
+                                </div>
+                            </div>
+                            <div class="referral-row-progress">
+                                <span class="referral-row-progress-text"><?php echo $ref_taskhub_days; ?>/4 days</span>
+                                <div class="referral-row-progress-bar">
+                                    <span style="width: <?php echo $ref_progress_pct; ?>%"></span>
+                                </div>
+                            </div>
+                            <span class="referral-status-pill <?php echo htmlspecialchars($ref_class, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($ref_label, ENT_QUOTES, 'UTF-8'); ?>
+                            </span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="referral-empty">
+                    <span class="referral-empty-icon">👥</span>
+                    <p>No referrals yet. Share your link to invite friends!</p>
+                </div>
+            <?php endif; ?>
+        </section>
 
         <!-- ===== RECENT REVIEWS ===== -->
         <section class="card reviews-card">

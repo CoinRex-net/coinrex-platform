@@ -135,12 +135,32 @@ function rememberMeColumnsExist(PDO $db = null, array $columns = ['remember_toke
 }
 
 function setRememberMeCookie($token, $expires_at) {
-    setcookie(REMEMBER_ME_COOKIE_NAME, $token, $expires_at, '/', '', false, true);
+    $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+        || strtolower(trim($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    setcookie(REMEMBER_ME_COOKIE_NAME, $token, [
+        'expires'  => $expires_at,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $is_https,
+        'httponly'  => true,
+        'samesite' => 'Lax',
+    ]);
     $_COOKIE[REMEMBER_ME_COOKIE_NAME] = $token;
 }
 
 function clearRememberMeCookie() {
-    setcookie(REMEMBER_ME_COOKIE_NAME, '', time() - 3600, '/');
+    $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+        || strtolower(trim($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    setcookie(REMEMBER_ME_COOKIE_NAME, '', [
+        'expires'  => time() - 3600,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $is_https,
+        'httponly'  => true,
+        'samesite' => 'Lax',
+    ]);
     unset($_COOKIE[REMEMBER_ME_COOKIE_NAME]);
 }
 

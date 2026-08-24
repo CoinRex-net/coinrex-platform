@@ -502,3 +502,18 @@ function creditReferralCommissionForReview($review_user_id, $reward_amount, PDO 
 function reverseReferralCommissionForReview($review_user_id, $reward_amount, PDO $db = null) {
     return reverseReferralCommission($review_user_id, $reward_amount, 'review', $db);
 }
+
+function getUserReferralList($referrer_id, PDO $db = null) {
+    $db = $db ?: getDBConnection();
+    $stmt = $db->prepare("
+        SELECT
+            id, username, full_name, created_at,
+            referral_review_status, referral_qualified_at,
+            referral_flag_reason
+        FROM users
+        WHERE referred_by = ?
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute([(int) $referrer_id]);
+    return $stmt->fetchAll();
+}
