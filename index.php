@@ -812,6 +812,58 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </section>
 
+    <!-- ==================== OUR PARTNER ==================== -->
+    <section class="cr-partner" id="partner" aria-labelledby="partner-title">
+        <div class="cr-container">
+            <div class="cr-section-tag">Our Partner</div>
+            <h2 class="cr-section-title" id="partner-title">Meet Cryptothreads.io</h2>
+
+            <div class="cr-partner-card">
+                <a
+                    href="https://cryptothreads.io"
+                    class="cr-partner-logo-link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Visit Cryptothreads.io (opens in a new tab)"
+                >
+                    <img
+                        src="<?php echo ASSETS_URL; ?>/images/logoCT.png"
+                        alt="Cryptothreads.io"
+                        class="cr-partner-logo"
+                        loading="lazy"
+                        decoding="async"
+                    >
+                </a>
+
+                <p class="cr-partner-description">
+                    Research-backed crypto insights and structured market analysis from across Asia.
+                </p>
+
+                <a
+                    href="https://cryptothreads.io"
+                    class="cr-partner-website"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    cryptothreads.io
+                    <span aria-hidden="true">↗</span>
+                </a>
+
+                <a
+                    href="https://cryptothreads.io"
+                    class="cr-btn cr-btn-primary cr-partner-cta"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Explore Cryptothreads.io
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                        <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </section>
     <!-- ==================== BLOG ==================== -->
     <?php if (!empty($latest_blog_posts)): ?>
     <section class="cr-blog" id="blog">
@@ -965,7 +1017,7 @@ require_once __DIR__ . '/includes/header.php';
     }
 
     // Scroll reveal animations
-    const revealElements = document.querySelectorAll('.cr-explanation-card, .cr-path-card, .cr-step, .cr-signal-card, .cr-review-card, .cr-earning-card, .cr-developer-card, .cr-blog-card');
+    const revealElements = document.querySelectorAll('.cr-explanation-card, .cr-path-card, .cr-step, .cr-signal-card, .cr-review-card, .cr-earning-card, .cr-developer-card, .cr-partner-card, .cr-blog-card');
     
     if ('IntersectionObserver' in window) {
         const revealObserver = new IntersectionObserver((entries) => {
