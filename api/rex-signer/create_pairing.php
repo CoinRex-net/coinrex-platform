@@ -111,7 +111,12 @@ try {
             ]);
         $payload = [
             'type' => 'coinrex.rex_signer.pairing',
-            'version' => 2,
+            // RexLink uses v2 envelopes for pairings completed by the Node API
+            // at /api/v1/pairing/complete. This endpoint is the PHP transport,
+            // so advertise v1 and let the wallet use complete_pairing.php.
+            // Advertising v2 here makes the app request a Node-only route from
+            // the PHP website and then try to parse Apache's HTML response as JSON.
+            'version' => 1,
             'code' => $display_code,
             'purpose' => $is_auth_pairing ? 'auth' : $qr_purpose,
             'app_id' => 'coinrex',

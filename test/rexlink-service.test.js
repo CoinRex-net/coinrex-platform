@@ -221,3 +221,26 @@ test('browser QR compaction produces a small multi-network v2 envelope', () => {
   assert.equal(compact.code, 'REX-123-456');
   assert.equal(compact.endpoints, undefined);
 });
+
+test('browser QR compaction preserves PHP pairing protocol v1', () => {
+  const source = fs.readFileSync(require.resolve('../assets/js/rexlink-pairing.js'), 'utf8');
+  const window = { location: { origin: 'https://coinrex.xyz' } };
+  vm.runInNewContext(source, { window, navigator: {}, document: {} });
+  const compact = window.CoinRexPairing.compactPayload({
+    version: 1,
+    code: '123456',
+    purpose: 'auth',
+    api_base_url: 'https://coinrex.xyz',
+    trust_context: { verified: true },
+  }, {});
+
+  assert.equal(compact.v, 1);
+  assert.equal(compact.u, 'https://coinrex.xyz');
+  assert.equal(compact.p, 'auth');
+});
+
+test('shared PHP navigation include does not emit a UTF-8 BOM before API JSON', () => {
+  const source = fs.readFileSync(require.resolve('../includes/functions/navigation.php'));
+  assert.notDeepEqual(Array.from(source.subarray(0, 3)), [0xef, 0xbb, 0xbf]);
+  assert.equal(source.subarray(0, 5).toString('utf8'), '<?php');
+});

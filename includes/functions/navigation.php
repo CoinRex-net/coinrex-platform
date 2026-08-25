@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Navigation management helpers for shared header/footer/mobile menus.
  */
