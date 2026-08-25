@@ -816,7 +816,7 @@ require_once __DIR__ . '/includes/header.php';
     <section class="cr-partner" id="partner" aria-labelledby="partner-title">
         <div class="cr-container">
             <div class="cr-section-tag">Our Partner</div>
-            <h2 class="cr-section-title" id="partner-title">Meet Cryptothreads.io</h2>
+            <h2 class="cr-section-title" id="partner-title">Insight Meets Innovation</h2>
 
             <div class="cr-partner-card">
                 <a
@@ -839,28 +839,30 @@ require_once __DIR__ . '/includes/header.php';
                     Research-backed crypto insights and structured market analysis from across Asia.
                 </p>
 
-                <a
-                    href="https://cryptothreads.io"
-                    class="cr-partner-website"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    cryptothreads.io
-                    <span aria-hidden="true">↗</span>
-                </a>
+                <div class="cr-partner-actions">
+                    <a
+                        href="https://cryptothreads.io"
+                        class="cr-partner-website"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        cryptothreads.io
+                        <span aria-hidden="true">↗</span>
+                    </a>
 
-                <a
-                    href="https://cryptothreads.io"
-                    class="cr-btn cr-btn-primary cr-partner-cta"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Explore Cryptothreads.io
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                        <polyline points="12 5 19 12 12 19"/>
-                    </svg>
-                </a>
+                    <a
+                        href="https://cryptothreads.io"
+                        class="cr-btn cr-btn-primary cr-partner-cta"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Explore Cryptothreads.io
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                            <polyline points="12 5 19 12 12 19"/>
+                        </svg>
+                    </a>
+                </div>
             </div>
         </div>
     </section>
