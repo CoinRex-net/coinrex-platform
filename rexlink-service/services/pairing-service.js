@@ -301,7 +301,7 @@ function createPairingService({
           [wallet]
         );
         if (!users[0]) {
-          const error = new Error('This wallet is not linked to a CoinRex account. Link it after signing in with email first.');
+          const error = new Error('This RexLink wallet is not linked to any CoinRex account. Sign in with email and password, link this exact wallet, then try RexLink sign-in again.');
           error.status = 403;
           throw error;
         }
@@ -310,12 +310,20 @@ function createPairingService({
       if (!userId) throw new Error('Pairing owner could not be resolved.');
       if (purpose !== 'review_eligibility') {
         const [owners] = await conn.execute('SELECT id, wallet_address FROM users WHERE wallet_address = ? AND id <> ? LIMIT 1', [wallet, userId]);
-        if (owners[0]) throw new Error('This wallet is already linked to another CoinRex account.');
+        if (owners[0]) {
+          const error = new Error('This RexLink wallet is already linked to another CoinRex account. One wallet can be linked to only one CoinRex account. Use that account or choose a different wallet.');
+          error.status = 409;
+          throw error;
+        }
         const [users] = await conn.execute('SELECT id, wallet_address FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [userId]);
         const user = users[0];
         if (!user) throw new Error('Pairing owner could not be resolved.');
         const currentWallet = String(user.wallet_address || '').toLowerCase();
-        if (purpose === 'claim' && currentWallet && currentWallet !== wallet) throw new Error('This CoinRex account is already linked to a different wallet.');
+        if (purpose === 'claim' && currentWallet && currentWallet !== wallet) {
+          const error = new Error('A different RexLink wallet is already linked to this CoinRex account. Disconnect the existing wallet before linking this one.');
+          error.status = 409;
+          throw error;
+        }
         if (!currentWallet || purpose === 'auth') {
           await conn.execute(
             `UPDATE users SET wallet_address = ?, wallet_verified_at = COALESCE(wallet_verified_at, NOW()), auth_provider = CASE WHEN auth_provider = 'email' THEN 'hybrid' ELSE auth_provider END, updated_at = NOW() WHERE id = ?`,

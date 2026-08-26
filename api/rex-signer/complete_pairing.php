@@ -49,7 +49,7 @@ try {
         $auth_user = $auth_user_stmt->fetch();
         if (!$auth_user) {
             $db->rollBack();
-            apiErrorResponse(403, 'This wallet is not linked to a CoinRex account. Link it after signing in with email first.');
+            apiErrorResponse(403, 'This RexLink wallet is not linked to any CoinRex account. Sign in with email and password, link this exact wallet, then try RexLink sign-in again.');
         }
         $login_error = rexSignerAuthUserCanLogin($auth_user);
         if ($login_error !== '') {
@@ -69,7 +69,20 @@ try {
         $wallet_owner->execute([$wallet_address, $pairing_user_id]);
         if ($wallet_owner->fetch()) {
             $db->rollBack();
-            apiErrorResponse(409, 'This wallet is already linked to another CoinRex account.');
+            apiErrorResponse(409, 'This RexLink wallet is already linked to another CoinRex account. One wallet can be linked to only one CoinRex account. Use that account or choose a different wallet.');
+        }
+
+        $pairing_user_stmt = $db->prepare('SELECT wallet_address FROM users WHERE id = ? LIMIT 1 FOR UPDATE');
+        $pairing_user_stmt->execute([$pairing_user_id]);
+        $pairing_user = $pairing_user_stmt->fetch();
+        if (!$pairing_user) {
+            $db->rollBack();
+            apiErrorResponse(422, 'The CoinRex account for this pairing could not be found. Generate a new pairing request.');
+        }
+        $current_wallet_address = strtolower(trim((string) ($pairing_user['wallet_address'] ?? '')));
+        if ($pairing_purpose === 'claim' && $current_wallet_address !== '' && $current_wallet_address !== $wallet_address) {
+            $db->rollBack();
+            apiErrorResponse(409, 'A different RexLink wallet is already linked to this CoinRex account. Disconnect the existing wallet before linking this one.');
         }
 
         $wallet_update = $db->prepare("

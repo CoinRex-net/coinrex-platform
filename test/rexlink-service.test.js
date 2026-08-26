@@ -92,6 +92,134 @@ test('pairing creation does not wait for maintenance and returns a private statu
   assert.ok(insertParams.includes('hash:private-poll-token'));
 });
 
+function pairingCompletionServiceWithConnection(conn) {
+  return createPairingService({
+    config: {
+      environment: 'development',
+      publicApiUrl: 'https://api.coinrex.test',
+      phpBaseUrl: 'https://coinrex.test',
+      network: { slug: 'polygon', name: 'Polygon', chainId: 137, nativeSymbol: 'POL' },
+    },
+    db: { tx: async (callback) => callback(conn) },
+    auth: {},
+    realtime: { publish: () => {} },
+    QRCode: {},
+    maintenance: { expireOldRows: async () => {} },
+    sessionPayload: (value) => value,
+    jsonOk,
+    jsonError: () => {},
+    sha256: (value) => `hash:${value}`,
+    randomToken: () => 'session-token',
+    pairCode: () => '123456',
+    normalizePairCode: (value) => String(value).replace(/\D+/g, ''),
+    formatPairCode: () => 'REX-123-456',
+    clampDuration: (value) => Number(value),
+    normalizeWallet: (value) => String(value).toLowerCase(),
+  });
+}
+
+test('auth pairing clearly rejects a wallet that is not linked to any account', async () => {
+  let queryIndex = 0;
+  const conn = {
+    execute: async () => {
+      queryIndex += 1;
+      if (queryIndex === 1) {
+        return [[{
+          id: 41,
+          user_id: null,
+          app_id: 'coinrex',
+          pairing_purpose: 'auth',
+          requested_duration_minutes: 5,
+        }]];
+      }
+      return [[]];
+    },
+  };
+  const service = pairingCompletionServiceWithConnection(conn);
+
+  await assert.rejects(
+    service.completePairing({
+      body: { code: '123456', wallet_address: '0x1111111111111111111111111111111111111111' },
+      headers: {},
+      ip: '127.0.0.1',
+    }, {}),
+    (error) => error.status === 403
+      && /not linked to any CoinRex account/.test(error.message)
+      && /email and password/.test(error.message)
+  );
+});
+
+test('claim pairing clearly rejects replacing a different wallet already linked to the account', async () => {
+  let queryIndex = 0;
+  const conn = {
+    execute: async () => {
+      queryIndex += 1;
+      if (queryIndex === 1) {
+        return [[{
+          id: 42,
+          user_id: 7,
+          app_id: 'coinrex',
+          pairing_purpose: 'claim',
+          requested_duration_minutes: 5,
+        }]];
+      }
+      if (queryIndex === 2) {
+        return [[]];
+      }
+      return [[{
+        id: 7,
+        wallet_address: '0x2222222222222222222222222222222222222222',
+      }]];
+    },
+  };
+  const service = pairingCompletionServiceWithConnection(conn);
+
+  await assert.rejects(
+    service.completePairing({
+      body: { code: '123456', wallet_address: '0x1111111111111111111111111111111111111111' },
+      headers: {},
+      ip: '127.0.0.1',
+    }, {}),
+    (error) => error.status === 409
+      && /different RexLink wallet is already linked/.test(error.message)
+      && /Disconnect the existing wallet/.test(error.message)
+  );
+});
+
+test('pairing clearly rejects a wallet already linked to another account', async () => {
+  let queryIndex = 0;
+  const conn = {
+    execute: async () => {
+      queryIndex += 1;
+      if (queryIndex === 1) {
+        return [[{
+          id: 43,
+          user_id: 7,
+          app_id: 'coinrex',
+          pairing_purpose: 'claim',
+          requested_duration_minutes: 5,
+        }]];
+      }
+      return [[{
+        id: 8,
+        wallet_address: '0x1111111111111111111111111111111111111111',
+      }]];
+    },
+  };
+  const service = pairingCompletionServiceWithConnection(conn);
+
+  await assert.rejects(
+    service.completePairing({
+      body: { code: '123456', wallet_address: '0x1111111111111111111111111111111111111111' },
+      headers: {},
+      ip: '127.0.0.1',
+    }, {}),
+    (error) => error.status === 409
+      && /already linked to another CoinRex account/.test(error.message)
+      && /only one CoinRex account/.test(error.message)
+  );
+});
+
 test('session expiry uses server remaining time instead of parsing a database-local timestamp', () => {
   const before = Math.floor(Date.now() / 1000);
   const payload = sessionPayload({
