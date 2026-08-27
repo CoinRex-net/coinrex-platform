@@ -133,6 +133,50 @@ $pro_current_referrals = (int) ($level_state['stats']['valid_referrals'] ?? $use
 $pro_account_age_days = (int) ($level_state['stats']['account_age_days'] ?? 0);
 $pro_security_signals = getUserSecuritySignals((int) $user['id'], $db);
 $pro_security_clear = empty($pro_security_signals['is_suspicious']);
+
+// Dashboard mission portal. Reuse each Hub's authoritative state so counts and
+// availability match the dedicated task pages exactly.
+$dashboard_learn_state = null;
+$dashboard_learn_tasks = [];
+$dashboard_checkin_task = null;
+$dashboard_boost_state = null;
+
+if ($show_learnhub_feature && !$pro_mission_complete && $current_level === 'beginner') {
+    try {
+        $dashboard_learn_state = getTaskHubState((int) $user['id'], $db);
+        if (($dashboard_learn_state['access'] ?? '') === 'open') {
+            foreach (($dashboard_learn_state['tasks'] ?? []) as $dashboard_task) {
+                if (taskHubIsCheckinTaskKey((string) ($dashboard_task['task_key'] ?? ''))) {
+                    $dashboard_checkin_task = $dashboard_task;
+                    continue;
+                }
+                if (($dashboard_task['status'] ?? '') !== 'completed') {
+                    $dashboard_learn_tasks[] = $dashboard_task;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        $dashboard_learn_state = null;
+    }
+}
+
+if ($show_boosthub_feature) {
+    try {
+        $dashboard_boost_state = getBoostHubStateForUser((int) $user['id'], $db);
+    } catch (Throwable $e) {
+        $dashboard_boost_state = null;
+    }
+}
+
+$dashboard_checkin_status = (string) ($dashboard_checkin_task['status'] ?? '');
+$dashboard_has_learn_item = $dashboard_learn_state !== null
+    && (!empty($dashboard_learn_tasks)
+        || ($dashboard_checkin_task !== null && $dashboard_checkin_status !== 'completed'));
+$dashboard_has_boost_item = $dashboard_boost_state !== null
+    && (!empty($dashboard_boost_state['pending_task'])
+        || !empty($dashboard_boost_state['task'])
+        || !empty($dashboard_boost_state['submitted_task']));
+
 $pro_referrals_complete = $pro_current_referrals >= $pro_required_referrals;
 $pro_age_complete = $pro_account_age_days >= $pro_required_age_days;
 $user_referral_link = buildReferralLink((string) ($user['referral_code'] ?? ''));
@@ -382,6 +426,138 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
             </div>
         </section>
+
+        <!-- ===== MISSION CONTROL ===== -->
+        <?php if ($dashboard_has_learn_item || $dashboard_has_boost_item): ?>
+            <?php
+            $learn_pending_count = count($dashboard_learn_tasks);
+            $checkin_status = (string) ($dashboard_checkin_task['status'] ?? 'locked');
+            $checkin_available = $checkin_status === 'available';
+            $boost_task = null;
+            $boost_mode = (string) ($dashboard_boost_state['status'] ?? 'closed');
+            $action_count = $learn_pending_count + ($checkin_available ? 1 : 0);
+            if (!empty($dashboard_boost_state['pending_task'])) {
+                $boost_task = $dashboard_boost_state['pending_task'];
+                $boost_mode = 'returned';
+                $action_count++;
+            } elseif (!empty($dashboard_boost_state['task'])) {
+                $boost_task = $dashboard_boost_state['task'];
+                $boost_mode = 'open';
+                $action_count++;
+            } elseif (!empty($dashboard_boost_state['submitted_task'])) {
+                $boost_task = $dashboard_boost_state['submitted_task'];
+                $boost_mode = 'submitted';
+            }
+            ?>
+            <section class="card mission-control" aria-labelledby="mission-control-title">
+                <div class="mission-control-head">
+                    <div class="mission-control-heading">
+                        <span class="mission-control-logo" aria-hidden="true"><i class="fas fa-bolt"></i></span>
+                        <div>
+                            <span class="mission-control-eyebrow">Your next move</span>
+                            <h3 id="mission-control-title">Mission Control</h3>
+                            <p><?php echo $action_count > 0 ? number_format($action_count) . ' mission' . ($action_count === 1 ? '' : 's') . ' in today\'s queue.' : 'You are caught up. New missions will appear here.'; ?></p>
+                        </div>
+                    </div>
+                    <span class="mission-live-pill"><span></span> Live</span>
+                </div>
+                <div class="mission-control-grid<?php echo (!$dashboard_has_learn_item || !$dashboard_has_boost_item) ? ' mission-control-grid--single' : ''; ?>">
+                    <?php if ($dashboard_has_learn_item): ?>
+                        <?php
+                        $learn_day = (int) ($dashboard_learn_state['current_day'] ?? 1);
+                        $learn_completed = (int) ($dashboard_learn_state['completed_tasks'] ?? 0);
+                        $learn_total = max(1, (int) ($dashboard_learn_state['total_tasks'] ?? 0));
+                        $learn_progress = (int) ($dashboard_learn_state['current_day_progress_percent'] ?? 0);
+                        $checkin_reward = (float) ($dashboard_checkin_task['reward'] ?? $dashboard_learn_state['today_checkin_reward'] ?? 0);
+                        ?>
+                        <article class="mission-hub mission-hub--learn<?php echo $checkin_status === 'completed' ? ' mission-hub--checkin-secured' : ''; ?>">
+                            <div class="mission-hub-head">
+                                <div class="mission-hub-brand">
+                                    <span class="mission-hub-icon"><i class="fas fa-graduation-cap"></i></span>
+                                    <div><strong>LearnHub</strong><span>Day <?php echo $learn_day; ?> of 10</span></div>
+                                </div>
+                                <span class="mission-progress-label"><?php echo $learn_completed; ?>/<?php echo $learn_total; ?> done</span>
+                            </div>
+                            <div class="mission-progress-track" role="progressbar" aria-label="LearnHub day progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo $learn_progress; ?>"><span style="width: <?php echo $learn_progress; ?>%"></span></div>
+
+                            <?php if ($dashboard_checkin_task): ?>
+                                <div class="mission-checkin mission-checkin--<?php echo htmlspecialchars($checkin_status, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <span class="mission-checkin-icon"><i class="fas <?php echo $checkin_status === 'completed' ? 'fa-circle-check' : ($checkin_available ? 'fa-calendar-check' : 'fa-lock'); ?>"></i></span>
+                                    <div class="mission-checkin-copy">
+                                        <span>Daily check-in</span>
+                                        <strong><?php echo $checkin_status === 'completed' ? 'Streak secured for today' : ($checkin_available ? 'Secure today\'s streak' : htmlspecialchars((string) ($dashboard_checkin_task['status_message'] ?? 'Unlocking soon'), ENT_QUOTES, 'UTF-8')); ?></strong>
+                                    </div>
+                                    <span class="mission-reward">+<?php echo number_format($checkin_reward, 0); ?> $REX</span>
+                                    <?php if ($checkin_available): ?>
+                                        <button type="button" class="mission-primary-btn" data-dashboard-checkin="<?php echo htmlspecialchars((string) ($dashboard_checkin_task['task_key'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">Check in <i class="fas fa-arrow-right"></i></button>
+                                    <?php elseif ($checkin_status !== 'completed'): ?>
+                                        <a class="mission-icon-link" href="<?php echo BASE_URL; ?>/public/taskhub.php" aria-label="Open LearnHub"><i class="fas fa-arrow-right"></i></a>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="mission-task-list">
+                                <div class="mission-list-label"><span>Pending missions</span><span class="<?php echo $learn_pending_count > 0 ? 'is-pending' : 'is-clear'; ?>"><?php echo $learn_pending_count; ?></span></div>
+                                <?php foreach (array_slice($dashboard_learn_tasks, 0, 3) as $learn_task): ?>
+                                    <?php
+                                    $learn_task_status = (string) ($learn_task['status'] ?? 'locked');
+                                    $learn_task_url = ($learn_task['verification_mode'] ?? '') === 'boosthub_redirect' ? BASE_URL . '/public/boosthub.php' : BASE_URL . '/public/taskhub.php';
+                                    ?>
+                                    <a class="mission-task-row" href="<?php echo htmlspecialchars($learn_task_url, ENT_QUOTES, 'UTF-8'); ?>">
+                                        <span class="mission-task-state mission-task-state--<?php echo htmlspecialchars($learn_task_status, ENT_QUOTES, 'UTF-8'); ?>"><i class="fas <?php echo $learn_task_status === 'submitted' ? 'fa-hourglass-half' : ($learn_task_status === 'available' ? 'fa-play' : 'fa-lock'); ?>"></i></span>
+                                        <span class="mission-task-copy"><strong><?php echo htmlspecialchars((string) ($learn_task['title'] ?? 'LearnHub task'), ENT_QUOTES, 'UTF-8'); ?></strong><small><?php echo htmlspecialchars((string) ($learn_task['status_message'] ?? ucfirst($learn_task_status)), ENT_QUOTES, 'UTF-8'); ?></small></span>
+                                        <span class="mission-task-reward">+<?php echo number_format((float) ($learn_task['reward'] ?? 0), 0); ?></span>
+                                        <i class="fas fa-chevron-right mission-task-arrow"></i>
+                                    </a>
+                                <?php endforeach; ?>
+                                <?php if ($learn_pending_count === 0): ?><div class="mission-empty"><i class="fas fa-circle-check"></i><span>Today's LearnHub missions are complete.</span></div><?php endif; ?>
+                            </div>
+                            <a class="mission-hub-footer" href="<?php echo BASE_URL; ?>/public/taskhub.php"><span>Continue LearnHub</span><i class="fas fa-arrow-right"></i></a>
+                        </article>
+                    <?php endif; ?>
+
+                    <?php if ($dashboard_has_boost_item): ?>
+                        <article class="mission-hub mission-hub--boost">
+                            <div class="mission-hub-head">
+                                <div class="mission-hub-brand">
+                                    <span class="mission-hub-icon"><i class="fas fa-rocket"></i></span>
+                                    <div><strong>BoostHub</strong><span>Quick earning missions</span></div>
+                                </div>
+                                <span class="mission-status-badge mission-status-badge--<?php echo htmlspecialchars($boost_mode, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo $boost_mode === 'returned' ? 'Fix needed' : ($boost_mode === 'open' ? 'Ready now' : ($boost_mode === 'submitted' ? 'In review' : ($boost_mode === 'locked' ? 'Cooling down' : 'Up to date'))); ?>
+                                </span>
+                            </div>
+                            <div class="boost-mission-spotlight boost-mission-spotlight--<?php echo htmlspecialchars($boost_mode, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php if ($boost_task): ?>
+                                    <div class="boost-mission-topline">
+                                        <span><i class="fas <?php echo $boost_mode === 'returned' ? 'fa-rotate-left' : ($boost_mode === 'submitted' ? 'fa-clock' : 'fa-bolt'); ?>"></i> <?php echo $boost_mode === 'returned' ? 'Correction requested' : ($boost_mode === 'submitted' ? 'Evidence submitted' : 'Assigned to you'); ?></span>
+                                        <span class="mission-reward">+<?php echo number_format((float) ($boost_task['reward'] ?? 0), 2); ?> $REX</span>
+                                    </div>
+                                    <h4><?php echo htmlspecialchars((string) ($boost_task['title'] ?? 'BoostHub task'), ENT_QUOTES, 'UTF-8'); ?></h4>
+                                    <p><?php echo htmlspecialchars((string) ($boost_task['description'] ?? 'Complete this quick task and submit your evidence.'), ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <div class="boost-mission-meta"><span><i class="fas fa-tag"></i> <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string) ($boost_task['task_category'] ?? 'Community'))), ENT_QUOTES, 'UTF-8'); ?></span></div>
+                                    <?php if ($boost_mode !== 'submitted'): ?>
+                                        <a class="boost-mission-cta" href="<?php echo BASE_URL; ?>/public/boosthub.php"><?php echo $boost_mode === 'returned' ? 'Fix submission' : 'Start mission'; ?> <i class="fas fa-arrow-right"></i></a>
+                                    <?php else: ?>
+                                        <div class="boost-review-note"><i class="fas fa-shield-alt"></i><span>Your proof is being reviewed. Check BoostHub for updates.</span></div>
+                                    <?php endif; ?>
+                                <?php elseif ($boost_mode === 'locked'): ?>
+                                    <span class="boost-lock-icon"><i class="fas fa-hourglass-half"></i></span>
+                                    <span class="boost-lock-eyebrow">Next mission unlocks in</span>
+                                    <strong class="boost-countdown" data-mission-countdown="<?php echo (int) ($dashboard_boost_state['countdown_seconds'] ?? 0); ?>">--h --m --s</strong>
+                                    <p>Come back when the cooldown ends to keep earning.</p>
+                                <?php else: ?>
+                                    <span class="boost-lock-icon boost-lock-icon--done"><i class="fas fa-trophy"></i></span>
+                                    <strong>All available boosts completed</strong>
+                                    <p>You're caught up. We'll show your next opportunity here.</p>
+                                <?php endif; ?>
+                            </div>
+                            <a class="mission-hub-footer" href="<?php echo BASE_URL; ?>/public/boosthub.php"><span>Open BoostHub</span><i class="fas fa-arrow-right"></i></a>
+                        </article>
+                    <?php endif; ?>
+                </div>
+            </section>
+        <?php endif; ?>
 
         <!-- ===== WALLET CARD ===== -->
         <?php
@@ -1001,6 +1177,58 @@ document.querySelectorAll('[data-copy-text]:not(.pro-requirement-action):not(.wa
             this.classList.remove('airdrop-premium-referral-copy--copied');
         }
     });
+});
+
+document.querySelectorAll('[data-dashboard-checkin]').forEach((button) => {
+    button.addEventListener('click', async function() {
+        const taskKey = this.dataset.dashboardCheckin || '';
+        if (!taskKey || this.disabled) return;
+
+        const originalHtml = this.innerHTML;
+        this.disabled = true;
+        this.setAttribute('aria-busy', 'true');
+        this.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Securing...';
+
+        try {
+            const response = await fetch('<?php echo BASE_URL; ?>/api/submit_taskhub_task.php', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: new URLSearchParams({ task_key: taskKey }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Check-in could not be completed.');
+            }
+            this.innerHTML = '<i class="fas fa-check"></i> Streak secured';
+            window.setTimeout(() => window.location.reload(), 650);
+        } catch (error) {
+            this.disabled = false;
+            this.removeAttribute('aria-busy');
+            this.innerHTML = originalHtml;
+            window.alert(error.message || 'Check-in failed. Please try again.');
+        }
+    });
+});
+
+document.querySelectorAll('[data-mission-countdown]').forEach((element) => {
+    let remaining = Math.max(0, Number(element.dataset.missionCountdown) || 0);
+    const render = () => {
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const seconds = remaining % 60;
+        element.textContent = String(hours).padStart(2, '0') + 'h ' + String(minutes).padStart(2, '0') + 'm ' + String(seconds).padStart(2, '0') + 's';
+        if (remaining <= 0) return false;
+        remaining--;
+        return true;
+    };
+    render();
+    const timer = window.setInterval(() => {
+        if (!render()) {
+            window.clearInterval(timer);
+            window.setTimeout(() => window.location.reload(), 800);
+        }
+    }, 1000);
 });
 </script>
 
