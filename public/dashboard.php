@@ -89,6 +89,14 @@ if (($user['level'] ?? '') === 'pro') {
 
 $current_level = normalizeUserLevel((string) ($user['level'] ?? 'beginner'));
 $has_pro_access = in_array($current_level, ['pro', 'expert'], true);
+$pro_weekly_streak_state = null;
+if ($has_pro_access) {
+    try {
+        $pro_weekly_streak_state = proWeeklyStreakGetState((int) $user['id'], $db);
+    } catch (Throwable $e) {
+        error_log('PRO weekly streak state failed: ' . $e->getMessage());
+    }
+}
 $next_level = $level_progress['next_level'] ?? null;
 $level_definitions = getLevelSystemDefinitions();
 $next_policy = $next_level && isset($level_definitions[$next_level]) ? $level_definitions[$next_level] : null;
@@ -363,6 +371,7 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/dashboard.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/dashboard.css'); ?>">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/pro-weekly-streak.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/pro-weekly-streak.css'); ?>">
 
 <main class="dashboard-main">
     <div class="dashboard-container">
@@ -426,6 +435,10 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
             </div>
         </section>
+
+        <?php if ($pro_weekly_streak_state !== null): ?>
+            <?php require __DIR__ . '/../includes/dashboard/pro-weekly-streak.php'; ?>
+        <?php endif; ?>
 
         <!-- ===== MISSION CONTROL ===== -->
         <?php if ($dashboard_has_learn_item || $dashboard_has_boost_item): ?>
@@ -1231,5 +1244,8 @@ document.querySelectorAll('[data-mission-countdown]').forEach((element) => {
     }, 1000);
 });
 </script>
+<?php if ($pro_weekly_streak_state !== null): ?>
+<script src="<?php echo ASSETS_URL; ?>/js/pro-weekly-streak.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/pro-weekly-streak.js'); ?>"></script>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

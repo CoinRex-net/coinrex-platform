@@ -1,0 +1,13 @@
+<?php
+namespace CoinRex\Tests\Unit;
+use PHPUnit\Framework\TestCase;
+require_once dirname(__DIR__,2).'/includes/config.php';
+final class ProWeeklyStreakTest extends TestCase {
+ public function testOnlyProAndExpertAreEligible():void{$this->assertFalse(\proWeeklyStreakUserIsEligible(['level'=>'beginner']));$this->assertTrue(\proWeeklyStreakUserIsEligible(['level'=>'pro']));$this->assertTrue(\proWeeklyStreakUserIsEligible(['level'=>'expert']));}
+ public function testBaseStateContainsExactDailyRewards():void{$state=\proWeeklyStreakBaseState(true,strtotime('2026-08-28 10:00:00'));$this->assertSame([1,2,3,4,5,6,7],array_column($state['daily_rewards'],'reward'));$this->assertTrue($state['can_checkin']);$this->assertSame(1,$state['today_reward']);}
+ public function testStreakOnlyResetsAfterFullDayIsMissed():void{$cycle=['status'=>'active','last_checkin_on'=>'2026-08-28'];$this->assertFalse(\proWeeklyStreakIsMissed($cycle,strtotime('2026-08-29 23:59:59'),false));$this->assertTrue(\proWeeklyStreakIsMissed($cycle,strtotime('2026-08-30 00:00:01'),false));}
+ public function testPendingBoxIsNotMissed():void{$cycle=['status'=>'box_pending','last_checkin_on'=>'2026-08-20'];$this->assertFalse(\proWeeklyStreakIsMissed($cycle,strtotime('2026-08-30 12:00:00')));}
+ public function testCompletedCycleRestartsAtTimestamp():void{$cycle=['status'=>'completed','restart_available_at'=>'2026-08-29 00:00:00'];$this->assertFalse(\proWeeklyStreakCanRestart($cycle,strtotime('2026-08-28 23:59:59'),false));$this->assertTrue(\proWeeklyStreakCanRestart($cycle,strtotime('2026-08-29 00:00:00'),false));}
+ public function testExistingTestModeBypassesWaitsWithUniqueSlots():void{$active=['status'=>'active','last_checkin_on'=>'2026-08-20'];$done=['status'=>'completed','restart_available_at'=>'2099-01-01 00:00:00'];$this->assertIsBool(\proWeeklyStreakTestMode());$this->assertFalse(\proWeeklyStreakIsMissed($active,strtotime('2026-08-30'),true,true));$this->assertTrue(\proWeeklyStreakCanRestart($done,strtotime('2026-08-30'),true,true));$this->assertNotSame(\proWeeklyStreakCheckinDate(['cycle_number'=>1],1,time(),true),\proWeeklyStreakCheckinDate(['cycle_number'=>2],1,time(),true));}
+ public function testMutationSourceContracts():void{$source=file_get_contents(dirname(__DIR__,2).'/includes/functions/pro_weekly_streak.php');$this->assertStringContainsString('uq_pro_weekly_user_date',$source);$this->assertStringContainsString("'pro_weekly_checkin'",$source);$this->assertStringContainsString("'pro_weekly_mystery_box'",$source);$this->assertStringContainsString("random_int(PRO_WEEKLY_STREAK_BOX_MIN,PRO_WEEKLY_STREAK_BOX_MAX)",$source);$this->assertGreaterThanOrEqual(2,substr_count($source,"'phase2'"));}
+}

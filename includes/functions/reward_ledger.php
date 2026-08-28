@@ -456,6 +456,9 @@ function addRewardLedgerEntry($user_id, $amount, $source, $action_type = 'credit
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     $stmt->execute([$user_id, $source, $reward_phase, $action_type, $amount, $status, $reference_id, $user_level_at_time, $expires_at]);
+    // Capture this immediately: notification creation below performs its own
+    // INSERT and would otherwise replace PDO::lastInsertId().
+    $ledger_entry_id = (int) $db->lastInsertId();
 
     if ($amount > 0 && $action_type === 'early_adopter_airdrop' && $status === 'pending') {
         $expiry_label = $expires_at ? date('M d, Y', strtotime($expires_at)) : ((int) EARLY_AIRDROP_UNLOCK_DAYS . ' days');
@@ -490,7 +493,7 @@ function addRewardLedgerEntry($user_id, $amount, $source, $action_type = 'credit
     syncLegacyRewardCache($user_id, $db);
 
     return [
-        'id' => (int) $db->lastInsertId(),
+        'id' => $ledger_entry_id,
         'user_id' => $user_id,
         'amount' => number_format($amount, 8, '.', ''),
         'source' => $source,
