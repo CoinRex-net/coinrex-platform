@@ -1,8 +1,9 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/coinwsua/public_html/
-    - /bin/rsync -rltv --exclude='.git/' --exclude='.env' --exclude='.env.local' --exclude='node_modules/' --exclude='uploads/' --exclude='cache/' --exclude='devhub/logs/' --exclude='composer.phar' ./ $DEPLOYPATH
+    - export DEPLOYPATH=/home/ftirlvnj/public_html/
+    - /bin/mkdir -p $DEPLOYPATH
+    - tar -cf - --exclude='.git' --exclude='.cpanel.yml' --exclude='.env' --exclude='.env.local' --exclude='node_modules' --exclude='uploads' --exclude='cache' --exclude='devhub/logs' --exclude='composer.phar' . | tar -xf - -C $DEPLOYPATH
     - /bin/rm -f $DEPLOYPATH/coinrex-hosting-upload.zip $DEPLOYPATH/countdown.zip $DEPLOYPATH/composer.phar $DEPLOYPATH/error_log
     - /bin/chmod 755 $DEPLOYPATH
     - /usr/bin/find $DEPLOYPATH -type d -exec /bin/chmod 755 {} \;
