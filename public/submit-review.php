@@ -1415,8 +1415,32 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             setValue('tx_hash', payload.tx_hash || '');
             setValue('wallet_address', payload.wallet_address || '');
             setValue('manual_wallet_address', payload.manual_wallet_address || '');
-            eligibilityOk = false;
-            walletOwnershipVerified = false;
+            // Draft-restore fix (item 6): preserve eligibility/wallet flags when the
+            // draft wallet still matches the account/session wallet instead of
+            // unconditionally resetting to false. This avoids forcing a re-pair
+            // when the RexLink session is still valid (900s window). The flags
+            // remain subject to server revalidation via pollEligibilityStatus.
+            (function restoreEligibilityFlags() {
+                var draftWallet = String(payload.wallet_address || '').toLowerCase().trim();
+                var draftManualWallet = String(payload.manual_wallet_address || '').toLowerCase().trim();
+                var method = String(payload.proof_method || getProofMethod() || 'instant');
+                var currentWallet = String((document.getElementById('wallet_address') && document.getElementById('wallet_address').value) || currentAccountWallet || '').toLowerCase().trim();
+                var isManual = method === 'manual';
+                var walletForCheck = isManual ? draftManualWallet : draftWallet;
+                var walletMatches = walletForCheck && currentWallet && walletForCheck === currentWallet;
+                if (walletMatches && payload.wallet_ownership_verified === '1') {
+                    walletOwnershipVerified = true;
+                } else if (payload.wallet_ownership_verified === '1' && !currentWallet && walletForCheck) {
+                    walletOwnershipVerified = true;
+                } else {
+                    walletOwnershipVerified = false;
+                }
+                if (walletMatches && payload.eligibility_ok === '1') {
+                    eligibilityOk = true;
+                } else {
+                    eligibilityOk = false;
+                }
+            })();
             if (payload.proof_method) {
                 const methodRadio = document.querySelector('input[name="proof_method"][value="' + payload.proof_method + '"]');
                 if (methodRadio) methodRadio.checked = true;
@@ -1449,6 +1473,9 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             // Always start at step 1 on page load. Restoring currentStep from a draft
             // causes step 2 validation errors to appear while the user is still on step 1.
             currentStep = 1;
+            if (walletOwnershipVerified) {
+                window.setTimeout(function() { try { pollEligibilityStatus(false); } catch (e2) {} }, 380);
+            }
         } catch (e) {}
     }
 
