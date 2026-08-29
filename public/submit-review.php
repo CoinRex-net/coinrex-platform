@@ -735,11 +735,25 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </section>
 
-        <?php if(!$project && $project_id > 0): ?>
+        <?php if(!empty($success) && in_array($success, ['review_submitted', 'review_auto_approved'], true) && $project): ?>
+            <div class="review-success-panel is-visible <?php echo $success === 'review_auto_approved' ? 'is-approved' : 'is-pending'; ?>" id="reviewSuccessPanel" role="status" aria-live="polite">
+                <div class="review-success-head">
+                    <div class="review-success-icon"><i class="fas <?php echo $success === 'review_auto_approved' ? 'fa-bolt' : 'fa-hourglass-half'; ?>"></i></div>
+                    <div>
+                        <h2><?php echo $success === 'review_auto_approved' ? 'Review approved — fast-lane applied' : 'Review submitted successfully'; ?></h2>
+                        <p><?php echo $success === 'review_auto_approved' ? 'Fast-lane review applied. Your review can surface sooner, but proof checks still continue. You can track its status in My Reviews.' : 'Proof verification usually takes 24–48 hours. You will be notified when moderation completes. You can track it in My Reviews.'; ?></p>
+                    </div>
+                </div>
+                <div class="review-success-actions">
+                    <a href="<?php echo BASE_URL; ?>/public/my-reviews.php" class="btn-submit"><i class="fas fa-list-check"></i> View My Reviews</a>
+                    <a href="<?php echo BASE_URL; ?>/public/project-detail.php?id=<?php echo (int) $project['id']; ?>" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Project</a>
+                </div>
+            </div>
+        <?php elseif(!$project && $project_id > 0): ?>
             <div class="error-message">Project not found. Please go back to <a href="<?php echo BASE_URL; ?>/public/projects.php">Projects Page</a>.</div>
         <?php elseif(!$project): ?>
             <div class="error-message">Please select a project from the <a href="<?php echo BASE_URL; ?>/public/projects.php">Projects Page</a> first.</div>
-        <?php elseif($existing_project_review): ?>
+        <?php elseif($existing_project_review && empty($success)): ?>
             <div class="review-status-card">
                 <div class="review-status-icon">
                     <i class="fas fa-lock"></i>
@@ -832,7 +846,12 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Submit</strong><small>Review & Confirm</small></div>
             </div>
 
-            <div class="submit-card submit-card-upgraded">
+            <div class="submit-card submit-card-upgraded" id="submitCard">
+                <div class="eligibility-loading-overlay" id="eligibilityLoadingOverlay" aria-live="polite" aria-busy="false" hidden>
+                    <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                    <p id="eligibilityLoadingTitle">Checking eligibility...</p>
+                    <small id="eligibilityLoadingHint">This may take a few seconds while we reach the Explorer API.</small>
+                </div>
                 <section class="wizard-step active" data-step="1">
                     <div class="step-intro">
                         <div>
@@ -924,6 +943,8 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="btn-submit eligibility-check-btn" id="btnCheckEligibility"><i class="fas fa-shield-check"></i> <span>Start Verification</span></button>
                             <button type="button" class="btn-cancel wallet-disconnect-btn" id="btnDisconnectWallet"><i class="fas fa-link-slash"></i> Disconnect</button>
                         </div>
+                        <div class="eligibility-inline-skeleton" id="eligibilitySkeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+                        <div class="eligibility-inline-alert" id="eligibilityInlineAlert" role="status" aria-live="polite" hidden></div>
                         <div class="verification-report" id="verificationReport" hidden>
                             <div class="verification-report-head"><strong id="verificationReportTitle">Verification Report</strong><span id="verificationReportStatus"></span></div>
                             <p id="verificationReportReason"></p>
@@ -932,6 +953,10 @@ require_once __DIR__ . '/../includes/header.php';
                                 <label><input type="checkbox" name="verification_confirmed" value="1" id="verificationConfirmed"> I have reviewed and understood this verification report.</label>
                                 <div id="verificationReportNextAction"></div>
                             </div>
+                        </div>
+                        <div class="live-progress-wrap" id="liveProgressWrap" hidden>
+                            <div class="live-progress-bar" aria-hidden="true"><div class="live-progress-fill" id="liveProgressFill"></div></div>
+                            <div class="live-progress-meta"><span id="liveProgressElapsed">—</span><span id="liveProgressChecked">—</span></div>
                         </div>
                     </div>
 
@@ -1390,8 +1415,32 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             setValue('tx_hash', payload.tx_hash || '');
             setValue('wallet_address', payload.wallet_address || '');
             setValue('manual_wallet_address', payload.manual_wallet_address || '');
-            eligibilityOk = false;
-            walletOwnershipVerified = false;
+            // Draft-restore fix (item 6): preserve eligibility/wallet flags when the
+            // draft wallet still matches the account/session wallet instead of
+            // unconditionally resetting to false. This avoids forcing a re-pair
+            // when the RexLink session is still valid (900s window). The flags
+            // remain subject to server revalidation via pollEligibilityStatus.
+            (function restoreEligibilityFlags() {
+                var draftWallet = String(payload.wallet_address || '').toLowerCase().trim();
+                var draftManualWallet = String(payload.manual_wallet_address || '').toLowerCase().trim();
+                var method = String(payload.proof_method || getProofMethod() || 'instant');
+                var currentWallet = String((document.getElementById('wallet_address') && document.getElementById('wallet_address').value) || currentAccountWallet || '').toLowerCase().trim();
+                var isManual = method === 'manual';
+                var walletForCheck = isManual ? draftManualWallet : draftWallet;
+                var walletMatches = walletForCheck && currentWallet && walletForCheck === currentWallet;
+                if (walletMatches && payload.wallet_ownership_verified === '1') {
+                    walletOwnershipVerified = true;
+                } else if (payload.wallet_ownership_verified === '1' && !currentWallet && walletForCheck) {
+                    walletOwnershipVerified = true;
+                } else {
+                    walletOwnershipVerified = false;
+                }
+                if (walletMatches && payload.eligibility_ok === '1') {
+                    eligibilityOk = true;
+                } else {
+                    eligibilityOk = false;
+                }
+            })();
             if (payload.proof_method) {
                 const methodRadio = document.querySelector('input[name="proof_method"][value="' + payload.proof_method + '"]');
                 if (methodRadio) methodRadio.checked = true;
@@ -1424,6 +1473,9 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             // Always start at step 1 on page load. Restoring currentStep from a draft
             // causes step 2 validation errors to appear while the user is still on step 1.
             currentStep = 1;
+            if (walletOwnershipVerified) {
+                window.setTimeout(function() { try { pollEligibilityStatus(false); } catch (e2) {} }, 380);
+            }
         } catch (e) {}
     }
 
@@ -1600,6 +1652,66 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         return value;
     }
 
+    function hideEligibilityInlineAlert() {
+        var banner = document.getElementById('eligibilityInlineAlert');
+        if (!banner) return;
+        banner.hidden = true;
+        banner.classList.remove('is-visible', 'is-error', 'is-warning', 'is-success', 'is-info');
+        banner.innerHTML = '';
+    }
+
+    function showEligibilityInlineAlert(opts) {
+        var banner = document.getElementById('eligibilityInlineAlert');
+        if (!banner) return;
+        opts = opts || {};
+        var type = opts.type || 'info';
+        var title = opts.title || 'Notice';
+        var message = opts.message || '';
+        var iconMap = { error: 'fa-circle-exclamation', warning: 'fa-triangle-exclamation', success: 'fa-circle-check', info: 'fa-circle-info' };
+        var actions = opts.actions || [];
+        banner.className = 'eligibility-inline-alert is-visible is-' + type;
+        banner.hidden = false;
+        var html = '<strong><i class="fas ' + (iconMap[type] || iconMap.info) + '"></i> ' + title + '</strong>';
+        if (message) html += '<p>' + message + '</p>';
+        if (actions.length) {
+            html += '<div class="eligibility-inline-alert-actions">';
+            actions.forEach(function(a) {
+                var cls = a.primary ? 'btn-submit' : 'btn-cancel';
+                html += '<button type="button" class="' + cls + '" data-inline-action="' + (a.action || '') + '">' + (a.icon ? '<i class="fas ' + a.icon + '"></i> ' : '') + a.label + '</button>';
+            });
+            html += '</div>';
+        }
+        banner.innerHTML = html;
+        banner.querySelectorAll('[data-inline-action]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var action = btn.getAttribute('data-inline-action');
+                if (action === 'retry') { var b = document.getElementById('btnCheckEligibility'); if (b && !b.disabled) b.click(); }
+                if (action === 'try-live') { var r = document.querySelector('input[name="proof_method"][value="live"]'); if (r) { r.checked = true; r.dispatchEvent(new Event('change', {bubbles:true})); showToast('Switched to Live verification — press Start Verification.', 'info'); } }
+                if (action === 'try-manual') { var rm = document.querySelector('input[name="proof_method"][value="manual"]'); if (rm) { rm.checked = true; rm.dispatchEvent(new Event('change', {bubbles:true})); showStep(2); showToast('Switched to Manual verification.', 'info'); } }
+                if (action === 'switch-wallet') { window.location.href = linkWalletUrl; }
+            });
+        });
+    }
+
+    function classifyEligibilityError(raw) {
+        var msg = String(raw && raw.message ? raw.message : raw || '').toLowerCase();
+        var status = String(raw && raw.status ? raw.status : '').toLowerCase();
+        var reasonCode = String(raw && (raw.reason_code || raw.reasonCode) ? (raw.reason_code || raw.reasonCode) : '').toLowerCase();
+        var isTimeout = /timeout|timed out|abort/i.test(msg);
+        var isNetwork = /network|failed to fetch|fetch|unreachable|load failed/i.test(msg);
+        var isRateLimited = /rate limited|rate_limited/i.test(msg) || status === 'rate_limited' || reasonCode === 'rate_limited';
+        var isProviderUnavailable = /unavailable|provider/i.test(msg) || status === 'provider_delayed' || status === 'blocked' && /unavailable/i.test(msg);
+        var isWalletUsed = /already have used|already been used|wallet_used|wallet already/i.test(msg) || status === 'wallet_used';
+        var isInsufficient = /below required|no qualifying|no holder balance|insufficient|not eligible|average.*balance/i.test(msg);
+        if (isWalletUsed) return { type: 'error', title: 'Wallet already used for this project', message: raw.message || 'This wallet has already been used to review this project. Switch to a fresh wallet linked to your account to check eligibility.', actions: [{ label: 'Switch wallet', action: 'switch-wallet', icon: 'fa-wallet', primary: true }, { label: 'Retry', action: 'retry', icon: 'fa-rotate' }] };
+        if (isRateLimited) return { type: 'warning', title: 'Explorer rate limited', message: 'The blockchain Explorer is rate limited. Please wait a moment and retry — your eligibility has not been removed.', actions: [{ label: 'Retry', action: 'retry', icon: 'fa-rotate', primary: true }] };
+        if (isTimeout) return { type: 'error', title: 'Request timed out', message: 'The eligibility check timed out. Check your connection and retry — this does not mark you as ineligible.', actions: [{ label: 'Retry', action: 'retry', icon: 'fa-rotate', primary: true }] };
+        if (isNetwork) return { type: 'error', title: 'Network error reaching Explorer', message: 'Could not reach CoinRex / Explorer API. Check your connection and retry.', actions: [{ label: 'Retry', action: 'retry', icon: 'fa-rotate', primary: true }] };
+        if (isProviderUnavailable) return { type: 'warning', title: 'Provider temporarily unavailable', message: raw.message || 'Blockchain data is temporarily delayed. Monitoring will resume automatically. Retry shortly.', actions: [{ label: 'Retry', action: 'retry', icon: 'fa-rotate', primary: true }] };
+        if (isInsufficient) return { type: 'warning', title: 'Insufficient balance or holding period', message: raw.message || 'No qualifying holding was found. Try Live verification (hold for the required period) or Manual verification with proof.', actions: [{ label: 'Try Live', action: 'try-live', icon: 'fa-video', primary: true }, { label: 'Try Manual', action: 'try-manual', icon: 'fa-keyboard' }] };
+        return { type: 'info', title: 'Eligibility check feedback', message: raw.message || String(raw || 'Verification feedback.'), actions: [] };
+    }
+
     function setEligibilityStatus(message, type = '') {
         let card = document.getElementById('eligibilityMonitorCard');
         if (!card && walletSessionActions) {
@@ -1658,6 +1770,48 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         return minutes + 'm ' + secs + 's';
     }
 
+    function parsePayloadTimestamp(value) {
+        if (!value) return 0;
+        var ts = Date.parse(String(value));
+        return isNaN(ts) ? 0 : ts;
+    }
+
+    function formatRelativeChecked(value) {
+        if (!value) return '';
+        var ts = parsePayloadTimestamp(value);
+        if (!ts) return 'Last checked ' + String(value);
+        var diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+        if (diffSec < 10) return 'Last checked just now';
+        if (diffSec < 60) return 'Last checked ' + diffSec + 's ago';
+        if (diffSec < 3600) return 'Last checked ' + Math.floor(diffSec / 60) + 'm ago';
+        return 'Last checked ' + String(value);
+    }
+
+    function updateLiveProgress(payload, remainingSeconds) {
+        var wrap = document.getElementById('liveProgressWrap');
+        var fill = document.getElementById('liveProgressFill');
+        var elapsedNode = document.getElementById('liveProgressElapsed');
+        var checkedNode = document.getElementById('liveProgressChecked');
+        if (!wrap || !payload) return;
+        var status = String(payload.status || 'not_started');
+        var isActive = status === 'active';
+        var isDelayed = status === 'provider_delayed';
+        wrap.hidden = !(isActive || isDelayed);
+        if (!isActive && !isDelayed) return;
+        var totalRequired = 0;
+        var startedTs = parsePayloadTimestamp(payload.started_at);
+        var eligibleTs = parsePayloadTimestamp(payload.eligible_at);
+        if (startedTs && eligibleTs) totalRequired = Math.max(1, Math.round((eligibleTs - startedTs) / 1000));
+        else if (payload.required_days) totalRequired = Number(payload.required_days) * 86400;
+        else totalRequired = Math.max(1, Number(remainingSeconds || 0) + 60);
+        var remaining = Math.max(0, Number(remainingSeconds || 0));
+        var elapsed = Math.max(0, totalRequired - remaining);
+        var pct = totalRequired > 0 ? Math.min(100, Math.max(0, (elapsed / totalRequired) * 100)) : 0;
+        if (fill) fill.style.width = pct.toFixed(1) + '%';
+        if (elapsedNode) elapsedNode.textContent = 'Elapsed ' + formatEligibilityCountdown(elapsed) + ' · Remaining ' + formatEligibilityCountdown(remaining) + ' (' + pct.toFixed(0) + '%)';
+        if (checkedNode) checkedNode.textContent = formatRelativeChecked(payload.last_checked_at);
+    }
+
     function renderEligibilityMonitoring(payload, notifyChange = false) {
         const status = String(payload?.status || 'not_started');
         const reason = String(payload?.reason || payload?.message || 'Receive the project token, then start verification.');
@@ -1673,9 +1827,10 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         if (countdown) countdown.textContent = status === 'active' ? formatEligibilityCountdown(payload?.remaining_seconds) : (status === 'eligible' ? 'Complete' : '');
         if (meta) {
             const balance = payload?.current_balance && payload?.token_symbol ? payload.current_balance + ' ' + payload.token_symbol : '';
-            const checked = payload?.last_checked_at ? 'Last checked ' + payload.last_checked_at : '';
+            const checked = payload?.last_checked_at ? formatRelativeChecked(payload.last_checked_at) : '';
             meta.textContent = [balance, checked].filter(Boolean).join(' · ');
         }
+        updateLiveProgress(payload, Number(payload?.remaining_seconds || 0));
         if (btnCheckEligibility) {
             btnCheckEligibility.hidden = status === 'eligible';
             btnCheckEligibility.disabled = status === 'active' || status === 'provider_delayed';
@@ -1689,8 +1844,17 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
                 const left = Math.max(0, Math.ceil((eligibilityDeadlineMs - Date.now()) / 1000));
                 const node = document.getElementById('eligibilityMonitorCountdown');
                 if (node) node.textContent = formatEligibilityCountdown(left);
+                updateLiveProgress(payload, left);
                 if (left <= 0) pollEligibilityStatus(true);
             }, 1000);
+        }
+        if (status === 'eligible') {
+            showEligibilityInlineAlert({ type: 'success', title: 'You are eligible', message: reason, actions: [] });
+        } else if (status === 'provider_delayed') {
+            showEligibilityInlineAlert({ type: 'warning', title: 'Monitoring delayed', message: reason, actions: [{ label: 'Retry', action: 'retry', icon: 'fa-rotate', primary: true }] });
+        } else if (status === 'disqualified' || status === 'expired') {
+            var disMap = classifyEligibilityError({ message: reason, status: status });
+            showEligibilityInlineAlert(disMap);
         }
         if (notifyChange && lastEligibilityStatus && lastEligibilityStatus !== status) {
             showToast(reason, status === 'eligible' ? 'success' : (status === 'provider_delayed' ? 'warning' : 'error'));
@@ -1869,13 +2033,40 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
         rexStatus.classList.toggle('is-success', type === 'success');
     }
 
-    function setEligibilityChecking(isChecking) {
+    function setWizardNavDisabled(disabled) {
+        if (btnBack) { btnBack.disabled = Boolean(disabled); btnBack.classList.toggle('wizard-nav-disabled', Boolean(disabled)); btnBack.setAttribute('aria-disabled', disabled ? 'true' : 'false'); }
+        if (btnNext) { btnNext.disabled = Boolean(disabled); btnNext.classList.toggle('wizard-nav-disabled', Boolean(disabled)); btnNext.setAttribute('aria-disabled', disabled ? 'true' : 'false'); }
+        proofMethodEls.forEach(function(el) { el.disabled = Boolean(disabled); });
+        document.querySelectorAll('.wallet-proof-select').forEach(function(el) { el.disabled = Boolean(disabled); el.classList.toggle('wizard-nav-disabled', Boolean(disabled)); });
+        if (btnDisconnectWallet) { btnDisconnectWallet.disabled = Boolean(disabled); }
+    }
+
+    function setEligibilityChecking(isChecking, options) {
+        options = options || {};
+        var method = getProofMethod();
+        var overlay = document.getElementById('eligibilityLoadingOverlay');
+        var skeleton = document.getElementById('eligibilitySkeleton');
+        var titleEl = document.getElementById('eligibilityLoadingTitle');
+        var hintEl = document.getElementById('eligibilityLoadingHint');
         if (!btnCheckEligibility) return;
         btnCheckEligibility.disabled = Boolean(isChecking);
         btnCheckEligibility.classList.toggle('is-loading', Boolean(isChecking));
         btnCheckEligibility.innerHTML = isChecking
             ? '<i class="fas fa-spinner fa-spin"></i> <span>Checking...</span>'
-            : '<i class="fas fa-shield-check"></i> <span>Check Eligibility</span>';
+            : '<i class="fas fa-shield-check"></i> <span>' + (method === 'instant' ? 'Check Eligibility' : 'Start Verification') + '</span>';
+        if (overlay) {
+            overlay.hidden = !isChecking;
+            overlay.classList.toggle('is-visible', Boolean(isChecking));
+            overlay.setAttribute('aria-busy', isChecking ? 'true' : 'false');
+            if (isChecking && titleEl) {
+                titleEl.textContent = options.title || (method === 'instant' ? 'Running instant check...' : 'Starting live verification...');
+            }
+            if (isChecking && hintEl) {
+                hintEl.textContent = options.hint || (method === 'instant' ? 'Checking the last 30 days on-chain — usually under 10 seconds.' : 'Confirming incoming token and live balance via Explorer API.');
+            }
+        }
+        if (skeleton) skeleton.classList.toggle('is-visible', Boolean(isChecking));
+        setWizardNavDisabled(Boolean(isChecking));
     }
 
     function rexSetStep(step) {
@@ -2572,9 +2763,13 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             syncLinkedWallet(verify.wallet_address || wallet);
             setWalletAddress(verify.wallet_address || wallet, false, true);
             syncProofMethodUI();
+            hideEligibilityInlineAlert();
+            showEligibilityInlineAlert({ type: 'success', title: 'Wallet verified', message: 'External wallet verified. You can now run eligibility check.', actions: [] });
             showToast('External wallet verified.', 'success');
         } catch (error) {
-            showToast(error.message || 'Wallet connection failed.', 'error');
+            var walletMapped = classifyEligibilityError(error);
+            showEligibilityInlineAlert(walletMapped);
+            showToast(walletMapped.message || error.message || 'Wallet connection failed.', walletMapped.type === 'warning' ? 'warning' : 'error');
         }
     }
 
@@ -2628,7 +2823,9 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
     btnCheckEligibility?.addEventListener('click', async function() {
         const method = getProofMethod();
         if (method === 'manual') {
-            showToast('Manual mode does not run on-chain check. Add TX hash and screenshot instead.', 'error');
+            var manualInfo = classifyEligibilityError({ message: 'Manual mode does not run on-chain check. Add TX hash and screenshot instead.' });
+            showEligibilityInlineAlert(manualInfo);
+            showToast('Manual mode does not run on-chain check. Add TX hash and screenshot instead.', 'info');
             return;
         }
         const wallet = walletAddressInput?.value.trim().toLowerCase() || '';
@@ -2636,7 +2833,8 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
             openWalletProofModal('rexlink');
             return;
         }
-        setEligibilityChecking(true);
+        hideEligibilityInlineAlert();
+        setEligibilityChecking(true, { title: method === 'instant' ? 'Running instant check...' : 'Starting live verification...' });
         try {
             if (method === 'instant') {
                 const result = await postJson(eligibilityInstantUrl, { project_id: eligibilityProjectId, wallet_address: wallet }, {
@@ -2650,28 +2848,32 @@ showToast('<?php echo addslashes(strip_tags($error)); ?>', 'error');
                     eligibilityOk = true;
                     setEligibilityStatus(result.reason || 'You are eligible to review this project.', 'success');
                     renderVerificationReport(result, 'instant');
-                    showToast('✅ Instant verification passed. You can continue.', 'success');
+                    showEligibilityInlineAlert({ type: 'success', title: 'Eligible to review', message: result.reason || 'Instant verification passed. You can continue writing your review.', actions: [] });
+                    showToast('Instant verification passed. You can continue.', 'success');
                     if (btnCheckEligibility) btnCheckEligibility.hidden = true;
                 } else {
                     eligibilityOk = false;
+                    var instantMapped = classifyEligibilityError({ message: result.reason || result.message || 'Not eligible', status: status, reason_code: result.reason_code || status });
                     setEligibilityStatus(result.reason || 'Instant verification did not pass. Try Live or Manual.', 'error');
                     renderVerificationReport(result, 'instant');
-                    const suggested = (result.suggested_methods || []).map((m) => m === 'live' ? 'Live Verification' : 'Manual Verification').join(' or ');
-                    showToast('Instant verification did not pass. Try ' + (suggested || 'Live or Manual Verification') + ' instead.', 'warning');
-                    showStep(1);
+                    showEligibilityInlineAlert(instantMapped);
+                    showToast(instantMapped.message, instantMapped.type === 'warning' ? 'warning' : 'error');
                 }
             } else {
                 const result = await postJson(eligibilityCheckUrl, { project_id: eligibilityProjectId, wallet_address: wallet });
                 if (!result.success) throw new Error(result.message || 'Eligibility check failed.');
                 renderEligibilityMonitoring(result, false);
                 renderVerificationReport(result, 'live');
-                const toastType = result.status === 'eligible' ? 'success' : (result.status === 'provider_delayed' ? 'warning' : 'success');
-                showToast(result.reason || result.message || 'Holding verification started.', toastType);
+                var liveType = result.status === 'eligible' ? 'success' : (result.status === 'provider_delayed' ? 'warning' : 'info');
+                showEligibilityInlineAlert({ type: liveType, title: result.status === 'eligible' ? 'Live verification active' : 'Holding verification started', message: result.reason || result.message || 'Holding verification started.', actions: result.status === 'provider_delayed' ? [{ label: 'Retry', action: 'retry', icon: 'fa-rotate', primary: true }] : [] });
+                showToast(result.reason || result.message || 'Holding verification started.', liveType === 'success' ? 'success' : (liveType === 'warning' ? 'warning' : 'info'));
                 startEligibilityStatusPolling();
             }
         } catch (error) {
             eligibilityOk = false;
-            showToast(error.message || 'Eligibility could not be verified. Recheck later.', 'error');
+            var mapped = classifyEligibilityError(error);
+            showEligibilityInlineAlert(mapped);
+            showToast(mapped.message || error.message || 'Eligibility could not be verified. Recheck later.', mapped.type === 'warning' ? 'warning' : 'error');
         } finally {
             setEligibilityChecking(false);
             if (getProofMethod() === 'live') pollEligibilityStatus(false);
