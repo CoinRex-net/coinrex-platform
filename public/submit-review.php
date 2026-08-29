@@ -735,11 +735,25 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </section>
 
-        <?php if(!$project && $project_id > 0): ?>
+        <?php if(!empty($success) && in_array($success, ['review_submitted', 'review_auto_approved'], true) && $project): ?>
+            <div class="review-success-panel is-visible <?php echo $success === 'review_auto_approved' ? 'is-approved' : 'is-pending'; ?>" id="reviewSuccessPanel" role="status" aria-live="polite">
+                <div class="review-success-head">
+                    <div class="review-success-icon"><i class="fas <?php echo $success === 'review_auto_approved' ? 'fa-bolt' : 'fa-hourglass-half'; ?>"></i></div>
+                    <div>
+                        <h2><?php echo $success === 'review_auto_approved' ? 'Review approved — fast-lane applied' : 'Review submitted successfully'; ?></h2>
+                        <p><?php echo $success === 'review_auto_approved' ? 'Fast-lane review applied. Your review can surface sooner, but proof checks still continue. You can track its status in My Reviews.' : 'Proof verification usually takes 24–48 hours. You will be notified when moderation completes. You can track it in My Reviews.'; ?></p>
+                    </div>
+                </div>
+                <div class="review-success-actions">
+                    <a href="<?php echo BASE_URL; ?>/public/my-reviews.php" class="btn-submit"><i class="fas fa-list-check"></i> View My Reviews</a>
+                    <a href="<?php echo BASE_URL; ?>/public/project-detail.php?id=<?php echo (int) $project['id']; ?>" class="btn-cancel"><i class="fas fa-arrow-left"></i> Back to Project</a>
+                </div>
+            </div>
+        <?php elseif(!$project && $project_id > 0): ?>
             <div class="error-message">Project not found. Please go back to <a href="<?php echo BASE_URL; ?>/public/projects.php">Projects Page</a>.</div>
         <?php elseif(!$project): ?>
             <div class="error-message">Please select a project from the <a href="<?php echo BASE_URL; ?>/public/projects.php">Projects Page</a> first.</div>
-        <?php elseif($existing_project_review): ?>
+        <?php elseif($existing_project_review && empty($success)): ?>
             <div class="review-status-card">
                 <div class="review-status-icon">
                     <i class="fas fa-lock"></i>
@@ -832,7 +846,12 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="wizard-step-nav" data-nav-step="4"><span>4</span><strong>Submit</strong><small>Review & Confirm</small></div>
             </div>
 
-            <div class="submit-card submit-card-upgraded">
+            <div class="submit-card submit-card-upgraded" id="submitCard">
+                <div class="eligibility-loading-overlay" id="eligibilityLoadingOverlay" aria-live="polite" aria-busy="false" hidden>
+                    <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                    <p id="eligibilityLoadingTitle">Checking eligibility...</p>
+                    <small id="eligibilityLoadingHint">This may take a few seconds while we reach the Explorer API.</small>
+                </div>
                 <section class="wizard-step active" data-step="1">
                     <div class="step-intro">
                         <div>
@@ -924,6 +943,8 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="btn-submit eligibility-check-btn" id="btnCheckEligibility"><i class="fas fa-shield-check"></i> <span>Start Verification</span></button>
                             <button type="button" class="btn-cancel wallet-disconnect-btn" id="btnDisconnectWallet"><i class="fas fa-link-slash"></i> Disconnect</button>
                         </div>
+                        <div class="eligibility-inline-skeleton" id="eligibilitySkeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+                        <div class="eligibility-inline-alert" id="eligibilityInlineAlert" role="status" aria-live="polite" hidden></div>
                         <div class="verification-report" id="verificationReport" hidden>
                             <div class="verification-report-head"><strong id="verificationReportTitle">Verification Report</strong><span id="verificationReportStatus"></span></div>
                             <p id="verificationReportReason"></p>
@@ -932,6 +953,10 @@ require_once __DIR__ . '/../includes/header.php';
                                 <label><input type="checkbox" name="verification_confirmed" value="1" id="verificationConfirmed"> I have reviewed and understood this verification report.</label>
                                 <div id="verificationReportNextAction"></div>
                             </div>
+                        </div>
+                        <div class="live-progress-wrap" id="liveProgressWrap" hidden>
+                            <div class="live-progress-bar" aria-hidden="true"><div class="live-progress-fill" id="liveProgressFill"></div></div>
+                            <div class="live-progress-meta"><span id="liveProgressElapsed">—</span><span id="liveProgressChecked">—</span></div>
                         </div>
                     </div>
 
