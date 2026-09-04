@@ -188,7 +188,7 @@ function boostHubRenderPublicCampaignTasks(array $campaign, bool $campaign_open,
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/boosthub-premium.css?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '20260903'; ?>">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/boosthub-premium.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/boosthub-premium.css'); ?>">
 
 <main class="boosthub-premium">
     <div class="boosthub-shell">
@@ -906,15 +906,6 @@ require_once __DIR__ . '/../includes/header.php';
     document.querySelectorAll('[data-bh-local-datetime]').forEach(function(el) {
         var label = formatBoostHubLocalDate(el.getAttribute('data-bh-local-datetime'));
         if (label) el.textContent = label;
-    });
-
-    document.querySelectorAll('.bh-campaign-cover img').forEach(function(image) {
-        var cover = image.closest('.bh-campaign-cover');
-        var src = image.currentSrc || image.src;
-        if (cover && src) {
-            cover.style.backgroundImage = 'url(' + JSON.stringify(src) + ')';
-            cover.classList.add('is-bg-cover');
-        }
     });
 
     // Campaign countdown timers use the visitor's local system clock for display.

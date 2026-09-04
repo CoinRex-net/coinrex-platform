@@ -1254,14 +1254,14 @@
 
 /* ── Campaign Card ── */
 .bh-campaign-list{display:grid;gap:16px}
-.bh-campaign-card{padding:20px;border:1px solid var(--bh-border);border-radius:18px;background:rgba(8,21,44,.78);backdrop-filter:blur(12px);position:relative;overflow:hidden;transition:all .3s cubic-bezier(.4,0,.2,1);animation:bhCardIn .5s ease both;animation-delay:calc(var(--i,0) * .08s)}.bh-campaign-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(147,197,253,.12),transparent);pointer-events:none;z-index:1}.bh-campaign-card:hover{border-color:var(--bh-border-active);box-shadow:0 12px 40px rgba(29,78,216,.18),0 0 0 1px rgba(29,78,216,.08)}
+.bh-campaign-card{padding:20px;border:1px solid var(--bh-border);border-radius:18px;background:rgba(8,21,44,.78);backdrop-filter:blur(12px);position:relative;overflow:clip;transition:all .3s cubic-bezier(.4,0,.2,1);animation:bhCardIn .5s ease both;animation-delay:calc(var(--i,0) * .08s)}.bh-campaign-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(147,197,253,.12),transparent);pointer-events:none;z-index:1}.bh-campaign-card:hover{border-color:var(--bh-border-active);box-shadow:0 12px 40px rgba(29,78,216,.18),0 0 0 1px rgba(29,78,216,.08)}
 
 /* ── Cover Image (full-bleed; static content ── */
-.bh-campaign-card.has-cover{padding-top:190px;overflow:hidden}
-.bh-campaign-cover{position:absolute;top:0;left:0;right:0;height:170px;overflow:hidden;background:linear-gradient(135deg,#172554,#0f766e)}
-.bh-campaign-cover img{width:100%;height:100%;display:block;object-fit:cover;object-position:center;transition:transform .5s cubic-bezier(.4,0,.2,1)}
-.bh-campaign-card:hover .bh-campaign-cover img{transform:scale(1.03)}
+.bh-campaign-card.has-cover{padding:0}
+.bh-campaign-cover{position:relative;display:block;width:100%;max-width:none;aspect-ratio:16/5;overflow:clip;margin:0;padding:0;box-sizing:border-box;background:linear-gradient(135deg,#172554,#0f766e)}
+.bh-campaign-cover img{display:block;width:100%;height:100%;max-width:none;margin:0;padding:0;object-fit:cover;object-position:center}
 .bh-campaign-cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,rgba(8,21,44,.75) 100%);pointer-events:none;z-index:1}
+.bh-campaign-card-body{padding:20px;min-width:0}
 .bh-campaign-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .bh-campaign-project{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
 .bh-campaign-project img,.bh-campaign-logo-fallback{width:52px;height:52px;flex:0 0 52px;border-radius:14px;object-fit:cover;border:1px solid var(--bh-border-medium);box-shadow:0 4px 14px rgba(0,0,0,.25);transition:box-shadow .25s ease}.bh-campaign-card:hover .bh-campaign-project img,.bh-campaign-card:hover .bh-campaign-logo-fallback{box-shadow:0 6px 18px rgba(29,78,216,.2)}
@@ -1391,49 +1391,6 @@
     display: none;
 }
 
-.bh-campaign-card.has-cover {
-    padding: 0;
-}
-
-.bh-campaign-card-body {
-    padding: 20px;
-}
-
-.bh-campaign-cover {
-    position: relative;
-    top: auto;
-    left: auto;
-    right: auto;
-    width: 100%;
-    height: clamp(180px, 26vw, 255px);
-    margin: 0;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-.bh-campaign-cover.is-bg-cover img {
-    display: none;
-}
-
-.bh-campaign-cover img {
-    position: absolute;
-    inset: 0;
-    left: -3%;
-    right: auto;
-    width: 106%;
-    min-width: 100%;
-    max-width: none;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    transform: none;
-}
-
-.bh-campaign-card:hover .bh-campaign-cover img {
-    transform: none;
-}
-
 .bh-campaign-card.is-foldable {
     padding: 0;
 }
@@ -1548,17 +1505,15 @@
     .bh-campaigns{padding:16px}
     .bh-campaigns-head{flex-direction:column;align-items:flex-start}
     .bh-campaigns-count{align-self:flex-start}
-    .bh-campaign-card{padding:14px;border-radius:14px}
-    .bh-campaign-card.has-cover{padding-top:136px}
-    .bh-campaign-cover{height:120px}
-    .bh-campaign-cover img{transition:none}
-    .bh-campaign-card:hover .bh-campaign-cover img{transform:none}
+    .bh-campaign-card{border-radius:14px}
+    .bh-campaign-card.is-foldable:not(.is-expanded) .bh-campaign-card-body{padding:12px}
+    .bh-campaign-card.is-foldable:not(.is-expanded) .bh-campaign-toggle{flex:1 1 100%}
     .bh-campaign-project img,.bh-campaign-logo-fallback{width:42px;height:42px;flex:0 0 42px;border-radius:10px}
     .bh-campaign-project-name{font-size:.85rem}
     .bh-campaign-campaign-name{font-size:.66rem}
     .bh-campaign-card-head{flex-direction:column;align-items:stretch;gap:12px}
     .bh-campaign-project{width:100%}
-    .bh-campaign-head-right{width:100%;flex-direction:row;justify-content:space-between;align-items:center;gap:8px}
+    .bh-campaign-head-right{width:100%;flex-direction:row;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
     .bh-campaign-countdown{padding:5px 8px;gap:6px}
     .bh-campaign-countdown-icon{width:24px;height:24px;font-size:.65rem;border-radius:6px}
     .bh-campaign-countdown-text{font-size:.7rem}
@@ -1642,61 +1597,4 @@
     .bh-claim-sub { font-size: 0.84rem; }
     .bh-modal-counter { font-size: 0.72rem; }
     .bh-modal-close { width: 32px; height: 32px; font-size: 1rem; }
-}
-/* (campaign mobile rules merged into the media block above) */
-
-/* ── Final Cross-Device Override ──
-   The campaign mobile block above re-applies old full-bleed cover padding (has-cover{136px})
-   and absolute-era sizing after the desktop overrides; loading THIS after every media block
-   keeps cover & action buttons edge-to-edge on all viewports — no right-side/above gaps. */
-@media (max-width: 640px) {
-    .bh-claim-btn,
-    .bh-campaign-task-btn {
-        justify-content: center;
-        background-size: 100% 100%;
-    }
-    .bh-claim-btn::before,
-    .bh-campaign-task-btn::before {
-        display: none;
-    }
-    .bh-campaign-card.has-cover {
-        padding: 0;
-    }
-    .bh-campaign-card-body {
-        padding: 20px;
-    }
-    .bh-campaign-cover {
-        position: relative;
-        top: auto;
-        left: auto;
-        right: auto;
-        width: 100%;
-        margin: 0;
-    }
-    .bh-campaign-cover img {
-        position: absolute;
-        inset: 0;
-        left: -3%;
-        right: auto;
-        width: 106%;
-        min-width: 100%;
-        max-width: none;
-        height: 100%;
-        object-fit: cover;
-        object-position: center;
-        transform: none;
-    }
-    .bh-campaign-card:hover .bh-campaign-cover img {
-        transform: none;
-    }
-    .bh-campaign-card.is-foldable:not(.is-expanded) .bh-campaign-card-body {
-        padding: 12px;
-    }
-    .bh-campaign-card.is-foldable:not(.is-expanded) .bh-campaign-head-right {
-        width: 100%;
-        flex-wrap: wrap;
-    }
-    .bh-campaign-card.is-foldable:not(.is-expanded) .bh-campaign-toggle {
-        flex: 1 1 100%;
-    }
 }
