@@ -15,6 +15,9 @@ ensureRewardClaimSchema($db);
 ensureRexRankSchema($db);
 
 $user = getCurrentUser();
+$engagement_state = engagementDashboardState((int)$user['id'], $db);
+$engagement_announcement = $engagement_state['announcement'];
+$social_assignment = $engagement_state['assignment'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireAppCsrf((string) ($_POST['csrf_token'] ?? ''));
@@ -372,6 +375,39 @@ require_once __DIR__ . '/../includes/header.php';
 
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/dashboard.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/dashboard.css'); ?>">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/pro-weekly-streak.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/pro-weekly-streak.css'); ?>">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/engagement.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/engagement.css'); ?>">
+
+<?php if($engagement_announcement): ?>
+<div class="eng-overlay" id="announcementModal">
+ <section class="eng-card eng-card--announcement" role="dialog" aria-modal="true" aria-labelledby="announcementTitle">
+  <button class="eng-close" id="announcementClose" type="button" aria-label="Close announcement"><i class="fas fa-xmark"></i></button>
+  <div class="eng-card-header"><span class="eng-card-icon"><i class="fas fa-bullhorn"></i></span><div class="eng-heading"><span class="eng-eyebrow">Quick update</span><h2 id="announcementTitle"><?php echo htmlspecialchars($engagement_announcement['title'],ENT_QUOTES,'UTF-8'); ?></h2></div></div>
+  <p class="eng-description"><?php echo nl2br(htmlspecialchars($engagement_announcement['message'],ENT_QUOTES,'UTF-8')); ?></p>
+  <div class="eng-announcement-actions<?php echo empty($engagement_announcement['cta_url']) ? ' is-single' : ''; ?>"><?php if(!empty($engagement_announcement['cta_url'])): ?><a class="eng-primary eng-announcement-cta" target="_blank" rel="noopener noreferrer" href="<?php echo htmlspecialchars($engagement_announcement['cta_url'],ENT_QUOTES,'UTF-8'); ?>"><span><?php echo htmlspecialchars($engagement_announcement['cta_label']?:'Learn more',ENT_QUOTES,'UTF-8'); ?></span><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a><?php endif; ?><button class="eng-secondary eng-announcement-continue" id="announcementCloseSecondary" type="button"><i class="fas fa-check" aria-hidden="true"></i><span>Got it, continue</span></button></div>
+  <label class="eng-optout"><input type="checkbox" id="announcementForever"><span><strong>Don't show this update again</strong><br>This only hides this announcement. Future important updates can still appear.</span></label>
+ </section>
+</div>
+<?php endif; ?>
+<?php if($social_assignment && !empty($social_assignment['is_blocked'])): ?>
+<div class="eng-overlay" id="socialGateModal" <?php echo $engagement_announcement?'hidden':''; ?>>
+ <section class="eng-card" role="dialog" aria-modal="true" aria-labelledby="socialGateTitle">
+  <div class="eng-card-header"><span class="eng-card-icon"><i class="<?php echo $social_assignment['platform']==='x'?'fab fa-x-twitter':'fab fa-telegram'; ?>"></i></span><div class="eng-heading"><span class="eng-eyebrow">One quick setup</span><h2 id="socialGateTitle"><?php echo htmlspecialchars($social_assignment['modal_title'],ENT_QUOTES,'UTF-8'); ?></h2></div></div>
+  <p class="eng-description"><?php echo nl2br(htmlspecialchars($social_assignment['modal_message'],ENT_QUOTES,'UTF-8')); ?></p>
+  <div class="eng-steps" aria-label="Setup progress"><div class="eng-step is-active" data-eng-step="1"><span class="eng-step-number">1</span><span>Open channel</span></div><div class="eng-step" data-eng-step="2"><span class="eng-step-number">2</span><span>Add profile</span></div><div class="eng-step" data-eng-step="3"><span class="eng-step-number">3</span><span>Upload proof</span></div></div>
+  <div class="eng-panel"><div class="eng-panel-title"><strong>Step 1 - Follow or join</strong><span class="eng-platform"><?php echo $social_assignment['platform']==='x'?'X / Twitter':'Telegram'; ?></span></div><p class="eng-helper">Click below. The channel opens in a new tab, so you won't lose this form.</p><button class="eng-primary" id="socialCta" type="button"><i class="<?php echo $social_assignment['platform']==='x'?'fab fa-x-twitter':'fab fa-telegram'; ?>"></i><span><?php echo htmlspecialchars($social_assignment['cta_label'],ENT_QUOTES,'UTF-8'); ?></span><i class="fas fa-arrow-up-right-from-square"></i></button></div>
+  <form class="eng-form" id="socialEvidenceForm" enctype="multipart/form-data">
+   <div class="eng-panel"><div class="eng-panel-title"><strong>Step 2 - Tell us your profile</strong></div><div class="eng-form">
+    <label class="eng-field"><span class="eng-label">Your username <span class="eng-required">*</span></span><input class="eng-input" name="handle" autocomplete="off" placeholder="<?php echo $social_assignment['platform']==='x'?'Example: coinrex_user':'Example: coinrexmember'; ?>" required pattern="[A-Za-z0-9_.-]{3,120}"><span class="eng-field-hint">Enter it without the @ sign.</span></label>
+    <label class="eng-field"><span class="eng-label">Your profile link <span class="eng-required">*</span></span><input class="eng-input" name="profile_url" type="url" inputmode="url" placeholder="<?php echo $social_assignment['platform']==='x'?'https://x.com/yourname':'https://t.me/yourname'; ?>" required><span class="eng-field-hint">Open your profile, copy its link, then paste it here.</span></label>
+   </div></div>
+   <div class="eng-panel"><div class="eng-panel-title"><strong>Step 3 - Upload a screenshot</strong></div><p class="eng-helper">Take a screenshot that clearly shows you followed or joined the CoinRex channel.</p><label class="eng-upload"><input id="socialScreenshot" name="screenshot" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required><i class="fas fa-cloud-arrow-up"></i><strong>Tap to choose screenshot</strong><span class="eng-file-name" id="socialFileName">JPG, PNG or WebP - maximum 5 MB</span></label></div>
+   <div class="eng-attempt"><i class="fas fa-circle-info"></i><span>This is attempt <?php echo (int)$social_assignment['strike_count']+1; ?> of <?php echo max(1,(int)$social_assignment['max_strikes']); ?>. If anything is unclear, the admin will return it with a reason so you can fix it.</span></div>
+   <div class="eng-privacy"><i class="fas fa-shield-halved"></i><span>Your screenshot is only used by CoinRex admins to review this request.</span></div>
+   <button class="eng-primary" id="socialSubmitButton" type="submit" disabled><i class="fas fa-paper-plane"></i><span>Submit proof & open dashboard</span></button><p id="socialGateMessage" class="eng-message" role="status" aria-live="polite"></p>
+  </form>
+ </section>
+</div>
+<?php endif; ?>
 
 <main class="dashboard-main">
     <div class="dashboard-container">
@@ -1105,6 +1141,7 @@ require_once __DIR__ . '/../includes/header.php';
 </main>
 
 <script>
+window.coinrexEngagement=<?php echo json_encode(['csrf'=>appCsrfToken(),'announcementId'=>(int)($engagement_announcement['id']??0),'assignmentId'=>(int)($social_assignment['id']??0),'ctaAlreadyClicked'=>!empty($social_assignment['cta_clicked_at']),'ctaEndpoint'=>BASE_URL.'/api/social-engagement/cta.php','evidenceEndpoint'=>BASE_URL.'/api/social-engagement/evidence.php','dismissEndpoint'=>BASE_URL.'/api/social-engagement/dismiss-announcement.php'],JSON_UNESCAPED_SLASHES); ?>;
 document.querySelectorAll('[data-copy-target]').forEach((button) => {
     button.addEventListener('click', async function() {
         const input = document.getElementById(button.dataset.copyTarget || '');
@@ -1247,5 +1284,6 @@ document.querySelectorAll('[data-mission-countdown]').forEach((element) => {
 <?php if ($pro_weekly_streak_state !== null): ?>
 <script src="<?php echo ASSETS_URL; ?>/js/pro-weekly-streak.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/pro-weekly-streak.js'); ?>"></script>
 <?php endif; ?>
+<script src="<?php echo ASSETS_URL; ?>/js/engagement.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/engagement.js'); ?>"></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

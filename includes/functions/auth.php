@@ -73,6 +73,8 @@ function establishAuthenticatedSession($user, $remember = false) {
     $_SESSION['email'] = $user['email'];
     $_SESSION['role'] = $user['role'];
     $_SESSION['level'] = $user['level'];
+    unset($_SESSION['engagement_announcement_id'], $_SESSION['engagement_announcement_closed'], $_SESSION['engagement_announcement_view_recorded']);
+    $_SESSION['engagement_login_token'] = bin2hex(random_bytes(12));
     clearPendingEmailVerification();
 
     if ($remember) {
