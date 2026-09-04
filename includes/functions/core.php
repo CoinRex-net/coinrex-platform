@@ -472,6 +472,13 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
     if ((string) ($task['task_group'] ?? 'legacy') === 'boosthub') {
         enforceUserModuleAccess($user, 'boosthub');
 
+        if (!empty($task['campaign_id'])) {
+            $campaign = boostHubCampaignGet((int) $task['campaign_id'], $db);
+            if (!$campaign) { throw new RuntimeException('This task campaign is unavailable.'); }
+            boostHubCampaignAssertParticipation($campaign, (int) $user_id, $db);
+            $task['campaign'] = $campaign;
+        }
+
         $already_completed_stmt = $db->prepare("
             SELECT COUNT(*) AS total
             FROM user_task_logs
@@ -502,6 +509,12 @@ function completeMiniTask($user_id, $task_id, array $payload = [], PDO $db = nul
             $assignment_metadata = !empty($pending_assignment['metadata']) ? (json_decode((string) $pending_assignment['metadata'], true) ?: []) : [];
             if (empty($assignment_metadata['correction_requested'])) {
                 throw new RuntimeException('This BoostHub submission was rejected and cannot be resubmitted.');
+            }
+        }
+        if ((string) ($pending_assignment['status'] ?? '') === 'pending' && function_exists('boostHubGetCooldownState')) {
+            $boosthub_cooldown = boostHubGetCooldownState((int) $user_id, $db);
+            if ((int) ($boosthub_cooldown['countdown_seconds'] ?? 0) > 0) {
+                throw new RuntimeException('Your next BoostHub task is still in the 24-hour cooldown. Please correct any returned evidence first.');
             }
         }
 

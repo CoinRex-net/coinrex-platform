@@ -24,6 +24,12 @@ $user_id = (int) $user['id'];
 // ── Get BoostHub state ──
 $boost_state = getBoostHubStateForUser($user_id, $db);
 $boost_task = $boost_state['task'] ?? null;
+$campaign_context = null;
+if (!empty($boost_task['campaign'])) {
+    $campaign_context = $boost_task['campaign'];
+} elseif (!empty($boost_task['campaign_id'])) {
+    $campaign_context = boostHubCampaignGet((int) $boost_task['campaign_id'], $db);
+}
 $status = $boost_state['status'] ?? 'closed';
 $learnhub_completed = taskHubMissionCompleted($user_id, $db);
 
@@ -121,11 +127,68 @@ try {
     $approved_count = 0;
 }
 $approval_rate = $total_done > 0 ? round(($approved_count / $total_done) * 100) : 0;
+$partner_campaigns = [];
+try {
+    $partner_campaigns = boostHubPublicCampaignsForUser($user_id, $db);
+} catch (Throwable $e) {
+    error_log('BoostHub public campaigns unavailable: ' . $e->getMessage());
+}
+$current_boost_task_id = (int) ($boost_task['task_id'] ?? $boost_task['id'] ?? 0);
+
+function boostHubRenderPublicCampaignTasks(array $campaign, bool $campaign_open, string $boost_status, int $current_task_id): string {
+    ob_start();
+    if (!$campaign['tasks']): ?>
+        <div class='bh-campaign-task-empty'><i class='fas fa-hourglass-half'></i> Tasks are being prepared.</div>
+    <?php else:
+        $task_idx = 0;
+        foreach ($campaign['tasks'] as $task):
+            $task_id = (int) $task['id'];
+            $task_state = (string) $task['user_state'];
+            $is_current = $task_id === $current_task_id;
+            $task_idx++;
+            // Map task state -> icon for quick scanning
+            $task_icon = 'fa-play';
+            if ($task_state === 'completed') { $task_icon = 'fa-circle-check'; }
+            elseif ($task_state === 'under_review') { $task_icon = 'fa-hourglass-half'; }
+            elseif ($task_state === 'correction') { $task_icon = 'fa-rotate-left'; }
+            elseif ($task_state === 'assigned') { $task_icon = 'fa-bolt'; }
+            elseif (!$campaign_open) { $task_icon = 'fa-lock'; }
+            elseif ($boost_status === 'locked') { $task_icon = 'fa-hourglass'; }
+    ?>
+        <div class='bh-campaign-task<?php echo $is_current ? ' is-active-task' : ''; ?>' data-task-state='<?php echo htmlspecialchars($task_state, ENT_QUOTES, 'UTF-8'); ?>'>
+            <span class='bh-campaign-task-num'><i class='fas <?php echo $task_icon; ?>'></i><b><?php echo $task_idx; ?></b></span>
+            <div class='bh-campaign-task-info'>
+                <span class='bh-campaign-task-type'><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string) $task['task_category'])), ENT_QUOTES, 'UTF-8'); ?></span>
+                <strong><?php echo htmlspecialchars($task['title'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                <small><?php echo htmlspecialchars($task['description'], ENT_QUOTES, 'UTF-8'); ?></small>
+            </div>
+            <div class='bh-campaign-task-action'>
+                <span class='bh-campaign-task-reward'><i class='fas fa-coins'></i> +<?php echo number_format((float) $task['reward'], 2); ?> $REX</span>
+                <?php if ($task_state === 'completed'): ?>
+                    <span class='bh-campaign-task-result is-complete'><i class='fas fa-check'></i> Completed</span>
+                <?php elseif ($task_state === 'under_review'): ?>
+                    <span class='bh-campaign-task-result'><i class='fas fa-clock'></i> Under review</span>
+                <?php elseif ($task_state === 'correction'): ?>
+                    <span class='bh-campaign-task-result is-warning'><i class='fas fa-pen'></i> Update evidence above</span>
+                <?php elseif (!$campaign_open): ?>
+                    <span class='bh-campaign-task-result'><i class='fas fa-lock'></i> <?php echo htmlspecialchars(ucfirst($campaign['effective_state']), ENT_QUOTES, 'UTF-8'); ?></span>
+                <?php elseif ($boost_status === 'locked'): ?>
+                    <span class='bh-campaign-task-result'><i class='fas fa-hourglass'></i> Cooldown active</span>
+                <?php elseif ($is_current || $task_state === 'assigned'): ?>
+                    <button type='button' class='bh-campaign-task-btn' data-campaign-continue><i class='fas fa-play'></i> Continue Task</button>
+                <?php else: ?>
+                    <button type='button' class='bh-campaign-task-btn' data-campaign-task-start='<?php echo $task_id; ?>'><i class='fas fa-play'></i> Start Task</button>
+                <?php endif; ?>
+            </div>
+        </div>
+    <?php endforeach; endif;
+    return (string) ob_get_clean();
+}
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/boosthub-premium.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/boosthub-premium.css?v=<?php echo defined('APP_VERSION') ? APP_VERSION : '20260903'; ?>">
 
 <main class="boosthub-premium">
     <div class="boosthub-shell">
@@ -134,7 +197,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="bh-header">
             <div class="bh-header-left">
                 <span class="bh-header-badge"><i class="fas fa-bolt"></i> BoostHub</span>
-                <h1>Daily Boost</h1>
+                <h1 id='boostHubViewTitle'>Daily Boost</h1>
             </div>
             <div class="bh-header-actions">
                 <?php if (!$learnhub_completed): ?>
@@ -145,6 +208,155 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <!-- ── PENDING REVIEW PANEL ── -->
+        <nav class='bh-view-tabs' role='tablist' aria-label='BoostHub views'>
+            <button type='button' class='bh-view-tab is-active' id='dailyBoostTab' role='tab' aria-selected='true' aria-controls='dailyBoostPanel' data-bh-view='daily'><i class='fas fa-bolt'></i><span>Daily Boost</span></button>
+            <button type='button' class='bh-view-tab' id='partnerCampaignsTab' role='tab' aria-selected='false' aria-controls='partnerCampaignsPanel' data-bh-view='campaigns'><i class='fas fa-handshake'></i><span>Partner Campaigns</span><?php if ($partner_campaigns): ?><b><?php echo count($partner_campaigns); ?></b><?php endif; ?></button>
+        </nav>
+
+        <div class='bh-tab-panel' id='partnerCampaignsPanel' role='tabpanel' aria-labelledby='partnerCampaignsTab' data-bh-tab-panel='campaigns' hidden>
+        <?php if ($partner_campaigns): ?>
+        <section class='bh-campaigns bh-reveal' aria-labelledby='partnerCampaignsTitle'>
+            <div class='bh-campaigns-head'>
+                <div>
+                    <span class='bh-campaigns-kicker'><i class='fas fa-handshake'></i> Sponsored opportunities</span>
+                    <h2 id='partnerCampaignsTitle'>Partner Campaigns</h2>
+                    <p>Choose a campaign task below. Evidence and rewards use the same trusted BoostHub process.</p>
+                </div>
+                <span class='bh-campaigns-count'><?php echo count($partner_campaigns); ?> available</span>
+            </div>
+<?php
+                // ── Campaign section summary stats ──
+                $stats_active = 0;
+                $stats_reward_pool = 0.0;
+                $stats_completed = 0;
+                $stats_total = 0;
+                $stats_slots = 0;
+                foreach ($partner_campaigns as $sc) {
+                    if (($sc['effective_state'] ?? '') === 'active') { $stats_active++; }
+                    if (in_array(($sc['effective_state'] ?? ''), ['active', 'full'], true)) {
+                        foreach (($sc['tasks'] ?? []) as $st) { $stats_reward_pool += (float) ($st['reward'] ?? 0); }
+                    }
+                    $stats_completed += (int) ($sc['progress_completed'] ?? 0);
+                    $stats_total += (int) ($sc['progress_total'] ?? 0);
+                    $stats_slots += (int) ($sc['remaining_slots'] ?? 0);
+                }
+            ?>
+            <div class='bh-campaign-stats'>
+                <div class='bh-campaign-stat-card'>
+                    <span class='bh-campaign-stat-icon is-active'><i class='fas fa-fire'></i></span>
+                    <div class='bh-campaign-stat-text'><strong><?php echo (int) $stats_active; ?></strong><span>Active campaigns</span></div>
+                </div>
+                <div class='bh-campaign-stat-card'>
+                    <span class='bh-campaign-stat-icon is-gold'><i class='fas fa-coins'></i></span>
+                    <div class='bh-campaign-stat-text'><strong><?php echo number_format($stats_reward_pool, 2); ?> $REX</strong><span>Reward pool</span></div>
+                </div>
+                <div class='bh-campaign-stat-card'>
+                    <span class='bh-campaign-stat-icon is-blue'><i class='fas fa-list-check'></i></span>
+                    <div class='bh-campaign-stat-text'><strong><?php echo (int) $stats_completed; ?> / <?php echo (int) $stats_total; ?></strong><span>Your completion</span></div>
+                </div>
+                <div class='bh-campaign-stat-card'>
+                    <span class='bh-campaign-stat-icon is-users'><i class='fas fa-user-plus'></i></span>
+                    <div class='bh-campaign-stat-text'><strong><?php echo (int) $stats_slots; ?></strong><span>Open slots</span></div>
+                </div>
+            </div>
+            <div class='bh-campaign-list'>
+            <?php foreach ($partner_campaigns as $campaign_idx => $campaign):
+                $campaign_state = (string) $campaign['effective_state'];
+                $campaign_open = $campaign_state === 'active';
+                $campaign_id = (int) $campaign['id'];
+                $campaign_has_cover = (string) ($campaign['project_cover'] ?? '') !== '';
+                $campaign_progress = (int) ($campaign['progress_percent'] ?? 0);
+                $campaign_expanded = false;
+                // Map campaign state -> icon for the badge
+                $campaign_state_icon = 'fa-circle-info';
+                if ($campaign_state === 'active') { $campaign_state_icon = 'fa-bolt'; }
+                elseif ($campaign_state === 'scheduled') { $campaign_state_icon = 'fa-calendar-day'; }
+                elseif ($campaign_state === 'full') { $campaign_state_icon = 'fa-users'; }
+                elseif ($campaign_state === 'paused') { $campaign_state_icon = 'fa-pause'; }
+                elseif ($campaign_state === 'expired') { $campaign_state_icon = 'fa-hourglass-end'; }
+            ?>
+                <article class='bh-campaign-card is-foldable<?php echo $campaign_expanded ? ' is-expanded' : ''; ?> is-<?php echo htmlspecialchars($campaign_state, ENT_QUOTES, 'UTF-8'); ?><?php echo $campaign_has_cover ? ' has-cover' : ''; ?>' style='--i:<?php echo $campaign_idx; ?>' data-campaign-card>
+                    <?php if ($campaign_has_cover): ?><div class='bh-campaign-cover'><img src='<?php echo htmlspecialchars($campaign['project_cover'], ENT_QUOTES, 'UTF-8'); ?>' alt='' loading='lazy'><div class='bh-campaign-cover-overlay'></div></div><?php endif; ?>
+                    <div class='bh-campaign-card-body'>
+                    <div class='bh-campaign-card-head'>
+                        <div class='bh-campaign-project'>
+                            <?php if ($campaign['project_logo'] !== ''): ?>
+                                <img src='<?php echo htmlspecialchars($campaign['project_logo'], ENT_QUOTES, 'UTF-8'); ?>' alt='<?php echo htmlspecialchars($campaign['project_name'], ENT_QUOTES, 'UTF-8'); ?> logo' loading='lazy'>
+                            <?php else: ?>
+                                <span class='bh-campaign-logo-fallback'><i class='fas fa-building'></i></span>
+                            <?php endif; ?>
+                            <div class='bh-campaign-project-text'>
+                                <strong class='bh-campaign-project-name'><?php echo htmlspecialchars($campaign['project_name'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                                <span class='bh-campaign-campaign-name'><?php echo htmlspecialchars($campaign['campaign_name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
+                        </div>
+                        <div class='bh-campaign-head-right'>
+                            <?php
+                                $countdown_ref = ($campaign_state === 'scheduled') ? $campaign['start_at'] : $campaign['end_at'];
+                                $countdown_ts = boostHubCampaignTimestamp((string) $countdown_ref);
+                                $countdown_remaining = max(0, $countdown_ts - time());
+                            ?>
+                            <?php if (in_array($campaign_state, ['active', 'scheduled'], true) && $countdown_remaining > 0): ?>
+                            <div class='bh-campaign-countdown' data-campaign-countdown='<?php echo $countdown_remaining; ?>' data-campaign-countdown-target='<?php echo htmlspecialchars(boostHubCampaignClientDateTime((string) $countdown_ref), ENT_QUOTES, 'UTF-8'); ?>'>
+                                <span class='bh-campaign-countdown-icon'><i class='fas fa-clock'></i></span>
+                                <div class='bh-campaign-countdown-inner'>
+                                    <span class='bh-campaign-countdown-text'><?php echo htmlspecialchars(taskHubFormatDuration($countdown_remaining), ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class='bh-campaign-countdown-label'><?php echo $campaign_state === 'scheduled' ? 'until starts' : 'remaining'; ?></span>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                            <span class='bh-campaign-state is-<?php echo htmlspecialchars($campaign_state, ENT_QUOTES, 'UTF-8'); ?>'><i class='fas <?php echo $campaign_state_icon; ?>'></i><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $campaign_state)), ENT_QUOTES, 'UTF-8'); ?></span>
+                            <button type='button' class='bh-campaign-toggle' data-campaign-toggle aria-expanded='<?php echo $campaign_expanded ? 'true' : 'false'; ?>'><i class='fas fa-chevron-down'></i><span><?php echo $campaign_expanded ? 'Hide details' : 'View details'; ?></span></button>
+                        </div>
+                    </div>
+                    <div class='bh-campaign-collapsible' <?php echo $campaign_expanded ? '' : 'hidden'; ?>>
+                    <?php if ($campaign['short_description'] !== ''): ?><p class='bh-campaign-description'><?php echo htmlspecialchars($campaign['short_description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+                    <div class='bh-campaign-meta'>
+                        <span class='bh-campaign-meta-item'><i class='fas fa-calendar-days'></i> <?php echo $campaign_state === 'scheduled' ? 'Starts' : 'Ends'; ?> <time data-bh-local-datetime='<?php echo htmlspecialchars(boostHubCampaignClientDateTime((string) $countdown_ref), ENT_QUOTES, 'UTF-8'); ?>'><?php echo htmlspecialchars(date('M j, Y', $countdown_ts), ENT_QUOTES, 'UTF-8'); ?></time></span>
+                        <span class='bh-campaign-meta-item'><i class='fas fa-users'></i> <?php echo (int) $campaign['remaining_slots']; ?> slots left</span>
+                        <span class='bh-campaign-meta-item'><i class='fas fa-list-check'></i> <?php echo (int) ($campaign['progress_total'] ?? 0) > 0 ? (int) ($campaign['progress_completed'] ?? 0) . ' / ' . (int) ($campaign['progress_total'] ?? 0) . ' tasks' : count($campaign['tasks']) . ' tasks'; ?></span>
+                        <?php if ($campaign['project_website'] !== ''): ?><a class='bh-campaign-meta-item' href='<?php echo htmlspecialchars($campaign['project_website'], ENT_QUOTES, 'UTF-8'); ?>' target='_blank' rel='noopener noreferrer'><i class='fas fa-arrow-up-right-from-square'></i> Visit project</a><?php endif; ?>
+                    </div>
+                    <?php
+                        $capacity_max = (int) ($campaign['max_participants'] ?? 0);
+                        $capacity_used = (int) ($campaign['approved_participants'] ?? 0);
+                        $capacity_pct = $capacity_max > 0 ? min(100, (int) round(($capacity_used / $capacity_max) * 100)) : 0;
+                        $capacity_full = $capacity_max > 0 && $capacity_used >= $capacity_max;
+                        $capacity_low = !$capacity_full && $capacity_max > 0 && (($capacity_max - $capacity_used) <= max(1, (int) round($capacity_max * 0.2)));
+                    ?>
+                    <?php if ($capacity_max > 0): ?>
+                    <div class='bh-campaign-capacity<?php echo $capacity_full ? ' is-full' : ($capacity_low ? ' is-low' : ''); ?>'>
+                        <div class='bh-campaign-capacity-head'><span><i class='fas fa-users'></i> Participant capacity</span><strong><?php echo (int) $capacity_used; ?> / <?php echo (int) $capacity_max; ?> filled</strong></div>
+                        <div class='bh-capacity-track'><span class='bh-capacity-fill' style='width:<?php echo $capacity_pct; ?>%'></span></div>
+                    </div>
+                    <?php endif; ?>
+                    <div class='bh-campaign-progress<?php echo $campaign_progress >= 100 ? ' is-done' : ''; ?>' aria-label='<?php echo $campaign_progress; ?> percent complete'>
+                        <div class='bh-campaign-progress-head'>
+                            <span>Your task progress</span>
+                            <strong><?php if ($campaign_progress >= 100): ?><i class='fas fa-circle-check'></i><?php endif; ?><?php echo (int) ($campaign['progress_completed'] ?? 0); ?> / <?php echo (int) ($campaign['progress_total'] ?? 0); ?> complete<?php if ((int) ($campaign['progress_total'] ?? 0) > 0): ?><em><?php echo $campaign_progress; ?>%</em><?php endif; ?></strong>
+                        </div>
+                        <div class='bh-campaign-progress-track'><span class='bh-campaign-progress-fill' style='width:<?php echo $campaign_progress; ?>%'></span></div>
+                    </div>
+                    <div class='bh-campaign-tasks' id='campaignTasks<?php echo $campaign_id; ?>'>
+                        <?php echo boostHubRenderPublicCampaignTasks($campaign, $campaign_open, $status, $current_boost_task_id); ?>
+                    </div>
+                    </div>
+                    </div>
+                </article>
+            <?php endforeach; ?>
+            </div>
+        </section>
+        <?php else: ?>
+        <section class='bh-campaigns bh-campaigns-empty'>
+            <div class='bh-campaigns-empty-art'><i class='fas fa-handshake'></i><i class='fas fa-bolt'></i></div>
+            <h2>No partner campaigns right now</h2>
+            <p>New sponsored opportunities will appear here when they become available. BoostHub rewards keep flowing in the Daily Boost tab meanwhile.</p>
+            <a href="#daily" class='bh-campaigns-empty-cta' data-bh-view='daily'><i class="fas fa-bolt"></i> Go to Daily Boost</a>
+        </section>
+        <?php endif; ?>
+        </div>
+
+        <div class='bh-tab-panel is-active' id='dailyBoostPanel' role='tabpanel' aria-labelledby='dailyBoostTab' data-bh-tab-panel='daily'>
         <?php if ($has_pending_review || $has_returned_task): ?>
         <section class="bh-panel bh-pending-panel bh-reveal">
             <div class="bh-pending-header">
@@ -366,6 +578,8 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </section>
 
+        </div>
+
     </div>
 </main>
 
@@ -385,6 +599,14 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="bh-modal-body">
 
                 <!-- Task Info Card -->
+                <?php if ($campaign_context): ?>
+                <div class='bh-modal-task-card'>
+                    <?php if (!empty($campaign_context['project_logo'])): ?><img src='<?php echo htmlspecialchars($campaign_context['project_logo'], ENT_QUOTES, 'UTF-8'); ?>' alt='' style='width:44px;height:44px;border-radius:10px;object-fit:cover'><?php endif; ?>
+                    <strong><?php echo htmlspecialchars($campaign_context['project_name'], ENT_QUOTES, 'UTF-8'); ?></strong>
+                    <p><?php echo htmlspecialchars($campaign_context['campaign_name'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    <small>Ends <time data-bh-local-datetime='<?php echo htmlspecialchars(boostHubCampaignClientDateTime((string) $campaign_context['end_at']), ENT_QUOTES, 'UTF-8'); ?>'><?php echo htmlspecialchars(date('M j, Y g:i A', boostHubCampaignTimestamp((string) $campaign_context['end_at'])), ENT_QUOTES, 'UTF-8'); ?></time> · <?php echo htmlspecialchars(boostHubCampaignEffectiveState($campaign_context), ENT_QUOTES, 'UTF-8'); ?></small>
+                </div>
+                <?php endif; ?>
                 <div class="bh-modal-task-card">
                     <div class="bh-modal-task-badge-row">
                         <span class="bh-modal-task-type">
@@ -587,6 +809,7 @@ require_once __DIR__ . '/../includes/header.php';
     const BASE_URL = <?php echo json_encode(BASE_URL); ?>;
     const submitUrl = BASE_URL + '/api/complete_mini_task.php';
     const skipUrl = BASE_URL + '/api/skip_boosthub_task.php';
+    const campaignTaskUrl = BASE_URL + '/api/start_boosthub_campaign_task.php';
     const uploadUrl = BASE_URL + '/api/upload_boosthub_evidence.php';
     const taskId = <?php echo $boost_task ? (int) $boost_task['id'] : 0; ?>;
     const canSkipTask = <?php echo $can_skip_task ? 'true' : 'false'; ?>;
@@ -607,6 +830,42 @@ require_once __DIR__ . '/../includes/header.php';
     }
 
     // ── Modal Helpers ──
+    // Switch between Daily Boost and Partner Campaigns without a long page.
+    var viewTabs = document.querySelectorAll('[data-bh-view]');
+    var viewPanels = document.querySelectorAll('[data-bh-tab-panel]');
+    var viewTitle = document.getElementById('boostHubViewTitle');
+
+    function activateBoostHubView(view, updateHash) {
+        var selected = view === 'campaigns' ? 'campaigns' : 'daily';
+        viewTabs.forEach(function(tab) {
+            var active = tab.getAttribute('data-bh-view') === selected;
+            tab.classList.toggle('is-active', active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.tabIndex = active ? 0 : -1;
+        });
+        viewPanels.forEach(function(panel) {
+            panel.hidden = panel.getAttribute('data-bh-tab-panel') !== selected;
+        });
+        if (viewTitle) viewTitle.textContent = selected === 'campaigns' ? 'Partner Campaigns' : 'Daily Boost';
+        if (updateHash && window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', selected === 'campaigns' ? '#campaigns' : '#daily');
+        }
+        if (selected === 'campaigns') {
+            var campaignsPanel = document.getElementById('partnerCampaignsPanel');
+            if (campaignsPanel && !campaignsPanel.hidden) {
+
+                campaignsPanel.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }
+        }
+    }
+
+    viewTabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            activateBoostHubView(tab.getAttribute('data-bh-view'), true);
+        });
+    });
+    activateBoostHubView(window.location.hash === '#campaigns' ? 'campaigns' : 'daily', false);
+
     function openModal(id) {
         var el = document.getElementById(id);
         if (el) el.hidden = false;
@@ -630,6 +889,133 @@ require_once __DIR__ . '/../includes/header.php';
             openModal('claimModal');
         });
     }
+
+    function parseBoostHubLocalTime(value) {
+        if (!value) return null;
+        var normalized = String(value).replace(' ', 'T');
+        var date = new Date(normalized);
+        return isNaN(date.getTime()) ? null : date;
+    }
+
+    function formatBoostHubLocalDate(value) {
+        var date = parseBoostHubLocalTime(value);
+        if (!date) return '';
+        return date.toLocaleString(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
+    }
+
+    document.querySelectorAll('[data-bh-local-datetime]').forEach(function(el) {
+        var label = formatBoostHubLocalDate(el.getAttribute('data-bh-local-datetime'));
+        if (label) el.textContent = label;
+    });
+
+    document.querySelectorAll('.bh-campaign-cover img').forEach(function(image) {
+        var cover = image.closest('.bh-campaign-cover');
+        var src = image.currentSrc || image.src;
+        if (cover && src) {
+            cover.style.backgroundImage = 'url(' + JSON.stringify(src) + ')';
+            cover.classList.add('is-bg-cover');
+        }
+    });
+
+    // Campaign countdown timers use the visitor's local system clock for display.
+    document.querySelectorAll('[data-campaign-countdown]').forEach(function(el) {
+        var targetDate = parseBoostHubLocalTime(el.getAttribute('data-campaign-countdown-target'));
+        var remaining = targetDate ? Math.max(0, Math.floor((targetDate.getTime() - Date.now()) / 1000)) : Math.max(0, parseInt(el.getAttribute('data-campaign-countdown') || '0', 10));
+        var textEl = el.querySelector('.bh-campaign-countdown-text');
+        var labelEl = el.querySelector('.bh-campaign-countdown-label');
+        if (!textEl) return;
+
+        function fmtCampaignDuration(secs) {
+            secs = Math.max(0, secs);
+            var d = Math.floor(secs / 86400);
+            var h = Math.floor((secs % 86400) / 3600);
+            var m = Math.floor((secs % 3600) / 60);
+            var s = secs % 60;
+            var parts = [];
+            if (d > 0) parts.push(d + 'd');
+            if (d > 0 || h > 0) parts.push(h + 'h');
+            if (d > 0 || h > 0 || m > 0) parts.push(m + 'm');
+            parts.push(s + 's');
+            return parts.join(' ');
+        }
+
+        function updateUrgency() {
+            if (remaining <= 3600) { el.classList.add('is-urgent'); }
+            else { el.classList.remove('is-urgent'); }
+        }
+
+        textEl.textContent = fmtCampaignDuration(remaining);
+        updateUrgency();
+
+        var timer = setInterval(function() {
+            remaining = targetDate ? Math.max(0, Math.floor((targetDate.getTime() - Date.now()) / 1000)) : Math.max(0, remaining - 1);
+            if (remaining <= 0) {
+                clearInterval(timer);
+                textEl.textContent = 'Expired!';
+                textEl.classList.add('is-expired');
+                el.classList.remove('is-urgent');
+                if (labelEl) labelEl.textContent = 'Refresh to update status';
+                return;
+            }
+            textEl.textContent = fmtCampaignDuration(remaining);
+            updateUrgency();
+        }, 1000);
+    });
+
+    document.querySelectorAll('[data-campaign-toggle]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            var card = button.closest('[data-campaign-card]');
+            if (!card) return;
+            var panel = card.querySelector('.bh-campaign-collapsible');
+            var expanded = !card.classList.contains('is-expanded');
+            card.classList.toggle('is-expanded', expanded);
+            button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            var label = button.querySelector('span');
+            if (label) label.textContent = expanded ? 'Hide details' : 'View details';
+            if (panel) panel.hidden = !expanded;
+        });
+    });
+
+    document.querySelectorAll('[data-campaign-continue]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            activateBoostHubView('daily', true);
+            if (claimBtn) claimBtn.click();
+        });
+    });
+
+    document.querySelectorAll('[data-campaign-task-start]').forEach(function(button) {
+        button.addEventListener('click', async function() {
+            var selectedTaskId = Number(button.getAttribute('data-campaign-task-start') || 0);
+            if (!selectedTaskId || button.disabled) return;
+
+            var originalHtml = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class=\'fas fa-spinner fa-spin\'></i> Selecting...';
+
+            try {
+                var body = new URLSearchParams();
+                body.set('task_id', String(selectedTaskId));
+
+                var response = await fetch(campaignTaskUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: body.toString()
+                });
+                var data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error((data && (data.error || data.message)) || 'Unable to select this task.');
+                }
+
+                if (window.history && window.history.replaceState) window.history.replaceState(null, '', '#daily');
+                window.location.reload();
+            } catch (error) {
+                alert(error && error.message ? error.message : 'Unable to start this campaign task right now.');
+                button.disabled = false;
+                button.innerHTML = originalHtml;
+            }
+        });
+    });
 
     var skipTaskBtn = document.getElementById('skipTaskBtn');
     if (skipTaskBtn && canSkipTask) {

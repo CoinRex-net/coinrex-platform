@@ -19,14 +19,19 @@ require_once __DIR__ . '/functions/reward_ledger.php';
 require_once __DIR__ . '/functions/pro_weekly_streak.php';
 require_once __DIR__ . '/functions/leaderboard.php';
 require_once __DIR__ . '/functions/boosthub.php';
+require_once __DIR__ . '/functions/boosthub_campaigns.php';
 require_once __DIR__ . '/functions/taskhub.php';
 require_once __DIR__ . '/functions/referrals.php';
 require_once __DIR__ . '/functions/levels.php';
 require_once __DIR__ . '/functions/review_eligibility.php';
 require_once __DIR__ . '/functions/review_eligibility_monitoring.php';
+require_once __DIR__ . '/functions/review_submission.php';
 require_once __DIR__ . '/functions/realtime.php';
 require_once __DIR__ . '/functions/metrics.php';
 require_once __DIR__ . '/functions/auth.php';
 require_once __DIR__ . '/functions/blog.php';
 require_once __DIR__ . '/functions/sponsored.php';
+require_once __DIR__ . '/functions/engagement.php';
+
+enforceSocialEngagementRequestGate();
 ?>

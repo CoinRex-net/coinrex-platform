@@ -9,6 +9,7 @@ ensureRewardClaimSchema($db);
 $current_admin = getCurrentAdmin();
 [$message, $message_type] = adminRewardProcessAction($db, $current_admin);
 $task_categories = adminRewardTaskCategories();
+$campaigns = boostHubCampaignList($db, true);
 $selected_category = trim((string) ($_GET['task_category'] ?? 'all'));
 if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_categories)) {
     $selected_category = 'all';
@@ -446,6 +447,16 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
         </div>
 
         <!-- Evidence Filter -->
+        <div class='boosthub-evidence-filter'>
+            <label for='boosthubCampaignFilter'><i class='fas fa-bullhorn'></i> Campaign:</label>
+            <select id='boosthubCampaignFilter'>
+                <option value='0'>All campaigns</option>
+                <?php foreach ($campaigns as $campaign): ?>
+                    <option value='<?php echo (int) $campaign['id']; ?>'><?php echo htmlspecialchars($campaign['campaign_name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <a class='btn btn-secondary btn-sm' href='boosthub-campaigns.php'>Manage campaigns</a>
+        </div>
         <div class="boosthub-evidence-filter">
             <label for="boosthubEvidenceFilter"><i class="fas fa-filter"></i> Filter by task type:</label>
             <select id="boosthubEvidenceFilter">
@@ -557,6 +568,15 @@ if ($selected_category !== 'all' && !array_key_exists($selected_category, $task_
         <div class="quiz-modal-footer">
             <button type="button" class="btn btn-secondary" id="boosthubTaskModalCancel2">Cancel</button>
             <button type="submit" class="btn btn-primary">Save Task</button>
+        </div>
+        <div class='quiz-modal-field'>
+            <label for='boosthubTaskModalCampaign'>Campaign</label>
+            <select id='boosthubTaskModalCampaign'>
+                <option value='0'>Standalone task (no campaign)</option>
+                <?php foreach ($campaigns as $campaign): ?>
+                    <option value='<?php echo (int) $campaign['id']; ?>'><?php echo htmlspecialchars($campaign['campaign_name'] . ' - ' . $campaign['project_name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                <?php endforeach; ?>
+            </select>
         </div>
     </form>
 </div>

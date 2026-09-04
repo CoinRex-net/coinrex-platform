@@ -8,9 +8,9 @@
     </div>
     <?php
         $activePage = (string) ($activePage ?? 'dashboard');
-        $corePages = ['dashboard', 'metrics', 'users', 'projects', 'reviews', 'developers', 'security-management', 'admins', 'blog', 'blog-create', 'blog-edit', 'blog-categories', 'blog-tags', 'blog-ads', 'sponsored-tokens', 'launch-control', 'roadmap'];
+        $corePages = ['dashboard', 'metrics', 'users', 'projects', 'reviews', 'developers', 'security-management', 'engagement', 'admins', 'blog', 'blog-create', 'blog-edit', 'blog-categories', 'blog-tags', 'blog-ads', 'sponsored-tokens', 'launch-control', 'roadmap'];
         $rewardPages = ['rewards', 'reward-ledger', 'reward-users', 'referrals', 'early-airdrop'];
-        $taskPages = ['task-management', 'quiz-manager', 'taskhub-review', 'boosthub-management', 'boosthub-evidence', 'inactive-learnhub-users'];
+        $taskPages = ['task-management', 'quiz-manager', 'taskhub-review', 'boosthub-management', 'boosthub-campaigns', 'boosthub-evidence', 'inactive-learnhub-users'];
     ?>
     <nav class="admin-nav" id="adminNavGroups">
         <div class="admin-nav-group <?php echo in_array($activePage, $corePages, true) ? 'is-open' : ''; ?>">
@@ -26,6 +26,7 @@
                 <?php if (canCurrentAdmin('manage_reviews')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/reviews.php" class="<?php echo $activePage === 'reviews' ? 'active' : ''; ?>"><i class="fas fa-clipboard-check"></i><span>Reviews</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_developers')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/developers.php" class="<?php echo $activePage === 'developers' ? 'active' : ''; ?>"><i class="fas fa-user-shield"></i><span>Developer Verification</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_users')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/security-management.php" class="<?php echo $activePage === 'security-management' ? 'active' : ''; ?>"><i class="fas fa-shield-halved"></i><span>Security Management</span></a><?php endif; ?>
+                <?php if (canCurrentAdmin('manage_engagement')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/engagement.php" class="<?php echo $activePage === 'engagement' ? 'active' : ''; ?>"><i class="fas fa-bullhorn"></i><span>Engagement</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_blog')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/blog.php" class="<?php echo $activePage === 'blog' ? 'active' : ''; ?>"><i class="fas fa-blog"></i><span>Blog</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_blog')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/blog-ads.php" class="<?php echo $activePage === 'blog-ads' ? 'active' : ''; ?>"><i class="fas fa-rectangle-ad"></i><span>Blog Ads</span></a><?php endif; ?>
                 <?php if (canCurrentAdmin('manage_projects')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/sponsored-tokens.php" class="<?php echo $activePage === 'sponsored-tokens' ? 'active' : ''; ?>"><i class="fas fa-ticket-alt"></i><span>Sponsored Tokens</span></a><?php endif; ?>
@@ -62,5 +63,6 @@
                 <?php if (canCurrentAdmin('view_reports')): ?><a href="<?php echo ADMIN_BASE_URL; ?>/inactive-learnhub-users.php" class="<?php echo $activePage === 'inactive-learnhub-users' ? 'active' : ''; ?>"><i class="fas fa-envelope-open-text"></i><span>Inactive Users Export</span></a><?php endif; ?>
             </div>
         </div>
+        <?php if (canCurrentAdmin('moderate_tasks')): ?><a href='<?php echo ADMIN_BASE_URL; ?>/boosthub-campaigns.php' class='<?php echo $activePage === 'boosthub-campaigns' ? 'active' : ''; ?>'><i class='fas fa-bullhorn'></i><span>Partner Campaigns</span></a><?php endif; ?>
     </nav>
 </aside>

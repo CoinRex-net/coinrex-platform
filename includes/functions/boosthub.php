@@ -68,6 +68,7 @@ function boostHubGetTaskCycleState($user_id, PDO $db = null): array {
 function boostHubGetAssignableTasks($user_id, PDO $db = null, int $current_task_id = 0): array {
     $db = $db ?: getDBConnection();
     $cycle_state = boostHubGetTaskCycleState((int) $user_id, $db);
+    $campaigns = boostHubCampaignMapForUser((int) $user_id, $db);
 
     $stmt = $db->query("
         SELECT *
@@ -80,6 +81,12 @@ function boostHubGetAssignableTasks($user_id, PDO $db = null, int $current_task_
     $tasks = [];
     foreach ($stmt->fetchAll() as $task_row) {
         $task_id = (int) ($task_row['id'] ?? 0);
+        $campaign_id = (int) ($task_row['campaign_id'] ?? 0);
+        if ($campaign_id > 0) {
+            $campaign = $campaigns[$campaign_id] ?? null;
+            if (!$campaign || ($campaign['effective_state'] ?? '') !== 'active') { continue; }
+            $task_row['campaign'] = $campaign;
+        }
         $fingerprint = boostHubBuildTaskFingerprint((array) $task_row);
 
         if (isset($cycle_state['completed_ids'][$task_id]) || isset($cycle_state['completed_fingerprints'][$fingerprint])) {
@@ -192,6 +199,43 @@ function skipBoostHubTask($user_id, $task_id, PDO $db = null): array {
  * Now returns pending/submitted tasks SEPARATELY from the main task flow,
  * so users can always get new tasks according to timing.
  */
+/** Return the 24-hour BoostHub cooldown, including evidence returned for correction. */
+function boostHubGetCooldownState(int $user_id, PDO $db = null): array {
+    $db = $db ?: getDBConnection();
+    if (defined('TESTING_MODE') && TESTING_MODE) {
+        return ['unlock_at' => null, 'countdown_seconds' => 0, 'anchor_at' => null];
+    }
+
+    $sql = 'SELECT utl.status,utl.completed_at,utl.task_completed_at,utl.metadata FROM user_task_logs utl INNER JOIN mini_tasks mt ON mt.id=utl.task_id WHERE utl.user_id=? AND utl.status IN (\'submitted\',\'completed\',\'failed\') AND mt.task_group=\'boosthub\' ORDER BY utl.id DESC LIMIT 25';
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$user_id]);
+
+    return boostHubCooldownFromActivities($stmt->fetchAll());
+}
+
+function boostHubCooldownFromActivities(array $activities, ?int $now = null): array {
+    $now = $now ?? time();
+    foreach ($activities as $activity) {
+        $metadata = !empty($activity['metadata']) ? (json_decode((string) $activity['metadata'], true) ?: []) : [];
+        if ((string) $activity['status'] === 'failed' && empty($metadata['correction_requested'])) { continue; }
+
+        $anchor_at = (string) ($metadata['submitted_at'] ?? '');
+        if ($anchor_at === '') {
+            $anchor_at = (string) ($activity['task_completed_at'] ?? $activity['completed_at'] ?? '');
+        }
+        $anchor_ts = $anchor_at !== '' ? strtotime($anchor_at) : false;
+        if (!$anchor_ts) { continue; }
+        $unlock_ts = strtotime('+24 hours', $anchor_ts);
+        return [
+            'unlock_at' => date('Y-m-d H:i:s', $unlock_ts),
+            'countdown_seconds' => max(0, $unlock_ts - $now),
+            'anchor_at' => date('Y-m-d H:i:s', $anchor_ts),
+        ];
+    }
+
+    return ['unlock_at' => null, 'countdown_seconds' => 0, 'anchor_at' => null];
+}
+
 function getBoostHubStateForUser($user_id, PDO $db = null) {
     $db = $db ?: getDBConnection();
     ensureRewardClaimSchema($db);
@@ -218,6 +262,7 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
           AND utl.status = 'failed'
           AND mt.task_group = 'boosthub'
           AND mt.is_active = 1
+          AND (utl.metadata LIKE CONCAT('%',CHAR(34),'correction_requested',CHAR(34),':true%') OR utl.metadata LIKE CONCAT('%',CHAR(34),'correction_requested',CHAR(34),': true%'))
         ORDER BY utl.id DESC
         LIMIT 1
     ");
@@ -263,6 +308,22 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
     ");
     $pending_stmt->execute([$user_id]);
     $pending = $pending_stmt->fetch();
+    $cooldown_state = boostHubGetCooldownState($user_id, $db);
+    if ($pending && $pending_task && (int) $cooldown_state['countdown_seconds'] > 0) {
+        return [
+            'status' => 'locked',
+            'message' => 'Your correction remains available. A new task unlocks 24 hours after the original submission.',
+            'task' => null,
+            'unlock_at' => $cooldown_state['unlock_at'],
+            'countdown_seconds' => (int) $cooldown_state['countdown_seconds'],
+            'pending_task' => $pending_task,
+            'submitted_task' => $submitted_task,
+            'has_pending_review' => !empty($submitted_task),
+            'has_returned_task' => true,
+            'can_skip' => false,
+            'skip_remaining' => 0,
+        ];
+    }
     if ($pending) {
         $remaining_assignable_tasks = boostHubGetAssignableTasks($user_id, $db, (int) ($pending['task_id'] ?? 0));
         // Return the pending task as the current task
@@ -283,6 +344,22 @@ function getBoostHubStateForUser($user_id, PDO $db = null) {
 
     // ── 4. Check 24h cooldown from last completed task ──
     // TESTING_MODE: Skip 24h cooldown between BoostHub tasks
+    if ((int) $cooldown_state['countdown_seconds'] > 0) {
+        return [
+            'status' => 'locked',
+            'message' => 'Next task unlocks after 24 hours.',
+            'task' => null,
+            'unlock_at' => $cooldown_state['unlock_at'],
+            'countdown_seconds' => (int) $cooldown_state['countdown_seconds'],
+            'pending_task' => $pending_task,
+            'submitted_task' => $submitted_task,
+            'has_pending_review' => !empty($submitted_task),
+            'has_returned_task' => !empty($pending_task),
+            'can_skip' => false,
+            'skip_remaining' => 0,
+        ];
+    }
+
     if (!defined('TESTING_MODE') || !TESTING_MODE) {
         $last_activity_stmt = $db->prepare("
             SELECT utl.status, utl.completed_at, utl.task_completed_at, utl.metadata

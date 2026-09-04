@@ -195,7 +195,7 @@ function adminRewardProcessAction(PDO $db, array $current_admin) {
                 throw new RuntimeException('Invalid LearnHub review action.');
             }
 
-            $result = reviewTaskHubSubmission($log_id, $decision === 'approve', $db, [
+            $result = reviewTaskHubSubmissionSafely($log_id, $decision === 'approve', $db, [
                 'return_for_correction' => $decision === 'return',
                 'review_note' => $review_note,
             ]);
@@ -334,10 +334,13 @@ function adminRewardGetTasks(PDO $db, $task_group, $mission_day = 0) {
     $sql = "
         SELECT
             mt.*,
+            c.campaign_name,
+            c.project_name,
             COALESCE(stats.completed_total, 0) AS completed_total,
             COALESCE(stats.completed_today, 0) AS completed_today,
             COALESCE(stats.blocked_total, 0) AS blocked_total
         FROM mini_tasks mt
+        LEFT JOIN boosthub_campaigns c ON c.id = mt.campaign_id
         LEFT JOIN (
             SELECT
                 task_id,
@@ -412,11 +415,15 @@ function adminRewardGetBoosthubReviewRows(PDO $db) {
             mt.task_link,
             mt.proof_notes,
             mt.reward,
+            mt.campaign_id,
+            c.campaign_name,
+            c.project_name,
             u.username,
             u.email
         FROM user_task_logs utl
         INNER JOIN mini_tasks mt ON mt.id = utl.task_id
         INNER JOIN users u ON u.id = utl.user_id
+        LEFT JOIN boosthub_campaigns c ON c.id = mt.campaign_id
         WHERE mt.task_group = 'boosthub'
           AND utl.status = 'submitted'
         ORDER BY utl.id DESC
