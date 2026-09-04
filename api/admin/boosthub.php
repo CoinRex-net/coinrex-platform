@@ -9,10 +9,10 @@ require_once dirname(__DIR__, 2) . '/admin/includes/config.php';
 require_once dirname(__DIR__, 2) . '/admin/includes/reward_admin.php';
 
 // Return JSON instead of redirect for API requests
-if (!adminGuardIsLoggedIn()) {
+if (!adminGuardIsLoggedIn() || !canCurrentAdmin('moderate_tasks')) {
     http_response_code(401);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['success' => false, 'error' => 'Authentication required']);
+    echo json_encode(['success' => false, 'error' => 'Authentication and moderate_tasks permission required']);
     exit;
 }
 $current_admin = getCurrentAdmin();
@@ -36,7 +36,11 @@ try {
 
         if ($action === 'reviews') {
             // Return pending evidence submissions
+            $campaign_id = max(0, (int) ($_GET['campaign_id'] ?? 0));
             $rows = adminRewardGetBoosthubReviewRows($db);
+            if ($campaign_id > 0) {
+                $rows = array_values(array_filter($rows, static fn(array $row): bool => (int) ($row['campaign_id'] ?? 0) === $campaign_id));
+            }
             echo json_encode(['success' => true, 'data' => $rows]);
             exit;
         }
@@ -97,6 +101,7 @@ try {
             $completion_steps = trim((string) ($_POST['completion_steps'] ?? ''));
             $proof_notes = trim((string) ($_POST['proof_notes'] ?? ''));
             $cta_label = trim((string) ($_POST['cta_label'] ?? ''));
+            $campaign_id = max(0, (int) ($_POST['campaign_id'] ?? 0));
 
             if ($title === '' || $description === '' || $reward <= 0) {
                 throw new RuntimeException('Task title, short description, and reward are required.');
@@ -117,18 +122,21 @@ try {
             if ($cta_label === '') {
                 $cta_label = adminRewardDefaultCtaLabel($task_category);
             }
+            if ($campaign_id > 0 && !boostHubCampaignGet($campaign_id, $db)) {
+                throw new RuntimeException('Selected campaign is not valid.');
+            }
 
             if ($task_id > 0) {
                 // Update
                 $stmt = $db->prepare("
                     UPDATE mini_tasks
                     SET title = ?, description = ?, reward = ?, daily_limit = ?, cooldown_seconds = ?, is_active = ?,
-                        task_category = ?, task_link = ?, completion_steps = ?, proof_notes = ?, cta_label = ?
+                        task_category = ?, task_link = ?, completion_steps = ?, proof_notes = ?, cta_label = ?, campaign_id = NULLIF(?, 0)
                     WHERE id = ? AND task_group = 'boosthub'
                 ");
                 $stmt->execute([
                     $title, $description, $reward, $daily_limit, $cooldown_seconds, $is_active,
-                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label, $task_id
+                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label, $campaign_id, $task_id
                 ]);
                 logAdminActivity((int) $current_admin['id'], 'mini_task_update', 'mini_task', (string) $task_id, json_encode(['title' => $title], JSON_UNESCAPED_UNICODE));
                 echo json_encode(['success' => true, 'message' => 'Task updated.']);
@@ -137,12 +145,12 @@ try {
                 $stmt = $db->prepare("
                     INSERT INTO mini_tasks (
                         title, description, reward, daily_limit, cooldown_seconds, is_active, task_group,
-                        task_category, task_link, completion_steps, proof_notes, cta_label
-                    ) VALUES (?, ?, ?, ?, ?, ?, 'boosthub', ?, ?, ?, ?, ?)
+                        task_category, task_link, completion_steps, proof_notes, cta_label, campaign_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'boosthub', ?, ?, ?, ?, ?, NULLIF(?, 0))
                 ");
                 $stmt->execute([
                     $title, $description, $reward, $daily_limit, $cooldown_seconds, $is_active,
-                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label
+                    $task_category, $task_link, $completion_steps, $proof_notes, $cta_label, $campaign_id
                 ]);
                 $new_id = (int) $db->lastInsertId();
                 logAdminActivity((int) $current_admin['id'], 'mini_task_create', 'mini_task', (string) $new_id, json_encode(['title' => $title], JSON_UNESCAPED_UNICODE));
@@ -203,7 +211,7 @@ try {
                 throw new RuntimeException('Invalid review action.');
             }
 
-            $result = reviewTaskHubSubmission($log_id, $decision === 'approve', $db, [
+            $result = reviewTaskHubSubmissionSafely($log_id, $decision === 'approve', $db, [
                 'return_for_correction' => $decision === 'return',
                 'review_note' => $review_note,
             ]);

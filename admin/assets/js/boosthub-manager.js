@@ -29,6 +29,7 @@
 
     // ─── Evidence filter refs ────────────────────────────────────
     var evidenceFilter = document.getElementById('boosthubEvidenceFilter');
+    var campaignFilter = document.getElementById('boosthubCampaignFilter');
 
     // ─── Task Modal refs ─────────────────────────────────────────
     var taskModal = document.getElementById('boosthubTaskModal');
@@ -38,6 +39,7 @@
     var taskModalId = document.getElementById('boosthubTaskModalId');
     var taskModalTitleInput = document.getElementById('boosthubTaskModalTitle');
     var taskModalCategory = document.getElementById('boosthubTaskModalCategory');
+    var taskModalCampaign = document.getElementById('boosthubTaskModalCampaign');
     var taskModalReward = document.getElementById('boosthubTaskModalReward');
     var taskModalCooldown = document.getElementById('boosthubTaskModalCooldown');
     var taskModalDescription = document.getElementById('boosthubTaskModalDescription');
@@ -66,6 +68,11 @@
     // ─── Init ────────────────────────────────────────────────────
     function init() {
         if (!taskListContainer) return;
+        if (taskModalCampaign && taskModal) {
+            var campaignField = taskModalCampaign.closest('.quiz-modal-field');
+            var modalBody = taskModal.querySelector('.quiz-modal-body');
+            if (campaignField && modalBody) modalBody.appendChild(campaignField);
+        }
 
         // Load task categories from the select element
         if (categorySelect) {
@@ -92,6 +99,7 @@
                 renderReviews();
             });
         }
+        if (campaignFilter) campaignFilter.addEventListener('change', loadReviews);
 
         // Add button
         if (addBtn) {
@@ -224,6 +232,9 @@
         for (var i = 0; i < tasks.length; i++) {
             var t = tasks[i];
             var catLabel = taskCategories[t.task_category] || t.task_category || 'Custom Task';
+            if (t.campaign_name) {
+                catLabel = (t.project_name || 'Partner') + ' / ' + t.campaign_name + ' / ' + catLabel;
+            }
             var isActive = t.is_active == 1;
             var statusClass = isActive ? 'status-pending' : 'status-rejected';
             var statusText = isActive ? 'Active' : 'Inactive';
@@ -355,6 +366,7 @@
 
         // Reset category to first option
         if (taskModalCategory) taskModalCategory.selectedIndex = 0;
+        if (taskModalCampaign) taskModalCampaign.value = '0';
 
         taskModal.classList.add('is-open');
         taskModalOverlay.classList.add('is-open');
@@ -381,6 +393,7 @@
         taskModalId.value = t.id;
         taskModalTitleInput.value = t.title || '';
         taskModalCategory.value = t.task_category || 'custom';
+        if (taskModalCampaign) taskModalCampaign.value = t.campaign_id || '0';
         taskModalReward.value = t.reward || '';
         taskModalCooldown.value = t.cooldown_seconds || 86400;
         taskModalDescription.value = t.description || '';
@@ -439,6 +452,7 @@
         formData.append('task_id', id);
         formData.append('title', title);
         formData.append('task_category', category);
+        formData.append('campaign_id', taskModalCampaign ? taskModalCampaign.value : '0');
         formData.append('reward', reward);
         formData.append('cooldown_seconds', cooldown);
         formData.append('description', description);
@@ -469,7 +483,8 @@
     function loadReviews() {
         if (!reviewContainer) return;
 
-        fetch(API_BASE + '?action=reviews')
+        var campaignId = campaignFilter ? campaignFilter.value : '0';
+        fetch(API_BASE + '?action=reviews&campaign_id=' + encodeURIComponent(campaignId))
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (!res.success) throw new Error(res.error || 'Failed to load reviews');
@@ -516,6 +531,10 @@
         for (var i = 0; i < filteredReviews.length; i++) {
             var r = filteredReviews[i];
             var catLabel = taskCategories[r.task_category] || r.task_category || 'Custom Task';
+            if (r.campaign_name) {
+                catLabel = (r.project_name || 'Partner') + ' / ' + r.campaign_name + ' / ' + catLabel;
+            }
+            catLabel += ' / Submitted: ' + (r.created_at || 'Unknown') + ' / Status: submitted / Reviewed: -';
             var proofData = r.proof_data || '';
 
             // Parse JSON evidence (text + screenshot)
