@@ -417,6 +417,8 @@ function registerUser($full_name, $email, $password, $referral_code = null) {
             addRewardLedgerEntry($user_id, $referral_bonus, 'bonus', 'referral_signup_bonus', 'available', 'referral_signup:' . $user_id, $db, 'phase1', 'beginner');
         }
 
+        engagementEnrollUser($user_id, $db);
+
         $db->commit();
 
         return [
