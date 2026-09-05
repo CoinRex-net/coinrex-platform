@@ -6,6 +6,10 @@ require_once __DIR__ . '/includes/header.php';
 $db = getDBConnection();
 $message = '';
 $error = '';
+$schema_ready = ensureEngagementSchema($db);
+if (!$schema_ready) {
+    $error = 'Engagement database setup is unavailable. Apply database/migrations/2026_08_27_social_engagement.sql and reload this page.';
+}
 
 function engagementAdminDate($value): ?string {
     $value = trim((string) $value);
@@ -23,6 +27,7 @@ function engagementAdminNotify(PDO $db, int $userId, string $message): void {
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!$schema_ready) throw new RuntimeException($error);
         requireAdminCsrf((string) ($_POST['csrf_token'] ?? ''));
         $action = (string) ($_POST['action'] ?? '');
         $adminId = (int) $current_admin['id'];
@@ -126,17 +131,28 @@ try {
     $error = $e->getMessage();
 }
 
-$campaigns = $db->query("SELECT c.*,(SELECT COUNT(*) FROM social_gate_assignments a WHERE a.campaign_id=c.id) enrolled,(SELECT COUNT(*) FROM social_gate_assignments a WHERE a.campaign_id=c.id AND a.status='pending') pending FROM social_gate_campaigns c ORDER BY c.id DESC")->fetchAll();
-$announcements = $db->query('SELECT n.*,COALESCE(SUM(e.view_count),0) views,SUM(e.dismissed_forever_at IS NOT NULL) optouts FROM engagement_announcements n LEFT JOIN engagement_announcement_events e ON e.announcement_id=n.id GROUP BY n.id ORDER BY n.id DESC')->fetchAll();
-$queue = $db->query("SELECT e.*,a.id assignment_id,a.strike_count,c.platform,c.max_strikes,u.username,u.email FROM social_gate_evidence e JOIN social_gate_assignments a ON a.id=e.assignment_id JOIN social_gate_campaigns c ON c.id=a.campaign_id JOIN users u ON u.id=a.user_id WHERE e.status='pending' ORDER BY e.created_at")->fetchAll();
+$campaigns = [];
+$announcements = [];
+$queue = [];
+$assignments = [];
+$summary = [];
 $statusFilter = in_array($_GET['status'] ?? '', ['required','pending','approved','waived'], true) ? $_GET['status'] : '';
 $search = trim((string) ($_GET['q'] ?? ''));
-$where = []; $params = [];
-if ($statusFilter !== '') { $where[] = 'a.status=?'; $params[] = $statusFilter; }
-if ($search !== '') { $where[] = '(u.username LIKE ? OR u.email LIKE ?)'; $params[] = '%' . $search . '%'; $params[] = '%' . $search . '%'; }
-$sql = "SELECT a.*,c.name campaign_name,c.platform,u.username,u.email FROM social_gate_assignments a JOIN social_gate_campaigns c ON c.id=a.campaign_id JOIN users u ON u.id=a.user_id" . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY a.updated_at DESC LIMIT 100';
-$stmt = $db->prepare($sql); $stmt->execute($params); $assignments = $stmt->fetchAll();
-$summary = $db->query("SELECT COUNT(*) enrolled,SUM(status='required') required_count,SUM(status='pending') pending_count,SUM(status='approved') approved_count,SUM(status='waived') waived_count FROM social_gate_assignments")->fetch() ?: [];
+if ($schema_ready) {
+    try {
+        $campaigns = $db->query("SELECT c.*,(SELECT COUNT(*) FROM social_gate_assignments a WHERE a.campaign_id=c.id) enrolled,(SELECT COUNT(*) FROM social_gate_assignments a WHERE a.campaign_id=c.id AND a.status='pending') pending FROM social_gate_campaigns c ORDER BY c.id DESC")->fetchAll();
+        $announcements = $db->query('SELECT n.*,COALESCE(SUM(e.view_count),0) views,SUM(e.dismissed_forever_at IS NOT NULL) optouts FROM engagement_announcements n LEFT JOIN engagement_announcement_events e ON e.announcement_id=n.id GROUP BY n.id ORDER BY n.id DESC')->fetchAll();
+        $queue = $db->query("SELECT e.*,a.id assignment_id,a.strike_count,c.platform,c.max_strikes,u.username,u.email FROM social_gate_evidence e JOIN social_gate_assignments a ON a.id=e.assignment_id JOIN social_gate_campaigns c ON c.id=a.campaign_id JOIN users u ON u.id=a.user_id WHERE e.status='pending' ORDER BY e.created_at")->fetchAll();
+        $where = []; $params = [];
+        if ($statusFilter !== '') { $where[] = 'a.status=?'; $params[] = $statusFilter; }
+        if ($search !== '') { $where[] = '(u.username LIKE ? OR u.email LIKE ?)'; $params[] = '%' . $search . '%'; $params[] = '%' . $search . '%'; }
+        $sql = "SELECT a.*,c.name campaign_name,c.platform,u.username,u.email FROM social_gate_assignments a JOIN social_gate_campaigns c ON c.id=a.campaign_id JOIN users u ON u.id=a.user_id" . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY a.updated_at DESC LIMIT 100';
+        $stmt = $db->prepare($sql); $stmt->execute($params); $assignments = $stmt->fetchAll();
+        $summary = $db->query("SELECT COUNT(*) enrolled,SUM(status='required') required_count,SUM(status='pending') pending_count,SUM(status='approved') approved_count,SUM(status='waived') waived_count FROM social_gate_assignments")->fetch() ?: [];
+    } catch (Throwable $e) {
+        $error = 'Engagement data could not be loaded: ' . $e->getMessage();
+    }
+}
 $csrf = htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8');
 ?>
 <link rel="stylesheet" href="<?php echo ADMIN_BASE_URL; ?>/assets/css/engagement.css?v=<?php echo (int) @filemtime(__DIR__ . '/assets/css/engagement.css'); ?>">
