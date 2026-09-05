@@ -265,6 +265,14 @@ function boostHubCampaignFormatAnalytics(array $campaign, array $s, array $tasks
 
 function reviewTaskHubSubmissionSafely(int $log, bool $approve, PDO $db = null, array $options = []): array {
     $db = $db ?: getDBConnection();
+
+    // These legacy schema guards may execute DDL. MySQL implicitly commits an
+    // active transaction around DDL, so initialize them before taking the
+    // campaign-capacity lock and starting the atomic approval write set.
+    ensureRewardClaimSchema($db);
+    ensureLevelEngineSchema($db);
+    ensureEarlyAirdropSchema($db);
+
     $owns = !$db->inTransaction();
     if ($owns) { $db->beginTransaction(); }
     try {

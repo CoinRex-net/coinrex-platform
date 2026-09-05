@@ -274,7 +274,10 @@ function applyReferralDecision($user_id, $decision, $reviewed_by = null, $flag_r
         throw new InvalidArgumentException('Invalid referral decision.');
     }
 
-    $db->beginTransaction();
+    $owns_transaction = !$db->inTransaction();
+    if ($owns_transaction) {
+        $db->beginTransaction();
+    }
 
     try {
         $stmt = $db->prepare("SELECT id, referred_by, referral_qualified_at, referral_review_status FROM users WHERE id = ? LIMIT 1 FOR UPDATE");
@@ -317,10 +320,12 @@ function applyReferralDecision($user_id, $decision, $reviewed_by = null, $flag_r
             }
         }
 
-        $db->commit();
+        if ($owns_transaction) {
+            $db->commit();
+        }
         return true;
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
+        if ($owns_transaction && $db->inTransaction()) {
             $db->rollBack();
         }
         throw $e;
