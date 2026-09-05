@@ -17,6 +17,7 @@ function engagementTrackCtaClick(int $uid,int $aid,PDO $db=null):array{$db=$db?:
 function engagementNormalizeUrl(string $url): string {
  $url=html_entity_decode($url,ENT_QUOTES|ENT_HTML5,'UTF-8');
  $url=preg_replace('/[\x{200B}\x{200C}\x{200D}\x{2060}\x{FEFF}]/u','',$url)??$url;
+ $url=preg_replace('/^[\p{Z}\s]+|[\p{Z}\s]+$/u','',$url)??$url;
  $url=trim($url," \t\n\r\0\x0B\"'");
  if(preg_match('/^\[[^\]]*\]\((https?:\/\/[^)]+)\)$/iu',$url,$match))$url=$match[1];
  return str_replace(['\\:','\\/','\\_'],[':','/','_'],$url);
