@@ -3729,3 +3729,31 @@
         min-height: 300px;
     }
 }
+
+/* Login and registration submit progress */
+.auth-submit.loading,
+.auth-main.auth-main-split .auth-submit.loading {
+    cursor: wait;
+    opacity: 0.92;
+    pointer-events: none;
+    transform: none;
+}
+
+.auth-submit.loading .auth-submit-spinner,
+.auth-main.auth-main-split .auth-submit.loading .auth-submit-spinner {
+    animation: auth-submit-spin 0.75s linear infinite;
+    transform-origin: center;
+}
+
+@keyframes auth-submit-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-submit.loading .auth-submit-spinner,
+    .auth-main.auth-main-split .auth-submit.loading .auth-submit-spinner {
+        animation-duration: 1.5s;
+    }
+}

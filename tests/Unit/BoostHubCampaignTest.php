@@ -71,6 +71,18 @@ final class BoostHubCampaignTest extends TestCase {
         self::assertStringContainsString('data-campaign-task-start', $page);
     }
 
+    public function testGuestsCanBrowseCampaignsButMustAuthenticateToStartTasks(): void {
+        $root = dirname(__DIR__, 2);
+        $page = file_get_contents($root . '/public/boosthub.php');
+        $auth = file_get_contents($root . '/auth/auth.php');
+
+        self::assertStringContainsString('$is_logged_in = isLoggedIn();', $page);
+        self::assertStringContainsString('Sign in to Start', $page);
+        self::assertStringContainsString("rawurlencode('/public/boosthub.php#campaigns')", $page);
+        self::assertStringContainsString('<?php if ($is_logged_in): ?>', $page);
+        self::assertStringContainsString('$redirect_to !== \'\' ? $redirect_to : \'/public/dashboard.php\'', $auth);
+    }
+
     public function testReturnedEvidenceKeepsCooldownAndCampaignVisualProgressContracts(): void {
         $root = dirname(__DIR__, 2);
         $boosthub = file_get_contents($root . '/includes/functions/boosthub.php');

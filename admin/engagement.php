@@ -38,10 +38,10 @@ try {
             $title = trim((string) ($_POST['modal_title'] ?? ''));
             $instructions = trim((string) ($_POST['modal_message'] ?? ''));
             $ctaLabel = trim((string) ($_POST['cta_label'] ?? ''));
-            $ctaUrl = trim((string) ($_POST['cta_url'] ?? ''));
+            $ctaUrl = engagementNormalizeUrl((string) ($_POST['cta_url'] ?? ''));
             $platform = ($_POST['platform'] ?? '') === 'telegram' ? 'telegram' : 'x';
             if ($name === '' || $title === '' || $instructions === '' || $ctaLabel === '') throw new RuntimeException('Please complete every required campaign field.');
-            if (!filter_var($ctaUrl, FILTER_VALIDATE_URL)) throw new RuntimeException('Please enter a valid channel URL starting with https://.');
+            if (!engagementValidHttpsUrl($ctaUrl)) throw new RuntimeException('Please enter a valid channel URL starting with https://.');
             if (!engagementValidProfileUrl($platform, $ctaUrl)) throw new RuntimeException($platform === 'x' ? 'X campaigns must use an x.com or twitter.com link.' : 'Telegram campaigns must use a t.me or telegram.me link.');
             $stmt = $db->prepare('INSERT INTO social_gate_campaigns (name,platform,modal_title,modal_message,cta_label,cta_url,max_strikes,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?)');
             $stmt->execute([$name, $platform, $title, $instructions, $ctaLabel, $ctaUrl, max(1, min(20, (int) ($_POST['max_strikes'] ?? 3))), $adminId, $adminId]);

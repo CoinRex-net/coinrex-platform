@@ -11,19 +11,26 @@ require_once __DIR__ . '/../includes/functions.php';
 
 requireFeatureAccess('boosthub');
 
-if (!isLoggedIn()) {
-    redirect(BASE_URL . '/auth/auth.php');
-}
-
+$is_logged_in = isLoggedIn();
 $db = getDBConnection();
-ensureRewardClaimSchema($db);
+$user = null;
+$user_id = 0;
+$boost_state = [
+    'status' => 'guest',
+    'message' => 'Sign in to start and complete BoostHub tasks.',
+    'countdown_seconds' => 0,
+];
+$boost_task = null;
+$learnhub_completed = false;
 
-$user = getCurrentUser();
-$user_id = (int) $user['id'];
-
-// ── Get BoostHub state ──
-$boost_state = getBoostHubStateForUser($user_id, $db);
-$boost_task = $boost_state['task'] ?? null;
+if ($is_logged_in) {
+    ensureRewardClaimSchema($db);
+    $user = getCurrentUser();
+    $user_id = (int) $user['id'];
+    $boost_state = getBoostHubStateForUser($user_id, $db);
+    $boost_task = $boost_state['task'] ?? null;
+    $learnhub_completed = taskHubMissionCompleted($user_id, $db);
+}
 $campaign_context = null;
 if (!empty($boost_task['campaign'])) {
     $campaign_context = $boost_task['campaign'];
@@ -31,7 +38,6 @@ if (!empty($boost_task['campaign'])) {
     $campaign_context = boostHubCampaignGet((int) $boost_task['campaign_id'], $db);
 }
 $status = $boost_state['status'] ?? 'closed';
-$learnhub_completed = taskHubMissionCompleted($user_id, $db);
 
 // ── Pending / Submitted tasks (non-blocking) ──
 $pending_task = $boost_state['pending_task'] ?? null;   // returned for correction
@@ -134,8 +140,9 @@ try {
     error_log('BoostHub public campaigns unavailable: ' . $e->getMessage());
 }
 $current_boost_task_id = (int) ($boost_task['task_id'] ?? $boost_task['id'] ?? 0);
+$boosthub_auth_url = BASE_URL . '/auth/auth.php?redirect=' . rawurlencode('/public/boosthub.php#campaigns');
 
-function boostHubRenderPublicCampaignTasks(array $campaign, bool $campaign_open, string $boost_status, int $current_task_id): string {
+function boostHubRenderPublicCampaignTasks(array $campaign, bool $campaign_open, string $boost_status, int $current_task_id, bool $is_logged_in, string $auth_url): string {
     ob_start();
     if (!$campaign['tasks']): ?>
         <div class='bh-campaign-task-empty'><i class='fas fa-hourglass-half'></i> Tasks are being prepared.</div>
@@ -174,6 +181,8 @@ function boostHubRenderPublicCampaignTasks(array $campaign, bool $campaign_open,
                     <span class='bh-campaign-task-result'><i class='fas fa-lock'></i> <?php echo htmlspecialchars(ucfirst($campaign['effective_state']), ENT_QUOTES, 'UTF-8'); ?></span>
                 <?php elseif ($boost_status === 'locked'): ?>
                     <span class='bh-campaign-task-result'><i class='fas fa-hourglass'></i> Cooldown active</span>
+                <?php elseif (!$is_logged_in): ?>
+                    <a class='bh-campaign-task-btn' href='<?php echo htmlspecialchars($auth_url, ENT_QUOTES, 'UTF-8'); ?>'><i class='fas fa-right-to-bracket'></i> Sign in to Start</a>
                 <?php elseif ($is_current || $task_state === 'assigned'): ?>
                     <button type='button' class='bh-campaign-task-btn' data-campaign-continue><i class='fas fa-play'></i> Continue Task</button>
                 <?php else: ?>
@@ -197,23 +206,29 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="bh-header">
             <div class="bh-header-left">
                 <span class="bh-header-badge"><i class="fas fa-bolt"></i> BoostHub</span>
-                <h1 id='boostHubViewTitle'>Daily Boost</h1>
+                <h1 id='boostHubViewTitle'><?php echo $is_logged_in ? 'Daily Boost' : 'Partner Campaigns'; ?></h1>
             </div>
             <div class="bh-header-actions">
+                <?php if (!$is_logged_in): ?>
+                    <a href="<?php echo htmlspecialchars($boosthub_auth_url, ENT_QUOTES, 'UTF-8'); ?>" class="bh-header-btn bh-header-btn--primary"><i class="fas fa-right-to-bracket"></i><span>Sign In</span></a>
+                <?php else: ?>
                 <?php if (!$learnhub_completed): ?>
                     <a href="<?php echo BASE_URL; ?>/public/taskhub.php" class="bh-header-btn bh-header-btn--secondary"><i class="fas fa-graduation-cap"></i><span>LearnHub</span></a>
                 <?php endif; ?>
                 <a href="<?php echo BASE_URL; ?>/public/dashboard.php" class="bh-header-btn bh-header-btn--primary"><i class="fas fa-chart-simple"></i><span>Dashboard</span></a>
+                <?php endif; ?>
             </div>
         </div>
 
         <!-- ── PENDING REVIEW PANEL ── -->
+        <?php if ($is_logged_in): ?>
         <nav class='bh-view-tabs' role='tablist' aria-label='BoostHub views'>
             <button type='button' class='bh-view-tab is-active' id='dailyBoostTab' role='tab' aria-selected='true' aria-controls='dailyBoostPanel' data-bh-view='daily'><i class='fas fa-bolt'></i><span>Daily Boost</span></button>
             <button type='button' class='bh-view-tab' id='partnerCampaignsTab' role='tab' aria-selected='false' aria-controls='partnerCampaignsPanel' data-bh-view='campaigns'><i class='fas fa-handshake'></i><span>Partner Campaigns</span><?php if ($partner_campaigns): ?><b><?php echo count($partner_campaigns); ?></b><?php endif; ?></button>
         </nav>
+        <?php endif; ?>
 
-        <div class='bh-tab-panel' id='partnerCampaignsPanel' role='tabpanel' aria-labelledby='partnerCampaignsTab' data-bh-tab-panel='campaigns' hidden>
+        <div class='bh-tab-panel<?php echo $is_logged_in ? '' : ' is-active'; ?>' id='partnerCampaignsPanel' role='tabpanel' aria-labelledby='partnerCampaignsTab' data-bh-tab-panel='campaigns' <?php echo $is_logged_in ? 'hidden' : ''; ?>>
         <?php if ($partner_campaigns): ?>
         <section class='bh-campaigns bh-reveal' aria-labelledby='partnerCampaignsTitle'>
             <div class='bh-campaigns-head'>
@@ -252,7 +267,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div class='bh-campaign-stat-card'>
                     <span class='bh-campaign-stat-icon is-blue'><i class='fas fa-list-check'></i></span>
-                    <div class='bh-campaign-stat-text'><strong><?php echo (int) $stats_completed; ?> / <?php echo (int) $stats_total; ?></strong><span>Your completion</span></div>
+                    <div class='bh-campaign-stat-text'><strong><?php echo $is_logged_in ? (int) $stats_completed . ' / ' . (int) $stats_total : (int) $stats_total; ?></strong><span><?php echo $is_logged_in ? 'Your completion' : 'Campaign tasks'; ?></span></div>
                 </div>
                 <div class='bh-campaign-stat-card'>
                     <span class='bh-campaign-stat-icon is-users'><i class='fas fa-user-plus'></i></span>
@@ -330,6 +345,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class='bh-capacity-track'><span class='bh-capacity-fill' style='width:<?php echo $capacity_pct; ?>%'></span></div>
                     </div>
                     <?php endif; ?>
+                    <?php if ($is_logged_in): ?>
                     <div class='bh-campaign-progress<?php echo $campaign_progress >= 100 ? ' is-done' : ''; ?>' aria-label='<?php echo $campaign_progress; ?> percent complete'>
                         <div class='bh-campaign-progress-head'>
                             <span>Your task progress</span>
@@ -337,8 +353,9 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
                         <div class='bh-campaign-progress-track'><span class='bh-campaign-progress-fill' style='width:<?php echo $campaign_progress; ?>%'></span></div>
                     </div>
+                    <?php endif; ?>
                     <div class='bh-campaign-tasks' id='campaignTasks<?php echo $campaign_id; ?>'>
-                        <?php echo boostHubRenderPublicCampaignTasks($campaign, $campaign_open, $status, $current_boost_task_id); ?>
+                        <?php echo boostHubRenderPublicCampaignTasks($campaign, $campaign_open, $status, $current_boost_task_id, $is_logged_in, $boosthub_auth_url); ?>
                     </div>
                     </div>
                     </div>
@@ -350,12 +367,17 @@ require_once __DIR__ . '/../includes/header.php';
         <section class='bh-campaigns bh-campaigns-empty'>
             <div class='bh-campaigns-empty-art'><i class='fas fa-handshake'></i><i class='fas fa-bolt'></i></div>
             <h2>No partner campaigns right now</h2>
-            <p>New sponsored opportunities will appear here when they become available. BoostHub rewards keep flowing in the Daily Boost tab meanwhile.</p>
-            <a href="#daily" class='bh-campaigns-empty-cta' data-bh-view='daily'><i class="fas fa-bolt"></i> Go to Daily Boost</a>
+            <p>New sponsored opportunities will appear here when they become available.</p>
+            <?php if ($is_logged_in): ?>
+                <a href="#daily" class='bh-campaigns-empty-cta' data-bh-view='daily'><i class="fas fa-bolt"></i> Go to Daily Boost</a>
+            <?php else: ?>
+                <a href="<?php echo htmlspecialchars($boosthub_auth_url, ENT_QUOTES, 'UTF-8'); ?>" class='bh-campaigns-empty-cta'><i class="fas fa-right-to-bracket"></i> Sign in to BoostHub</a>
+            <?php endif; ?>
         </section>
         <?php endif; ?>
         </div>
 
+        <?php if ($is_logged_in): ?>
         <div class='bh-tab-panel is-active' id='dailyBoostPanel' role='tabpanel' aria-labelledby='dailyBoostTab' data-bh-tab-panel='daily'>
         <?php if ($has_pending_review || $has_returned_task): ?>
         <section class="bh-panel bh-pending-panel bh-reveal">
@@ -579,6 +601,7 @@ require_once __DIR__ . '/../includes/header.php';
         </section>
 
         </div>
+        <?php endif; ?>
 
     </div>
 </main>
@@ -811,6 +834,7 @@ require_once __DIR__ . '/../includes/header.php';
     const skipUrl = BASE_URL + '/api/skip_boosthub_task.php';
     const campaignTaskUrl = BASE_URL + '/api/start_boosthub_campaign_task.php';
     const uploadUrl = BASE_URL + '/api/upload_boosthub_evidence.php';
+    const isLoggedIn = <?php echo $is_logged_in ? 'true' : 'false'; ?>;
     const taskId = <?php echo $boost_task ? (int) $boost_task['id'] : 0; ?>;
     const canSkipTask = <?php echo $can_skip_task ? 'true' : 'false'; ?>;
     const countdownSeconds = <?php echo (int) ($boost_state['countdown_seconds'] ?? 0); ?>;
@@ -850,7 +874,7 @@ require_once __DIR__ . '/../includes/header.php';
         if (updateHash && window.history && window.history.replaceState) {
             window.history.replaceState(null, '', selected === 'campaigns' ? '#campaigns' : '#daily');
         }
-        if (selected === 'campaigns') {
+        if (selected === 'campaigns' && updateHash) {
             var campaignsPanel = document.getElementById('partnerCampaignsPanel');
             if (campaignsPanel && !campaignsPanel.hidden) {
 
@@ -864,7 +888,7 @@ require_once __DIR__ . '/../includes/header.php';
             activateBoostHubView(tab.getAttribute('data-bh-view'), true);
         });
     });
-    activateBoostHubView(window.location.hash === '#campaigns' ? 'campaigns' : 'daily', false);
+    activateBoostHubView(!isLoggedIn || window.location.hash === '#campaigns' ? 'campaigns' : 'daily', false);
 
     function openModal(id) {
         var el = document.getElementById(id);

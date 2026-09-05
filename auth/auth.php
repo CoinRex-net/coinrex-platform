@@ -150,7 +150,11 @@ if ($is_register_submission) {
                 $result['message'] . ' Welcome bonus: ' . $result['bonus'] . ' $REX! Please sign in with your new account.'
             );
             setFlashMessage('auth_login_email', $email);
-            redirect(BASE_URL . '/auth/auth.php?tab=login');
+            $login_url = BASE_URL . '/auth/auth.php?tab=login';
+            if ($redirect_to !== '') {
+                $login_url .= '&redirect=' . rawurlencode($redirect_to);
+            }
+            redirect($login_url);
         } else {
             $error = $result['message'];
         }
@@ -169,7 +173,7 @@ if ($is_login_submission) {
     } else {
         $result = loginUser($email, $password, $remember);
         if ($result['success']) {
-            redirect(BASE_URL . '/public/dashboard.php');
+            redirect(BASE_URL . ($redirect_to !== '' ? $redirect_to : '/public/dashboard.php'));
         } elseif (!empty($result['requires_verification'])) {
             setFlashMessage('verify_info', $result['message']);
             setFlashMessage('verify_email', $result['email'] ?? $email);
@@ -188,7 +192,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
 ?>
 
 <!-- Auth Page Styles -->
-<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/auth.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/auth.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/auth.css'); ?>">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/rexlink-auth.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/rexlink-auth.css'); ?>">
 
 <main class="auth-main auth-main-split">
@@ -278,7 +282,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                             <a href="<?php echo BASE_URL; ?>/auth/forgot.php" class="forgot-link">Forgot password?</a>
                         </div>
 
-                        <button type="submit" name="login" class="auth-submit">
+                        <button type="submit" name="login" class="auth-submit" id="loginSubmitButton" data-loading-text="Logging in...">
                             <span>Sign In</span>
                             <i class="fas fa-arrow-right"></i>
                         </button>
@@ -410,7 +414,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                         </div>
 
                         <div class="register-action">
-                            <button type="submit" name="register" class="auth-submit" id="registerSubmitButton" <?php echo $is_register_submission && isset($_POST['terms']) ? '' : 'disabled'; ?>>
+                            <button type="submit" name="register" class="auth-submit" id="registerSubmitButton" data-loading-text="Registering..." <?php echo $is_register_submission && isset($_POST['terms']) ? '' : 'disabled'; ?>>
                                 <span>Create Account</span>
                                 <i class="fas fa-arrow-right"></i>
                             </button>
