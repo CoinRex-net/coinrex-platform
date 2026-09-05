@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabs = document.querySelectorAll('.auth-tab');
     const loginContainer = document.getElementById('loginForm');
     const registerContainer = document.getElementById('registerForm');
+    const loginForm = document.getElementById('loginAuthForm');
+    const loginSubmitButton = document.getElementById('loginSubmitButton');
     const slider = document.querySelector('.auth-tab-slider');
     const registerForm = document.getElementById('registerAuthForm');
     const deviceFingerprintField = document.getElementById('deviceFingerprintField');
@@ -674,6 +676,37 @@ document.addEventListener('DOMContentLoaded', function() {
     let emailRequestId = 0;
     let referralTimer = null;
     let referralRequestId = 0;
+
+    function setSubmitLoading(button, isLoading) {
+        if (!button) {
+            return;
+        }
+
+        const label = button.querySelector('span');
+        const icon = button.querySelector('i');
+
+        if (!button.dataset.defaultLabel && label) {
+            button.dataset.defaultLabel = label.textContent;
+        }
+        if (!button.dataset.defaultIcon && icon) {
+            button.dataset.defaultIcon = icon.className;
+        }
+
+        button.classList.toggle('loading', isLoading);
+        button.disabled = isLoading;
+        button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+
+        if (label) {
+            label.textContent = isLoading
+                ? (button.dataset.loadingText || 'Please wait...')
+                : button.dataset.defaultLabel;
+        }
+        if (icon) {
+            icon.className = isLoading
+                ? 'fas fa-spinner auth-submit-spinner'
+                : button.dataset.defaultIcon;
+        }
+    }
     
     function switchTab(tabId) {
         tabs.forEach(tab => {
@@ -733,7 +766,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        registerSubmitButton.disabled = !registerTermsCheckbox.checked;
+        registerSubmitButton.disabled = registerSubmitButton.classList.contains('loading')
+            || !registerTermsCheckbox.checked;
     }
 
     function updateRequirement(rule, passed) {
@@ -1090,27 +1124,53 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(event) {
+            if (loginSubmitButton && loginSubmitButton.classList.contains('loading')) {
+                event.preventDefault();
+                return;
+            }
+
+            setSubmitLoading(loginSubmitButton, true);
+        });
+    }
+
     if (registerForm) {
         registerForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            if (registerSubmitButton && registerSubmitButton.classList.contains('loading')) {
+                return;
+            }
+
             syncRegisterSubmitState();
             if (registerSubmitButton && registerSubmitButton.disabled) {
                 return;
             }
 
-            event.preventDefault();
             switchTab('register');
+            setSubmitLoading(registerSubmitButton, true);
+            let isSubmitting = false;
 
-            const passwordValid = validatePasswordField();
-            const confirmValid = validateConfirmPasswordField();
-            const emailValid = await validateEmailField();
-            const referralValid = await validateReferralField();
+            try {
+                const passwordValid = validatePasswordField();
+                const confirmValid = validateConfirmPasswordField();
+                const emailValid = await validateEmailField();
+                const referralValid = await validateReferralField();
 
-            if (!registerForm.reportValidity()) {
-                return;
-            }
+                if (!registerForm.reportValidity()) {
+                    return;
+                }
 
-            if (passwordValid && confirmValid && emailValid && referralValid) {
-                HTMLFormElement.prototype.submit.call(registerForm);
+                if (passwordValid && confirmValid && emailValid && referralValid) {
+                    isSubmitting = true;
+                    HTMLFormElement.prototype.submit.call(registerForm);
+                }
+            } finally {
+                if (!isSubmitting) {
+                    setSubmitLoading(registerSubmitButton, false);
+                    syncRegisterSubmitState();
+                }
             }
         });
     }
@@ -1119,6 +1179,12 @@ document.addEventListener('DOMContentLoaded', function() {
         registerTermsCheckbox.addEventListener('change', syncRegisterSubmitState);
         syncRegisterSubmitState();
     }
+
+    window.addEventListener('pageshow', function() {
+        setSubmitLoading(loginSubmitButton, false);
+        setSubmitLoading(registerSubmitButton, false);
+        syncRegisterSubmitState();
+    });
 
     syncPasswordChecklistVisibility();
 });
