@@ -40,10 +40,17 @@ final class BoostHubCampaignTest extends TestCase {
     public function testImplementationUsesLocksAndExistingRewardPath(): void {
         $root = dirname(__DIR__, 2);
         $campaigns = file_get_contents($root . '/includes/functions/boosthub_campaigns.php');
+        $referrals = file_get_contents($root . '/includes/functions/referrals.php');
         $api = file_get_contents($root . '/api/admin/boosthub.php');
         $core = file_get_contents($root . '/includes/functions/core.php');
         self::assertStringContainsString('FOR UPDATE', $campaigns);
         self::assertStringContainsString('COUNT(DISTINCT', $campaigns);
+        $safe_review_offset = strpos($campaigns, 'function reviewTaskHubSubmissionSafely');
+        self::assertLessThan(
+            strpos($campaigns, '$db->beginTransaction();', $safe_review_offset),
+            strpos($campaigns, 'ensureRewardClaimSchema($db);', $safe_review_offset)
+        );
+        self::assertStringContainsString('$owns_transaction = !$db->inTransaction();', $referrals);
         self::assertStringContainsString('reviewTaskHubSubmission($log', $campaigns);
         self::assertStringContainsString('reviewTaskHubSubmissionSafely', $api);
         self::assertStringContainsString('moderate_tasks', $api);
