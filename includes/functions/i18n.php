@@ -114,7 +114,6 @@ function coinrexUserPreferredLocale(PDO $db = null) {
     }
 
     $db = $db ?: getDBConnection();
-    ensureUserLanguageSchema($db);
     if (!coinrexUserLanguageColumnExists($db)) {
         return '';
     }
@@ -167,10 +166,15 @@ function coinrexSetLocale($locale, $user_id = null, PDO $db = null) {
 
     $user_id = $user_id !== null ? (int) $user_id : (int) ($_SESSION['user_id'] ?? 0);
     if ($user_id > 0) {
-        $db = $db ?: getDBConnection();
-        ensureUserLanguageSchema($db);
-        $stmt = $db->prepare('UPDATE users SET language = ?, updated_at = NOW() WHERE id = ?');
-        $stmt->execute([$locale, $user_id]);
+        try {
+            $db = $db ?: getDBConnection();
+            if (coinrexUserLanguageColumnExists($db)) {
+                $stmt = $db->prepare('UPDATE users SET language = ?, updated_at = NOW() WHERE id = ?');
+                $stmt->execute([$locale, $user_id]);
+            }
+        } catch (Throwable $e) {
+            error_log('CoinRex locale persistence failed: ' . $e->getMessage());
+        }
     }
 
     return true;
