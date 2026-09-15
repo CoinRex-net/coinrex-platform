@@ -2,7 +2,7 @@ USE koinrex;
 
 CREATE TABLE IF NOT EXISTS blog_ads (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    placement ENUM('blog_leaderboard','blog_infeed','blog_sidebar') NOT NULL,
+    placement ENUM('blog_leaderboard','blog_infeed','blog_sidebar','boosthub_spotlight','learnhub_spotlight','dashboard_rexhub_spotlight') NOT NULL,
     ad_type ENUM('image','gif','text') NOT NULL DEFAULT 'text',
     title VARCHAR(180) NULL,
     description VARCHAR(255) NULL,

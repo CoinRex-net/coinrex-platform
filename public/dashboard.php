@@ -42,6 +42,7 @@ $show_projects_feature = featureIsVisible('projects');
 $show_learnhub_feature = featureIsVisible('learnhub');
 $show_boosthub_feature = featureIsVisible('boosthub');
 $show_claim_feature = featureIsVisible('claim_center');
+$dashboard_rexhub_spotlight_ad = function_exists('blogGetRandomAdByPlacement') ? blogGetRandomAdByPlacement($db, 'dashboard_rexhub_spotlight') : null;
 
 $balance = getRewardLedgerBalance((int) $user['id'], 'available', $db);
 $claim_eligibility = getClaimEligibility((int) $user['id'], $db);
@@ -472,6 +473,8 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </section>
 
+        <?php echo function_exists('blogRenderSponsorSpotlight') ? blogRenderSponsorSpotlight($dashboard_rexhub_spotlight_ad, 'dashboard-rexhub', 'RexHub sponsor spotlight') : ''; ?>
+
         <?php if ($pro_weekly_streak_state !== null): ?>
             <?php require __DIR__ . '/../includes/dashboard/pro-weekly-streak.php'; ?>
         <?php endif; ?>
@@ -657,6 +660,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
             </div>
         </section>
+
 
         <?php
         // Early Adopter Airdrop Widget

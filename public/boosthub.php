@@ -141,6 +141,7 @@ try {
 }
 $current_boost_task_id = (int) ($boost_task['task_id'] ?? $boost_task['id'] ?? 0);
 $boosthub_auth_url = BASE_URL . '/auth/auth.php?redirect=' . rawurlencode('/public/boosthub.php#campaigns');
+$boosthub_spotlight_ad = function_exists('blogGetRandomAdByPlacement') ? blogGetRandomAdByPlacement($db, 'boosthub_spotlight') : null;
 
 function boostHubRenderPublicCampaignTasks(array $campaign, bool $campaign_open, string $boost_status, int $current_task_id, bool $is_logged_in, string $auth_url): string {
     ob_start();
@@ -220,6 +221,8 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+        <?php echo function_exists('blogRenderSponsorSpotlight') ? blogRenderSponsorSpotlight($boosthub_spotlight_ad, 'boosthub', 'BoostHub sponsor spotlight') : ''; ?>
+
         <!-- ── PENDING REVIEW PANEL ── -->
         <?php if ($is_logged_in): ?>
         <nav class='bh-view-tabs' role='tablist' aria-label='BoostHub views'>
@@ -227,6 +230,7 @@ require_once __DIR__ . '/../includes/header.php';
             <button type='button' class='bh-view-tab' id='partnerCampaignsTab' role='tab' aria-selected='false' aria-controls='partnerCampaignsPanel' data-bh-view='campaigns'><i class='fas fa-handshake'></i><span>Partner Campaigns</span><?php if ($partner_campaigns): ?><b><?php echo count($partner_campaigns); ?></b><?php endif; ?></button>
         </nav>
         <?php endif; ?>
+
 
         <div class='bh-tab-panel<?php echo $is_logged_in ? '' : ' is-active'; ?>' id='partnerCampaignsPanel' role='tabpanel' aria-labelledby='partnerCampaignsTab' data-bh-tab-panel='campaigns' <?php echo $is_logged_in ? 'hidden' : ''; ?>>
         <?php if ($partner_campaigns): ?>

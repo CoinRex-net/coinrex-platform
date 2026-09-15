@@ -19,6 +19,7 @@ if ($user && taskHubMissionCompleted((int) $user['id'], $db)) {
 }
 
 $state = getTaskHubState((int) $user['id'], $db);
+$learnhub_spotlight_ad = function_exists('blogGetRandomAdByPlacement') ? blogGetRandomAdByPlacement($db, 'learnhub_spotlight') : null;
 $learnhub_share_referral_link = !empty($user['referral_code'])
     ? buildReferralLink((string) $user['referral_code'])
     : BASE_URL . '/public/taskhub.php';
@@ -40,6 +41,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/reward-pages.css">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/taskhub-premium.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/sponsor-spotlight.css?v=<?php echo (int) @filemtime(__DIR__ . '/../assets/css/sponsor-spotlight.css'); ?>">
 
 <main class="reward-page taskhub-premium">
     <div class="reward-page-shell">
@@ -57,6 +59,8 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </div>
         <?php else: ?>
+
+        <?php echo function_exists('blogRenderSponsorSpotlight') ? blogRenderSponsorSpotlight($learnhub_spotlight_ad, 'learnhub', 'LearnHub sponsor spotlight') : ''; ?>
 
         <!-- ============================================================
              STREAK HERO SECTION

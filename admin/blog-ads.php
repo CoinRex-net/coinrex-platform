@@ -26,6 +26,12 @@ if (!$hasCtaText) {
     }
 }
 
+$hubPlacementsReady = function_exists('blogEnsureHubAdPlacements') ? blogEnsureHubAdPlacements($db) : false;
+$adPlacements = function_exists('blogAdPlacementOptions') ? blogAdPlacementOptions() : [
+    'blog_leaderboard' => 'Blog - Leaderboard',
+    'blog_infeed' => 'Blog - In-feed',
+    'blog_sidebar' => 'Blog - Sidebar',
+];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireAdminCsrf((string) ($_POST['csrf_token'] ?? ''));
     $action = trim((string) ($_POST['action'] ?? 'save'));
@@ -52,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $starts_at = trim((string) ($_POST['starts_at'] ?? ''));
         $ends_at = trim((string) ($_POST['ends_at'] ?? ''));
 
-        $validPlacements = ['blog_leaderboard','blog_infeed','blog_sidebar'];
+        $validPlacements = array_keys($adPlacements);
         $validTypes = ['image','gif','text'];
 
         if (!in_array($placement, $validPlacements, true) || !in_array($ad_type, $validTypes, true)) {
@@ -142,6 +148,9 @@ foreach ($ads as $a) {
     <?php if (!$hasCtaText): ?>
         <div data-toast data-toast-message="CTA column missing in blog_ads. Run: ALTER TABLE blog_ads ADD COLUMN cta_text VARCHAR(80) NULL AFTER target_url;" data-toast-type="error" style="display:none;"></div>
     <?php endif; ?>
+    <?php if (!$hubPlacementsReady): ?>
+        <div data-toast data-toast-message="Hub spotlight placements may be missing. Run the hub sponsor spotlight migration if new placements do not save." data-toast-type="error" style="display:none;"></div>
+    <?php endif; ?>
 
     <!-- ====== SECTION 1: OVERVIEW ====== -->
     <div class="dashboard-section-divider">
@@ -190,9 +199,9 @@ foreach ($ads as $a) {
                     <div>
                         <label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;font-weight:600;">Placement</label>
                         <select name="placement" required>
-                            <option value="blog_leaderboard" <?php echo (($editAd['placement'] ?? '') === 'blog_leaderboard') ? 'selected' : ''; ?>>Leaderboard</option>
-                            <option value="blog_infeed" <?php echo (($editAd['placement'] ?? '') === 'blog_infeed') ? 'selected' : ''; ?>>In-feed</option>
-                            <option value="blog_sidebar" <?php echo (($editAd['placement'] ?? '') === 'blog_sidebar') ? 'selected' : ''; ?>>Sidebar</option>
+                            <?php foreach ($adPlacements as $placementValue => $placementLabel): ?>
+                                <option value="<?php echo htmlspecialchars($placementValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo (($editAd['placement'] ?? '') === $placementValue) ? 'selected' : ''; ?>><?php echo htmlspecialchars($placementLabel, ENT_QUOTES, 'UTF-8'); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div>
@@ -407,3 +416,4 @@ foreach ($ads as $a) {
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
+

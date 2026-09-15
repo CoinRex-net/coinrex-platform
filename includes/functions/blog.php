@@ -56,6 +56,35 @@ function blogGetLatest($limit = 3) {
     return $stmt->fetchAll() ?: [];
 }
 
+function blogAdPlacementOptions(): array {
+    return [
+        'blog_leaderboard' => 'Blog - Leaderboard',
+        'blog_infeed' => 'Blog - In-feed',
+        'blog_sidebar' => 'Blog - Sidebar',
+        'boosthub_spotlight' => 'BoostHub - Sponsor Spotlight',
+        'learnhub_spotlight' => 'LearnHub - Sponsor Spotlight',
+        'dashboard_rexhub_spotlight' => 'Dashboard RexHub - Sponsor Spotlight',
+    ];
+}
+
+function blogEnsureHubAdPlacements(PDO $db): bool {
+    if (!tableExists('blog_ads')) return false;
+
+    try {
+        $stmt = $db->query("SHOW COLUMNS FROM blog_ads LIKE 'placement'");
+        $column = $stmt ? $stmt->fetch() : null;
+        $type = strtolower((string) ($column['Type'] ?? ''));
+        if ($type !== '' && strpos($type, 'dashboard_rexhub_spotlight') !== false) {
+            return true;
+        }
+
+        $db->exec("ALTER TABLE blog_ads MODIFY placement ENUM('blog_leaderboard','blog_infeed','blog_sidebar','boosthub_spotlight','learnhub_spotlight','dashboard_rexhub_spotlight') NOT NULL");
+        return true;
+    } catch (Throwable $e) {
+        error_log('blog_ads placement upgrade failed: ' . $e->getMessage());
+        return false;
+    }
+}
 function blogGetAdByPlacement(PDO $db, string $placement): ?array {
     if (!tableExists('blog_ads')) return null;
     $sql = "SELECT * FROM blog_ads
@@ -71,6 +100,47 @@ function blogGetAdByPlacement(PDO $db, string $placement): ?array {
     return $row ?: null;
 }
 
+function blogRenderSponsorSpotlight(?array $ad, string $surface = 'hub', string $label = 'Sponsor spotlight'): string {
+    if (!$ad) return '';
+
+    $surface = preg_replace('/[^a-z0-9_-]/i', '', $surface) ?: 'hub';
+    $type = (string) ($ad['ad_type'] ?? 'text');
+    $is_media = in_array($type, ['image', 'gif'], true) && !empty($ad['media_url']);
+    $target_url = trim((string) ($ad['target_url'] ?? ''));
+    $title = trim((string) ($ad['title'] ?? 'Sponsored spotlight'));
+    $description = trim((string) ($ad['description'] ?? ''));
+    $cta_text = trim((string) ($ad['cta_text'] ?? 'Learn More'));
+    $media_url = trim((string) ($ad['media_url'] ?? ''));
+
+    ob_start();
+    ?>
+    <section class="sponsor-spotlight sponsor-spotlight--<?php echo htmlspecialchars($surface, ENT_QUOTES, 'UTF-8'); ?> sponsor-spotlight--<?php echo $is_media ? 'media' : 'text'; ?>" aria-label="<?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>">
+        <span class="sponsor-spotlight__badge"><i class="fas fa-rectangle-ad"></i> Sponsored</span>
+        <?php if ($target_url !== ''): ?>
+            <a class="sponsor-spotlight__link" href="<?php echo htmlspecialchars($target_url, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="nofollow sponsored noopener">
+        <?php else: ?>
+            <div class="sponsor-spotlight__link">
+        <?php endif; ?>
+            <?php if ($is_media): ?>
+                <img class="sponsor-spotlight__media" src="<?php echo htmlspecialchars($media_url, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?>" loading="lazy">
+            <?php else: ?>
+                <div class="sponsor-spotlight__copy">
+                    <strong><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></strong>
+                    <?php if ($description !== ''): ?><p><?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+                </div>
+                <?php if ($target_url !== '' && $cta_text !== ''): ?>
+                    <span class="sponsor-spotlight__cta"><?php echo htmlspecialchars($cta_text, ENT_QUOTES, 'UTF-8'); ?> <i class="fas fa-arrow-right"></i></span>
+                <?php endif; ?>
+            <?php endif; ?>
+        <?php if ($target_url !== ''): ?>
+            </a>
+        <?php else: ?>
+            </div>
+        <?php endif; ?>
+    </section>
+    <?php
+    return (string) ob_get_clean();
+}
 function blogGetRandomAdByPlacement(PDO $db, string $placement): ?array {
     if (!tableExists('blog_ads')) return null;
     $sql = "SELECT * FROM blog_ads
