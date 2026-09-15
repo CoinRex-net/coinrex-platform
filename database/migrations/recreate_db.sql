@@ -42,6 +42,7 @@ CREATE TABLE users (
     referred_by INT UNSIGNED NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
     level VARCHAR(20) NOT NULL DEFAULT 'beginner',
+    language VARCHAR(10) NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     rex_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     total_rex_earned DECIMAL(15,2) NOT NULL DEFAULT 0.00,

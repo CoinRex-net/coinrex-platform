@@ -35,18 +35,18 @@ $footer_bottom_items = getManagedNavigationItems('footer', 'bottom', $footer_nav
                     <img src="<?php echo ASSETS_URL; ?>/images/footer-logo.png" alt="CoinRex" class="footer-logo-img">
                 </div>
                 <div class="footer-proof-card">
-                    <p class="footer-proof-text">Join thousands of crypto enthusiasts earning rewards through honest, verified reviews with blockchain proof.</p>
-                    <div class="footer-proof-pills" aria-label="CoinRex trust highlights">
-                        <span><i class="fas fa-shield-alt"></i> Verified Proof</span>
-                        <span><i class="fas fa-coins"></i> $REX Rewards</span>
-                        <span><i class="fas fa-users"></i> Real Community</span>
+                    <p class="footer-proof-text"><?php echo te('footer.proof_text'); ?></p>
+                    <div class="footer-proof-pills" aria-label="<?php echo te('footer.trust_highlights'); ?>">
+                        <span><i class="fas fa-shield-alt"></i> <?php echo te('footer.verified_proof'); ?></span>
+                        <span><i class="fas fa-coins"></i> <?php echo te('footer.rex_rewards'); ?></span>
+                        <span><i class="fas fa-users"></i> <?php echo te('footer.real_community'); ?></span>
                     </div>
                 </div>
             </div>
 
             <!-- Platform Links -->
             <div class="footer-links">
-                <h4><i class="fas fa-rocket"></i> Platform</h4>
+                <h4><i class="fas fa-rocket"></i> <?php echo te('footer.platform'); ?></h4>
                 <?php foreach ($footer_platform_items as $nav_item): ?>
                     <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
                         <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
@@ -59,7 +59,7 @@ $footer_bottom_items = getManagedNavigationItems('footer', 'bottom', $footer_nav
 
             <!-- Resources Links -->
             <div class="footer-links">
-                <h4><i class="fas fa-book"></i> Resources</h4>
+                <h4><i class="fas fa-book"></i> <?php echo te('footer.resources'); ?></h4>
                 <?php foreach ($footer_resource_items as $nav_item): ?>
                     <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
                         <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
@@ -72,7 +72,7 @@ $footer_bottom_items = getManagedNavigationItems('footer', 'bottom', $footer_nav
 
             <!-- Legal Links -->
             <div class="footer-links">
-                <h4><i class="fas fa-gavel"></i> Legal</h4>
+                <h4><i class="fas fa-gavel"></i> <?php echo te('footer.legal'); ?></h4>
                 <?php foreach ($footer_legal_items as $nav_item): ?>
                     <a href="<?php echo htmlspecialchars((string) $nav_item['href'], ENT_QUOTES, 'UTF-8'); ?>">
                         <?php if (trim((string) ($nav_item['icon_class'] ?? '')) !== ''): ?>
@@ -87,7 +87,7 @@ $footer_bottom_items = getManagedNavigationItems('footer', 'bottom', $footer_nav
 
         <div class="footer-bottom">
             <div class="footer-bottom-content">
-                <p>&copy; <?php echo date('Y'); ?> <?php echo SITE_NAME; ?> - Decentralized Trust Protocol. All rights reserved.</p>
+                <p>&copy; <?php echo date('Y'); ?> <?php echo SITE_NAME; ?> - <?php echo te('footer.copyright'); ?></p>
                 <div class="footer-bottom-links">
                     <?php foreach ($footer_bottom_items as $index => $nav_item): ?>
                         <?php if ($index > 0): ?><span>&bull;</span><?php endif; ?>
@@ -96,7 +96,7 @@ $footer_bottom_items = getManagedNavigationItems('footer', 'bottom', $footer_nav
                 </div>
             </div>
             <p class="footer-warning">
-                <i class="fas fa-shield-alt"></i> Every review requires proof (TX hash/screenshot). No bots allowed.
+                <i class="fas fa-shield-alt"></i> <?php echo te('footer.warning'); ?>
             </p>
         </div>
     </div>
@@ -119,15 +119,15 @@ $footer_bottom_items = getManagedNavigationItems('footer', 'bottom', $footer_nav
             <span class="social-tooltip">GitHub</span>
         </a>
     </div>
-    <button type="button" class="social-toggle" id="fixedSocialToggle" aria-controls="socialActions" aria-expanded="false" aria-label="Open social links">
+    <button type="button" class="social-toggle" id="fixedSocialToggle" aria-controls="socialActions" aria-expanded="false" aria-label="<?php echo te('footer.open_social_links'); ?>">
         <i class="fas fa-share-alt"></i>
-        <span class="social-tooltip">Social Links</span>
+        <span class="social-tooltip"><?php echo te('footer.social_links'); ?></span>
     </button>
 </div>
 
-<button type="button" class="social-fixed fixed-back-to-top" id="backToTop" aria-label="Back to top">
+<button type="button" class="social-fixed fixed-back-to-top" id="backToTop" aria-label="<?php echo te('footer.back_to_top'); ?>">
     <i class="fas fa-arrow-up"></i>
-    <span class="social-tooltip">Back to Top</span>
+    <span class="social-tooltip"><?php echo te('footer.back_to_top'); ?></span>
 </button>
 
 <script>
@@ -138,7 +138,7 @@ if (fixedSocial && fixedSocialToggle) {
     fixedSocialToggle.addEventListener('click', () => {
         const isOpen = fixedSocial.classList.toggle('is-open');
         fixedSocialToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        fixedSocialToggle.setAttribute('aria-label', isOpen ? 'Close social links' : 'Open social links');
+        fixedSocialToggle.setAttribute('aria-label', isOpen ? <?php echo json_encode(t('footer.close_social_links'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?> : <?php echo json_encode(t('footer.open_social_links'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>);
     });
 }
 

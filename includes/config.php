@@ -115,7 +115,7 @@ define('ENVIRONMENT', $is_production ? 'production' : 'development');
 // ============================================================
 $testing_mode_raw = getenv('COINREX_TESTING_MODE');
 $testing_mode = strtolower(trim((string) ($testing_mode_raw !== false ? $testing_mode_raw : 'false')));
-// Temporarily enabled for mobile testing — set back to false in production
+// Temporarily enabled for mobile testing - set back to false in production
 define('TESTING_MODE', !$is_production && in_array($testing_mode, ['1', 'true', 'yes', 'on'], true));
 
 $claim_pairing_test_mode_raw = getenv('COINREX_CLAIM_PAIRING_TEST_MODE');
@@ -123,7 +123,7 @@ $claim_pairing_test_mode = strtolower(trim((string) ($claim_pairing_test_mode_ra
 define('CLAIM_PAIRING_TEST_MODE', in_array($claim_pairing_test_mode, ['1', 'true', 'yes', 'on'], true));
 
 // ============================================================
-// LOCAL TEST MODE — Auto-enable for localhost development
+// LOCAL TEST MODE - Auto-enable for localhost development
 // ============================================================
 // When true, bypasses email verification, rate limits, and
 // other security checks to make testing with multiple accounts
@@ -335,6 +335,9 @@ define('ENCRYPTION_KEY', getenv('COINREX_ENCRYPTION_KEY') ?: '');
 define('SITE_NAME', 'CoinRex');
 define('SITE_TAGLINE', 'A Web3 Trust Layer');
 define('SITE_EMAIL', 'support@coinrex.xyz');
+define('DEFAULT_LOCALE', 'en');
+define('SUPPORTED_LOCALES', ['en', 'ur', 'hi', 'es', 'fr', 'de', 'tr', 'zh-CN', 'af', 'am', 'ar', 'ber', 'bem', 'bm', 'ee', 'ff', 'ha', 'ig', 'kg', 'ln', 'lg', 'mg', 'ny', 'om', 'rw', 'sn', 'so', 'st', 'sw', 'ti', 'tn', 'ts', 'tw', 'wo', 'xh', 'yo', 'zu']);
+define('LOCALE_COOKIE_NAME', 'coinrex_locale');
 
 // Mail Settings
 define('MAIL_SMTP_HOST', getenv('COINREX_SMTP_HOST') ?: 'smtp.gmail.com');

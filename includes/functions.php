@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/functions/core.php';
+require_once __DIR__ . '/functions/i18n.php';
 require_once __DIR__ . '/functions/helpers.php';
 require_once __DIR__ . '/functions/navigation.php';
 require_once __DIR__ . '/functions/feature_flags.php';
@@ -34,4 +35,5 @@ require_once __DIR__ . '/functions/sponsored.php';
 require_once __DIR__ . '/functions/engagement.php';
 
 enforceSocialEngagementRequestGate();
+coinrexInitializeLocale();
 ?>

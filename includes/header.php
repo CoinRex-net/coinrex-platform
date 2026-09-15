@@ -50,11 +50,11 @@ if (!function_exists('coinrexCanonicalUrl')) {
 if ($coinrex_embedded_learning) {
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?php echo htmlspecialchars(coinrexCurrentLocale(), ENT_QUOTES, 'UTF-8'); ?>" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title><?php echo SITE_NAME; ?> - Learning</title>
+    <title><?php echo SITE_NAME; ?> - <?php echo te('header.learning'); ?></title>
     <meta name="base-url" content="<?php echo BASE_URL; ?>">
     <link rel="icon" type="image/x-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.ico">
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/theme.css">
@@ -123,7 +123,7 @@ if ($is_logged_in && function_exists('getCurrentUser')) {
         }
 
         $user_name = $username !== '' ? $username : $user_name;
-        $user_display_name = $first_name !== '' ? $first_name : ($username !== '' ? $username : 'User');
+        $user_display_name = $first_name !== '' ? $first_name : ($username !== '' ? $username : t('common.user'));
         $user_balance_display = number_format((float)($header_user['rex_balance'] ?? 0), 2) . ' $REX';
         $user_avatar_url = coinrexNormalizeMediaUrl((string) ($header_user['avatar'] ?? ''));
     }
@@ -174,7 +174,7 @@ $mobile_navigation_items = getManagedNavigationSlotItems('mobile', 'mobile', 'bo
 $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more', 'more', 4, $navigation_context);
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?php echo htmlspecialchars(coinrexCurrentLocale(), ENT_QUOTES, 'UTF-8'); ?>" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -186,10 +186,10 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
     $coinrex_page_title = $coinrex_page_title !== '' ? $coinrex_page_title : (SITE_NAME . ' - ' . SITE_TAGLINE);
     $coinrex_meta_description = $coinrex_meta_description !== ''
         ? $coinrex_meta_description
-        : 'CoinRex helps crypto users discover projects, publish proof-backed reviews, and earn rewards through trust-driven participation.';
+        : t('meta.default_description');
     $coinrex_meta_keywords = $coinrex_meta_keywords !== ''
         ? $coinrex_meta_keywords
-        : 'crypto reviews, blockchain projects, verified crypto reviews, crypto rewards, CoinRex';
+        : t('meta.default_keywords');
     $coinrex_canonical_url = $coinrex_canonical_url !== '' ? $coinrex_canonical_url : coinrexCanonicalUrl();
     ?>
     <title><?php echo htmlspecialchars($coinrex_page_title, ENT_QUOTES, 'UTF-8'); ?></title>
@@ -221,7 +221,11 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
     <link rel="icon" type="image/x-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.ico">
     <link rel="shortcut icon" type="image/x-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.ico">
     <link rel="apple-touch-icon" href="<?php echo ASSETS_URL; ?>/images/favicon.png">
-    <link rel="manifest" href="<?php echo coinrexSeoUrl('/manifest.json'); ?>">
+    <link rel="manifest" href="<?php echo htmlspecialchars(
+        rtrim((string) BASE_URI, '/') . '/manifest.json?v=' . (int) @filemtime(dirname(__DIR__) . '/manifest.json'),
+        ENT_QUOTES,
+        'UTF-8'
+    ); ?>">
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/theme.css?v=<?php echo time(); ?>">
@@ -320,7 +324,7 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
 <body data-theme="dark">
 
 <!-- Top Navbar (Desktop + Tablet) -->
-<nav class="nex-nav" aria-label="Primary navigation">
+<nav class="nex-nav" aria-label="<?php echo te('header.primary_nav'); ?>">
     <div class="nex-container">
         <div class="nex-navbar">
             
@@ -377,7 +381,7 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                                         </a>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <span class="nex-dropdown-empty">No items yet</span>
+                                    <span class="nex-dropdown-empty"><?php echo te('header.no_items'); ?></span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -399,9 +403,28 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
 
             <!-- Right Actions -->
             <div class="nex-actions">
+                <form class="nex-language-form" action="<?php echo BASE_URL; ?>/public/set-language.php" method="post">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(appCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+                    <input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars((string) ($_SERVER['REQUEST_URI'] ?? '/'), ENT_QUOTES, 'UTF-8'); ?>">
+                    <div class="nex-language-picker">
+                        <button type="button" class="nex-language-trigger" id="coinrexLanguageToggle" aria-label="<?php echo te('common.language'); ?>" aria-haspopup="true" aria-expanded="false" aria-controls="coinrexLanguageMenu">
+                            <i class="fas fa-globe" aria-hidden="true"></i>
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </button>
+                        <div class="nex-language-menu" id="coinrexLanguageMenu" hidden>
+                            <?php foreach (coinrexSupportedLocales() as $locale_option): ?>
+                                <button type="submit" name="language" value="<?php echo htmlspecialchars($locale_option, ENT_QUOTES, 'UTF-8'); ?>" class="nex-language-option<?php echo coinrexCurrentLocale() === $locale_option ? ' active' : ''; ?>" onclick="coinrexApplyGoogleTranslate(this.value)">
+                                    <span><?php echo htmlspecialchars(coinrexLocaleLabel($locale_option), ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php if (coinrexCurrentLocale() === $locale_option): ?><i class="fas fa-check" aria-hidden="true"></i><?php endif; ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </form>
+                <div id="google_translate_element" aria-hidden="true"></div>
                 <?php if($is_logged_in): ?>
                     <div class="nex-notification-menu">
-                        <button type="button" class="nex-notification-btn" id="userNotificationsToggle" aria-label="Open notifications" aria-haspopup="true" aria-expanded="false">
+                        <button type="button" class="nex-notification-btn" id="userNotificationsToggle" aria-label="<?php echo te('header.open_notifications'); ?>" aria-haspopup="true" aria-expanded="false">
                             <i class="fas fa-bell"></i>
                             <span class="nex-notification-badge <?php echo $user_notification_count > 0 ? '' : 'is-hidden'; ?>" id="userNotificationBadge"><?php echo $user_notification_count > 99 ? '99+' : $user_notification_count; ?></span>
                         </button>
@@ -409,19 +432,19 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                             <div class="nex-notification-panel">
                                 <div class="nex-notification-panel-head">
                                     <div class="nex-notification-panel-copy">
-                                        <strong class="nex-notification-panel-title">Notifications</strong>
-                                        <span class="nex-notification-panel-subtitle" id="userNotificationStatusText"><?php echo $user_notification_count > 0 ? ($user_notification_count . ' unread notification' . ($user_notification_count === 1 ? '' : 's')) : 'All caught up'; ?></span>
+                                        <strong class="nex-notification-panel-title"><?php echo te('header.notifications'); ?></strong>
+                                        <span class="nex-notification-panel-subtitle" id="userNotificationStatusText"><?php echo $user_notification_count > 0 ? te('header.unread_count', ['count' => $user_notification_count, 'plural' => $user_notification_count === 1 ? '' : 's']) : te('header.all_caught_up'); ?></span>
                                     </div>
                                     <button type="button" class="nex-notification-action <?php echo $user_notification_count > 0 ? '' : 'is-disabled'; ?>" id="markAllNotificationsRead" <?php echo $user_notification_count > 0 ? '' : 'disabled'; ?>>
                                         <i class="fas fa-check-double"></i>
-                                        <span>Mark all</span>
+                                        <span><?php echo te('header.mark_all'); ?></span>
                                     </button>
                                 </div>
                                 <div class="nex-notification-list" id="userNotificationsList">
                                     <?php if (empty($user_notifications)): ?>
                                         <div class="nex-notification-empty">
                                             <i class="fas fa-bell-slash"></i>
-                                            <span>No notifications yet.</span>
+                                            <span><?php echo te('header.no_notifications'); ?></span>
                                         </div>
                                     <?php else: ?>
                                         <?php foreach ($user_notifications as $item): ?>
@@ -441,14 +464,14 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                                     <?php endif; ?>
                                 </div>
                                 <div class="nex-notification-panel-foot">
-                                    <a href="<?php echo htmlspecialchars((string) $notifications_all_url, ENT_QUOTES, 'UTF-8'); ?>" class="nex-notification-footer-link"><i class="fas fa-list"></i><span>View all</span></a>
-                                    <a href="<?php echo htmlspecialchars((string) $notifications_unread_url, ENT_QUOTES, 'UTF-8'); ?>" class="nex-notification-footer-link"><i class="fas fa-envelope-open-text"></i><span>Unread only</span></a>
+                                    <a href="<?php echo htmlspecialchars((string) $notifications_all_url, ENT_QUOTES, 'UTF-8'); ?>" class="nex-notification-footer-link"><i class="fas fa-list"></i><span><?php echo te('header.view_all'); ?></span></a>
+                                    <a href="<?php echo htmlspecialchars((string) $notifications_unread_url, ENT_QUOTES, 'UTF-8'); ?>" class="nex-notification-footer-link"><i class="fas fa-envelope-open-text"></i><span><?php echo te('header.unread_only'); ?></span></a>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="nex-user-menu">
-                        <button type="button" class="nex-user-trigger" id="userAvatar" aria-label="Open user menu" aria-haspopup="true" aria-expanded="false">
+                        <button type="button" class="nex-user-trigger" id="userAvatar" aria-label="<?php echo te('header.open_user_menu'); ?>" aria-haspopup="true" aria-expanded="false">
                             <div class="nex-user-meta">
                                 <span class="nex-user-name"><?php echo htmlspecialchars($user_display_name, ENT_QUOTES, 'UTF-8'); ?></span>
                                 <span class="nex-user-balance"><?php echo htmlspecialchars($user_balance_display, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -460,21 +483,21 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
                             </div>
                         </button>
                         <div class="nex-dropdown" id="userDropdown">
-                            <a href="<?php echo BASE_URL; ?>/public/profile.php"><i class="fas fa-id-badge"></i><span class="nex-dropdown-link-label">Profile</span></a>
-                            <a href="<?php echo BASE_URL; ?>/public/dashboard.php"><i class="fas fa-user"></i> Dashboard</a>
-                            <a href="<?php echo BASE_URL; ?>/public/reward-history.php"><i class="fas fa-clock-rotate-left"></i> Reward History</a>
+                            <a href="<?php echo BASE_URL; ?>/public/profile.php"><i class="fas fa-id-badge"></i><span class="nex-dropdown-link-label"><?php echo te('header.profile'); ?></span></a>
+                            <a href="<?php echo BASE_URL; ?>/public/dashboard.php"><i class="fas fa-user"></i> <?php echo te('header.dashboard'); ?></a>
+                            <a href="<?php echo BASE_URL; ?>/public/reward-history.php"><i class="fas fa-clock-rotate-left"></i> <?php echo te('header.reward_history'); ?></a>
                             <?php if ($can_access_claim_center_nav): ?>
-                                <a href="<?php echo BASE_URL; ?>/public/claims.php"><i class="fas fa-gift"></i><span class="nex-dropdown-link-label">Claim Center</span><?php if (!$claim_center_accessible_nav): ?><span class="nex-link-badge">Soon</span><?php endif; ?></a>
+                                <a href="<?php echo BASE_URL; ?>/public/claims.php"><i class="fas fa-gift"></i><span class="nex-dropdown-link-label"><?php echo te('header.claim_center'); ?></span><?php if (!$claim_center_accessible_nav): ?><span class="nex-link-badge"><?php echo te('common.soon'); ?></span><?php endif; ?></a>
                             <?php endif; ?>
                             <hr>
-                            <a href="<?php echo BASE_URL; ?>/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                            <a href="<?php echo BASE_URL; ?>/auth/logout.php"><i class="fas fa-sign-out-alt"></i> <?php echo te('header.logout'); ?></a>
                         </div>
                     </div>
                 <?php else: ?>
                     <?php if ($show_login_nav): ?>
                     <a href="<?php echo AUTH_URL; ?>/auth.php" class="nex-btn nex-btn-primary">
                         <i class="fas fa-sign-in-alt"></i>
-                        <span>Sign In</span>
+                        <span><?php echo te('header.sign_in'); ?></span>
                     </a>
                     <?php endif; ?>
                 <?php endif; ?>
@@ -499,9 +522,9 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
             <span class="mobile-nav-label"><?php echo htmlspecialchars((string) $nav_item['label'], ENT_QUOTES, 'UTF-8'); ?></span>
         </a>
     <?php endforeach; ?>
-    <button type="button" class="mobile-nav-item mobile-nav-more" id="mobileMoreToggle" aria-label="Open more navigation links" aria-expanded="false" aria-controls="mobileMoreMenu">
+    <button type="button" class="mobile-nav-item mobile-nav-more" id="mobileMoreToggle" aria-label="<?php echo te('header.open_more_navigation'); ?>" aria-expanded="false" aria-controls="mobileMoreMenu">
         <span class="mobile-nav-icon-wrap"><i class="fas fa-ellipsis-h"></i></span>
-        <span class="mobile-nav-label">More</span>
+        <span class="mobile-nav-label"><?php echo te('header.more'); ?></span>
     </button>
     <?php foreach (array_slice($mobile_navigation_items, 2, 2) as $nav_item): ?>
         <?php $mobile_icon_class = trim((string) ($nav_item['icon_class'] ?? '')) !== '' ? trim((string) $nav_item['icon_class']) : 'fas fa-circle'; ?>
@@ -530,11 +553,30 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
 <?php if ($is_logged_in): ?>
 <div class="rexlink-session-chip" id="rexLinkSessionChip" hidden>
     <span class="rexlink-live-dot" aria-hidden="true"></span>
-    <span>RexLink live <strong id="rexLinkSessionChipTime">--:--</strong></span>
-    <button type="button" id="rexLinkSessionChipDisconnect" aria-label="Disconnect RexLink wallet">×</button>
+    <span><?php echo te('header.rexlink_live'); ?> <strong id="rexLinkSessionChipTime">--:--</strong></span>
+    <button type="button" id="rexLinkSessionChipDisconnect" aria-label="<?php echo te('header.disconnect_rexlink'); ?>">&times;</button>
 </div>
 <?php endif; ?>
 
+<script>
+window.coinrexApplyGoogleTranslate = function(language) {
+    var lang = String(language || 'en');
+    var expires = '; expires=' + new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+    var value = lang === 'en' ? '' : '/en/' + lang;
+    document.cookie = 'googtrans=' + value + expires + '; path=/';
+    if (location.hostname && location.hostname.indexOf('.') !== -1) {
+        document.cookie = 'googtrans=' + value + expires + '; path=/; domain=' + location.hostname;
+    }
+};
+window.googleTranslateElementInit = function() {
+    new google.translate.TranslateElement({
+        pageLanguage: 'en',
+        includedLanguages: '<?php echo htmlspecialchars(implode(',', coinrexSupportedLocales()), ENT_QUOTES, 'UTF-8'); ?>',
+        autoDisplay: false
+    }, 'google_translate_element');
+};
+</script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 <script>
 // Mobile More menu toggle
 (function() {
@@ -570,6 +612,34 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
     menu.querySelectorAll('a').forEach(function(link) { link.addEventListener('click', closeMenu); });
     document.addEventListener('click', closeMenu);
     document.addEventListener('keydown', function(event) { if (event.key === 'Escape') closeMenu(); });
+})();
+(function() {
+    const languageToggle = document.getElementById('coinrexLanguageToggle');
+    const languageMenu = document.getElementById('coinrexLanguageMenu');
+    if (!languageToggle || !languageMenu) return;
+
+    function closeLanguageMenu() {
+        languageMenu.hidden = true;
+        languageMenu.classList.remove('active');
+        languageToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    languageToggle.addEventListener('click', function(event) {
+        event.stopPropagation();
+        const willOpen = languageMenu.hidden;
+        languageMenu.hidden = !willOpen;
+        languageMenu.classList.toggle('active', willOpen);
+        languageToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+
+    languageMenu.addEventListener('click', function(event) {
+        event.stopPropagation();
+    });
+
+    document.addEventListener('click', closeLanguageMenu);
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') closeLanguageMenu();
+    });
 })();
 // User dropdown functionality
 const userAvatar = document.getElementById('userAvatar');
@@ -864,8 +934,8 @@ if (userNotificationsToggle && userNotificationsDropdown) {
         }
         if (userNotificationStatusText) {
             userNotificationStatusText.textContent = currentNotificationUnreadCount > 0
-                ? currentNotificationUnreadCount + ' unread notification' + (currentNotificationUnreadCount === 1 ? '' : 's')
-                : 'All caught up';
+                ? <?php echo json_encode(t('header.unread_count'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>.replace('{count}', currentNotificationUnreadCount).replace('{plural}', currentNotificationUnreadCount === 1 ? '' : 's')
+                : <?php echo json_encode(t('header.all_caught_up'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
         }
         if (markAllNotificationsReadBtn) {
             markAllNotificationsReadBtn.disabled = currentNotificationUnreadCount <= 0;
@@ -879,7 +949,7 @@ if (userNotificationsToggle && userNotificationsDropdown) {
         }
 
         if (!Array.isArray(items) || items.length === 0) {
-            userNotificationsList.innerHTML = '<div class="nex-notification-empty"><i class="fas fa-bell-slash"></i><span>No notifications yet.</span></div>';
+            userNotificationsList.innerHTML = '<div class="nex-notification-empty"><i class="fas fa-bell-slash"></i><span>' + <?php echo json_encode(t('header.no_notifications'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?> + '</span></div>';
             return;
         }
 
@@ -890,7 +960,7 @@ if (userNotificationsToggle && userNotificationsDropdown) {
                 '<span class="nex-notification-icon-wrap"><i class="fas fa-circle-info"></i></span>' +
                 '<span class="nex-dropdown-link-meta">' +
                     '<span class="nex-notification-line">' +
-                        '<span class="nex-dropdown-link-label">' + escapeHtml(item.title || 'Notification') + '</span>' +
+                        '<span class="nex-dropdown-link-label">' + escapeHtml(item.title || <?php echo json_encode(t('header.notifications'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>) + '</span>' +
                         (unread ? '<span class="nex-notification-dot"></span>' : '') +
                     '</span>' +
                     '<small>' + escapeHtml(item.message || '') + '</small>' +
