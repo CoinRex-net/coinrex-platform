@@ -11,6 +11,14 @@
     const submitUrl = BASE_URL + '/api/submit_taskhub_task.php';
     const mysteryUrl = BASE_URL + '/api/claim_mystery_box.php';
 
+    // Keep the active mission in the user's immediate view, with streak and
+    // long-term progress directly below it. Hidden past-day panels do not
+    // affect the visual order when users switch days.
+    const streakHero = document.querySelector('.th-streak-hero');
+    const currentMissionPanel = document.querySelector('[data-th-panel]:not([hidden])');
+    if (streakHero && currentMissionPanel) {
+        currentMissionPanel.insertAdjacentElement('afterend', streakHero);
+    }
 
     const modal = document.getElementById('taskhubModal');
     const modalTitle = document.getElementById('taskhubModalTitle');
@@ -87,9 +95,14 @@
         if (!btn.dataset.originalHtml) {
             btn.dataset.originalHtml = btn.innerHTML;
         }
+        if (!btn.dataset.originalMinWidth) {
+            btn.dataset.originalMinWidth = btn.style.minWidth || '';
+        }
+        btn.style.minWidth = Math.ceil(btn.getBoundingClientRect().width) + 'px';
         btn.disabled = true;
         btn.classList.add('is-loading');
         btn.setAttribute('aria-busy', 'true');
+        btn.setAttribute('aria-live', 'polite');
         btn.textContent = loadingText || 'Submitting...';
     }
 
@@ -98,9 +111,20 @@
         btn.disabled = false;
         btn.classList.remove('is-loading');
         btn.removeAttribute('aria-busy');
+        btn.removeAttribute('aria-live');
+        btn.style.minWidth = btn.dataset.originalMinWidth || '';
         if (btn.dataset.originalHtml) {
             btn.innerHTML = btn.dataset.originalHtml;
         }
+    }
+
+    function setActionButtonSuccess(btn, successText) {
+        if (!btn || btn.tagName !== 'BUTTON') return;
+        btn.disabled = true;
+        btn.classList.remove('is-loading');
+        btn.classList.add('is-success');
+        btn.setAttribute('aria-busy', 'false');
+        btn.innerHTML = '<i class="fas fa-check-circle" aria-hidden="true"></i> ' + (successText || 'Completed');
     }
 
     // ============================================================
@@ -715,9 +739,7 @@
             if (this.disabled) return;
             const row = quizBlock.closest('[data-task-key]');
             if (!row) return;
-            // Create a synthetic button reference for handleTaskSubmit
-            // Use the row itself as the context since it has data-task-key
-            handleTaskSubmit(row);
+            handleTaskSubmit(this);
         });
 
 
@@ -738,8 +760,23 @@
     // ============================================================
     // SUCCESS ANIMATION — Fullscreen centered modal with confetti
     // ============================================================
-    function triggerSuccessAnimation(heroCard, message) {
+    function triggerSuccessAnimation(heroCard, message, options = {}) {
         if (!heroCard) return;
+
+        const isCheckIn = Boolean(options.isCheckIn);
+        const remainingTasks = Math.max(0, Number(options.remainingTasks) || 0);
+        const successTitle = isCheckIn ? 'Check-in secured!' : 'Task Complete!';
+        const successIcon = isCheckIn ? 'fa-calendar-check' : 'fa-circle-check';
+        const successMessage = isCheckIn && remainingTasks > 0
+            ? 'Great start. Your daily streak is safe, but today\'s mission is not finished yet.'
+            : (message || 'Task completed successfully!');
+        const nextMissionCue = isCheckIn && remainingTasks > 0
+            ? `<div class="th-next-mission-cue" role="status">
+                    <span class="th-next-mission-kicker"><i class="fas fa-bolt"></i> Keep going</span>
+                    <strong>${remainingTasks} mission${remainingTasks === 1 ? '' : 's'} still waiting below</strong>
+                    <span class="th-next-mission-arrows" aria-hidden="true"><i class="fas fa-chevron-down"></i><i class="fas fa-chevron-down"></i></span>
+               </div>`
+            : '';
 
         // Create a fullscreen fixed overlay that covers the entire viewport
         const fullscreenOverlay = document.createElement('div');
@@ -752,23 +789,33 @@
         modalCard.style.cssText = 'position:relative;background:linear-gradient(165deg,rgba(10,18,34,0.98),rgba(8,16,28,0.98));border:1px solid rgba(29,78,216,0.3);border-radius:24px;padding:48px 40px;text-align:center;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(2,6,23,0.5),0 0 80px rgba(29,78,216,0.15);animation:thSuccessPop 0.5s cubic-bezier(0.175,0.885,0.32,1.275);';
 
         modalCard.innerHTML = `
-            <div style="font-size:72px;line-height:1;margin-bottom:16px;">✅</div>
-            <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;">Task Complete!</div>
-            <div style="font-size:15px;color:var(--th-text-muted);line-height:1.6;max-width:300px;margin:0 auto;">${message || 'Task completed successfully!'}</div>
-            <button type="button" class="th-success-continue-btn" style="margin-top:24px;min-height:44px;padding:0 32px;border-radius:12px;background:linear-gradient(135deg,var(--th-primary),#1E40AF);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:8px;">Continue →</button>
+            <div class="th-success-main-icon"><i class="fas ${successIcon}"></i></div>
+            <div class="th-success-main-title">${successTitle}</div>
+            <div class="th-success-main-message">${successMessage}</div>
+            ${nextMissionCue}
+            <button type="button" class="th-success-continue-btn">${isCheckIn && remainingTasks > 0 ? 'Show Next Mission <i class="fas fa-arrow-down"></i>' : 'Continue <i class="fas fa-arrow-right"></i>'}</button>
         `;
 
         fullscreenOverlay.appendChild(modalCard);
         document.body.appendChild(fullscreenOverlay);
 
+        const continueToNextMission = function() {
+            if (isCheckIn && remainingTasks > 0) {
+                try {
+                    sessionStorage.setItem('coinrexLearnHubNextMission', JSON.stringify({ remainingTasks }));
+                } catch (error) {
+                    // Storage can be unavailable in strict privacy mode.
+                }
+            }
+            fullscreenOverlay.remove();
+            confettiContainer.remove();
+            location.reload();
+        };
+
         // Allow user to continue immediately by clicking the button
         const continueBtn = modalCard.querySelector('.th-success-continue-btn');
         if (continueBtn) {
-            continueBtn.addEventListener('click', function() {
-                fullscreenOverlay.remove();
-                confettiContainer.remove();
-                location.reload();
-            });
+            continueBtn.addEventListener('click', continueToNextMission);
         }
 
 
@@ -809,11 +856,7 @@
         }
 
         // Auto-reload after animation
-        setTimeout(() => {
-            fullscreenOverlay.remove();
-            confettiContainer.remove();
-            location.reload();
-        }, 3000);
+        setTimeout(continueToNextMission, isCheckIn && remainingTasks > 0 ? 4200 : 3000);
 
     }
 
@@ -828,9 +871,20 @@
         const taskKey = row.dataset.taskKey;
         const verificationMode = row.dataset.verificationMode;
 
-        // Find the actual action button in the row to disable it
-        const actionBtn = row.querySelector('[data-th-action]') || btn;
+        // Prefer the button that initiated the action. Quiz submission passes
+        // the task row, so resolve its generated submit button explicitly.
+        const providedActionBtn = btn && btn.tagName === 'BUTTON' ? btn : null;
+        const actionBtn = providedActionBtn
+            || row.querySelector('button[data-quiz-submit]')
+            || row.querySelector('button[data-th-action]')
+            || btn;
         if (actionBtn && actionBtn.disabled) return;
+        if (row.dataset.taskSubmitting === '1') return;
+        row.dataset.taskSubmitting = '1';
+
+        function clearSubmissionLock() {
+            delete row.dataset.taskSubmitting;
+        }
 
         const payload = { task_key: taskKey };
         const isCheckIn = taskKey && (taskKey.includes('_check_in') || taskKey.includes('_checkin'));
@@ -858,6 +912,7 @@
             const hasTelegram = !!(payload.telegram_handle && payload.telegram_handle.trim());
             if (!hasX && !hasTelegram) {
                 restoreActionButton(actionBtn);
+                clearSubmissionLock();
                 // Highlight empty fields
                 if (xHandle && !xHandle.value.trim()) {
                     xHandle.classList.add('is-error');
@@ -882,6 +937,7 @@
             const hasProof = !!(payload.proof && payload.proof.trim());
             if (!hasPlatform || !hasProof) {
                 restoreActionButton(actionBtn);
+                clearSubmissionLock();
                 // Highlight empty fields
                 if (sharePlatform && !sharePlatform.value) {
                     sharePlatform.style.borderColor = 'var(--th-red)';
@@ -914,6 +970,7 @@
                 });
                 if (!allAnswered) {
                     restoreActionButton(actionBtn);
+                    clearSubmissionLock();
                     showModal('Incomplete Quiz', 'Please answer all questions correctly before submitting.');
                     return;
                 }
@@ -921,35 +978,28 @@
             }
         }
 
-        // Disable the action button (if it's a real button element)
-        setActionButtonLoading(actionBtn, loadingText);
-
-
         try {
             const data = await postForm(payload);
 
             if (data.success) {
+                setActionButtonSuccess(actionBtn, isCheckIn ? 'Checked in' : 'Completed');
+                const remainingTasks = isCheckIn && data.state && Array.isArray(data.state.tasks)
+                    ? data.state.tasks.filter((task) => String(task.status || '') !== 'completed').length
+                    : 0;
                 // Show success animation instead of modal
                 const heroCard = row.closest('.th-hero-card');
-                triggerSuccessAnimation(heroCard, data.message || 'Task completed successfully!');
-                
-                if (isCheckIn && greetingModal) {
-                    const dayNumber = taskKey ? taskKey.replace('day', '').replace('_check_in', '') : '1';
-                    document.getElementById('greetingDayNumber').textContent = dayNumber;
-                    document.getElementById('greetingTitle').textContent = 'Day ' + dayNumber + ' - Ready to Go!';
-                    document.getElementById('greetingMessage').textContent = 'Great start! Let\'s complete today\'s tasks.';
-                    greetingModal.hidden = false;
-                }
-
-                if (isCheckIn) {
-                    setTimeout(() => location.reload(), 1800);
-                }
+                triggerSuccessAnimation(heroCard, data.message || 'Task completed successfully!', {
+                    isCheckIn,
+                    remainingTasks,
+                });
             } else {
                 restoreActionButton(actionBtn);
+                clearSubmissionLock();
                 showModal('Error', data.message || 'Failed to submit task.');
             }
         } catch (err) {
             restoreActionButton(actionBtn);
+            clearSubmissionLock();
 
             // Try to extract the actual error message from the response
             const errorMsg = (err && err.message) ? err.message : 'Network error. Please try again.';
@@ -981,6 +1031,17 @@
             handleTaskSubmit(this);
         });
     });
+
+    // Immediate tactile feedback for every interactive mission CTA, including
+    // actions that open a modal or an external learning page.
+    document.addEventListener('click', function(event) {
+        const button = event.target.closest('.th-premium-btn, .th-quiz-submit-btn, .th-learning-btn, .th-notify-btn, .th-pro-share-btn, .th-share-btn');
+        if (!button || button.disabled) return;
+        button.classList.remove('is-pressed');
+        void button.offsetWidth;
+        button.classList.add('is-pressed');
+        window.setTimeout(() => button.classList.remove('is-pressed'), 260);
+    }, true);
 
     // ============================================================
     // HELP TOOLTIP — Click to show explanation
@@ -1107,7 +1168,13 @@
                         claimBtn.click();
                     }
                     triggerConfetti(18, 2.2);
-                }, 520);
+                }, 280);
+            });
+
+            box.addEventListener('keydown', function(event) {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                this.click();
             });
         });
 
@@ -1282,6 +1349,38 @@
         selectDay(Number(activeDot.dataset.thDay));
     }
 
+    // After a successful check-in reload, bring the next available mission
+    // into view and keep a visible reminder long enough to guide beginners.
+    try {
+        const nextMissionState = sessionStorage.getItem('coinrexLearnHubNextMission');
+        if (nextMissionState) {
+            sessionStorage.removeItem('coinrexLearnHubNextMission');
+            const parsedState = JSON.parse(nextMissionState);
+            const remainingTasks = Math.max(0, Number(parsedState.remainingTasks) || 0);
+            const activePanel = document.querySelector('[data-th-panel]:not([hidden])');
+            const nextTaskCard = activePanel ? activePanel.querySelector('.th-premium-card') : null;
+            const heroBody = activePanel ? activePanel.querySelector('.th-hero-body') : null;
+
+            if (remainingTasks > 0 && nextTaskCard && heroBody) {
+                const reminder = document.createElement('div');
+                reminder.className = 'th-next-task-reminder';
+                reminder.setAttribute('role', 'status');
+                reminder.innerHTML = `<span class="th-next-task-reminder-icon"><i class="fas fa-bolt"></i></span>
+                    <span><strong>Check-in complete — keep going!</strong><small>${remainingTasks} mission${remainingTasks === 1 ? '' : 's'} still waiting for you.</small></span>
+                    <i class="fas fa-arrow-down th-next-task-reminder-arrow" aria-hidden="true"></i>`;
+                heroBody.insertBefore(reminder, heroBody.firstChild);
+                nextTaskCard.classList.add('is-next-mission-focus');
+
+                window.setTimeout(() => {
+                    reminder.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 260);
+                window.setTimeout(() => nextTaskCard.classList.remove('is-next-mission-focus'), 6500);
+            }
+        }
+    } catch (error) {
+        // Continue normally when session storage is unavailable.
+    }
+
     // ============================================================
     // EXPOSE selectDay globally for external use
     // ============================================================
@@ -1408,6 +1507,7 @@
                     }
                 }
             });
+
         });
     }
 

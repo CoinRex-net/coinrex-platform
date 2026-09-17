@@ -115,7 +115,6 @@ define('ENVIRONMENT', $is_production ? 'production' : 'development');
 // ============================================================
 $testing_mode_raw = getenv('COINREX_TESTING_MODE');
 $testing_mode = strtolower(trim((string) ($testing_mode_raw !== false ? $testing_mode_raw : 'false')));
-// Temporarily enabled for mobile testing - set back to false in production
 define('TESTING_MODE', !$is_production && in_array($testing_mode, ['1', 'true', 'yes', 'on'], true));
 
 $claim_pairing_test_mode_raw = getenv('COINREX_CLAIM_PAIRING_TEST_MODE');
@@ -123,20 +122,12 @@ $claim_pairing_test_mode = strtolower(trim((string) ($claim_pairing_test_mode_ra
 define('CLAIM_PAIRING_TEST_MODE', in_array($claim_pairing_test_mode, ['1', 'true', 'yes', 'on'], true));
 
 // ============================================================
-// LOCAL TEST MODE - Auto-enable for localhost development
+// LOCAL TEST MODE
 // ============================================================
-// When true, bypasses email verification, rate limits, and
-// other security checks to make testing with multiple accounts
-// easier on localhost.
+// Keep local bypasses tied to the explicit TESTING_MODE flag so
+// localhost/dev URLs still run normal validations when test mode is off.
 // ============================================================
-$host_lower = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
-$is_localhost = (
-    $host_lower === 'localhost' ||
-    $host_lower === '127.0.0.1' ||
-    $host_lower === '::1' ||
-    strpos($host_lower, 'localhost:') === 0
-);
-define('LOCAL_TEST_MODE', $is_localhost || TESTING_MODE);
+define('LOCAL_TEST_MODE', TESTING_MODE);
 
 // Error Reporting
 if ($is_production) {

@@ -287,6 +287,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
+
         <!-- ============================================================
              DAY STEPPER (Days 1-10)
              ============================================================ -->
@@ -406,8 +407,10 @@ require_once __DIR__ . '/../includes/header.php';
                                 <h3>Day <?php echo $day_num; ?>: <?php echo htmlspecialchars($day_name, ENT_QUOTES, 'UTF-8'); ?> Complete!</h3>
                                 <p><?php echo htmlspecialchars($encouragement, ENT_QUOTES, 'UTF-8'); ?></p>
                                 
-                                <!-- Today's Earnings Breakdown -->
-                                <div class="th-earnings-breakdown">
+                                <?php if ($day_num < 10): ?>
+                                    <div class="th-completed-earnings-grid">
+                                        <!-- Today's Earnings Breakdown -->
+                                        <div class="th-earnings-breakdown">
                                     <div class="th-earnings-header">📊 Today's Earnings</div>
                                     <?php foreach (($day['tasks'] ?? []) as $task): ?>
                                         <?php if (($task['status'] ?? '') === 'completed'): ?>
@@ -421,11 +424,10 @@ require_once __DIR__ . '/../includes/header.php';
                                         <span>Total Today</span>
                                         <strong>+<?php echo number_format($today_earnings, 2); ?> $REX</strong>
                                     </div>
-                                </div>
-                                
-                                <?php if ($day_num < 10): ?>
-                                    <!-- Tomorrow Preview -->
-                                    <div class="th-tomorrow-preview">
+                                        </div>
+
+                                        <!-- Tomorrow Preview -->
+                                        <div class="th-tomorrow-preview">
                                         <div class="th-tomorrow-header">🔮 Tomorrow's Preview</div>
                                         <div class="th-tomorrow-day">
                                             <span class="th-tomorrow-day-badge">Day <?php echo $next_day_num; ?></span>
@@ -444,6 +446,7 @@ require_once __DIR__ . '/../includes/header.php';
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>
+                                        </div>
                                     </div>
                                     
                                     <!-- Countdown to next day -->
@@ -468,6 +471,23 @@ require_once __DIR__ . '/../includes/header.php';
                                             <p>You've completed the entire 10-day mission! Check your rewards!</p>
                                         </div>
                                     </div>
+                                    <!-- Today's Earnings Breakdown -->
+                                    <div class="th-earnings-breakdown">
+                                    <div class="th-earnings-header">📊 Today's Earnings</div>
+                                    <?php foreach (($day['tasks'] ?? []) as $task): ?>
+                                        <?php if (($task['status'] ?? '') === 'completed'): ?>
+                                            <div class="th-earnings-item">
+                                                <span class="th-earnings-item-name"><?php echo htmlspecialchars((string) ($task['title'] ?? 'Task'), ENT_QUOTES, 'UTF-8'); ?></span>
+                                                <span class="th-earnings-item-reward">+<?php echo number_format((float) ($task['reward'] ?? 0), 2); ?> $REX</span>
+                                            </div>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                    <div class="th-earnings-total">
+                                        <span>Total Today</span>
+                                        <strong>+<?php echo number_format($today_earnings, 2); ?> $REX</strong>
+                                    </div>
+                                </div>
+                                
                                 <?php endif; ?>
                             </div>
                         <?php elseif ($total_tasks_in_day === 0): ?>
@@ -496,6 +516,7 @@ require_once __DIR__ . '/../includes/header.php';
                             $is_checkin_task = strpos($task_key_lower, '_checkin') !== false || strpos($task_key_lower, '_check_in') !== false;
                             $is_social_task = strpos($task_key_lower, 'social') !== false || strpos($task_key_lower, 'share') !== false;
                             $is_quiz_task = ($vm === 'quiz');
+                            $is_mystery_task = ($vm === 'mystery');
                             
                             // Map verification_mode to card styling (dynamic from task data)
             $vm_icon_map = [
@@ -597,7 +618,9 @@ require_once __DIR__ . '/../includes/header.php';
                                     <?php echo $premium_badge_text; ?>
                                 </div>
                                 <h3 class="th-premium-title"><?php echo $premium_title; ?></h3>
-                                <p class="th-premium-desc"><?php echo htmlspecialchars((string) ($task['description'] ?? $premium_desc), ENT_QUOTES, 'UTF-8'); ?></p>
+                                <p class="th-premium-desc"><?php echo $is_mystery_task
+                                    ? 'Your 10-day LearnHub journey is complete. Choose one sealed box to reveal your server-verified $REX reward and unlock PRO.'
+                                    : htmlspecialchars((string) ($task['description'] ?? $premium_desc), ENT_QUOTES, 'UTF-8'); ?></p>
 
                                 <?php if ($is_checkin_task): ?>
                                     <!-- === CHECK-IN SPECIFIC: Streak display === -->
@@ -723,7 +746,33 @@ require_once __DIR__ . '/../includes/header.php';
 
                                 <?php elseif ($is_available && !$is_timed_lock && !$is_submitted && !$is_completed): ?>
                                     <!-- === OTHER TASK TYPES: Show completion steps === -->
-                                    <?php if (!empty($task['completion_steps'])): ?>
+                                    <?php if ($is_mystery_task): ?>
+                                        <div class="th-mystery-mission-guide">
+                                            <div class="th-mystery-guide-head">
+                                                <span class="th-mystery-guide-icon"><i class="fas fa-gift"></i></span>
+                                                <div>
+                                                    <span class="th-mystery-guide-eyebrow">Final mission</span>
+                                                    <strong>Open your mystery box reward</strong>
+                                                    <p>Three quick steps stand between you and your reward.</p>
+                                                </div>
+                                            </div>
+                                            <ol class="th-mystery-step-list">
+                                                <li>
+                                                    <span class="th-mystery-step-number">1</span>
+                                                    <span><strong>Open the vault</strong><small>Tap “Open Mystery Box” below.</small></span>
+                                                </li>
+                                                <li>
+                                                    <span class="th-mystery-step-number">2</span>
+                                                    <span><strong>Choose your box</strong><small>Pick one sealed box to claim.</small></span>
+                                                </li>
+                                                <li>
+                                                    <span class="th-mystery-step-number">3</span>
+                                                    <span><strong>Reveal & celebrate</strong><small>Receive $REX and unlock PRO.</small></span>
+                                                </li>
+                                            </ol>
+                                            <div class="th-mystery-guide-note"><i class="fas fa-shield-halved"></i> Reward calculated securely on claim</div>
+                                        </div>
+                                    <?php elseif (!empty($task['completion_steps'])): ?>
                                         <div class="th-premium-steps">
                                             <span class="th-premium-steps-label"><i class="fas fa-list"></i> Steps to complete:</span>
                                             <div class="th-premium-steps-content"><?php echo nl2br(htmlspecialchars((string) $task['completion_steps'], ENT_QUOTES, 'UTF-8')); ?></div>
