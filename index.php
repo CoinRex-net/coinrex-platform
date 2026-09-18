@@ -818,50 +818,83 @@ require_once __DIR__ . '/includes/header.php';
             <div class="cr-section-tag">Our Partner</div>
             <h2 class="cr-section-title" id="partner-title">Insight Meets Innovation</h2>
 
-            <div class="cr-partner-card">
-                <a
-                    href="https://cryptothreads.io"
-                    class="cr-partner-logo-link"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Visit Cryptothreads.io (opens in a new tab)"
-                >
-                    <img
-                        src="<?php echo ASSETS_URL; ?>/images/logoCT.png"
-                        alt="Cryptothreads.io"
-                        class="cr-partner-logo"
-                        loading="lazy"
-                        decoding="async"
-                    >
-                </a>
-
-                <p class="cr-partner-description">
-                    Research-backed crypto insights and structured market analysis from across Asia.
-                </p>
-
-                <div class="cr-partner-actions">
+            <div class="cr-partner-grid">
+                <div class="cr-partner-card">
                     <a
                         href="https://cryptothreads.io"
-                        class="cr-partner-website"
+                        class="cr-partner-logo-link"
                         target="_blank"
                         rel="noopener noreferrer"
+                        aria-label="Visit Cryptothreads.io (opens in a new tab)"
                     >
-                        cryptothreads.io
-                        <span aria-hidden="true">↗</span>
+                        <img
+                            src="<?php echo ASSETS_URL; ?>/images/logoCT.png"
+                            alt="Cryptothreads.io"
+                            class="cr-partner-logo"
+                            loading="lazy"
+                            decoding="async"
+                        >
                     </a>
 
-                    <a
-                        href="https://cryptothreads.io"
-                        class="cr-btn cr-btn-primary cr-partner-cta"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Explore Cryptothreads.io
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <line x1="5" y1="12" x2="19" y2="12"/>
-                            <polyline points="12 5 19 12 12 19"/>
-                        </svg>
-                    </a>
+                    <p class="cr-partner-description">
+                        Research-backed crypto insights and structured market analysis from across Asia.
+                    </p>
+
+                    <div class="cr-partner-actions">
+                        <a
+                            href="https://cryptothreads.io"
+                            class="cr-partner-website"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            cryptothreads.io
+                            <span aria-hidden="true">↗</span>
+                        </a>
+
+                        <a
+                            href="https://cryptothreads.io"
+                            class="cr-btn cr-btn-primary cr-partner-cta"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Explore Cryptothreads.io
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                <polyline points="12 5 19 12 12 19"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="cr-partner-card cr-partner-open-card">
+                    <div class="cr-partner-logo-link cr-partner-brand-mark" aria-label="CoinRex partnership card">
+                        <img
+                            src="<?php echo ASSETS_URL; ?>/images/footer-logo.png"
+                            alt="CoinRex"
+                            class="cr-partner-logo cr-partner-coinrex-logo"
+                            loading="lazy"
+                            decoding="async"
+                        >
+                    </div>
+
+                    <p class="cr-partner-description">
+                        We're open for partnerships with builders, research teams, communities, and Web3 brands that want to grow trust with CoinRex.
+                    </p>
+
+                    <div class="cr-partner-actions">
+                        <span class="cr-partner-website cr-partner-status">Partnerships open</span>
+
+                        <a
+                            href="<?php echo BASE_URL; ?>/public/contact.php"
+                            class="cr-btn cr-btn-primary cr-partner-cta cr-partner-gold-cta"
+                        >
+                            Partner with CoinRex
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                <polyline points="12 5 19 12 12 19"/>
+                            </svg>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

@@ -656,6 +656,9 @@
     padding: 40px 32px;
     text-align: center;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
     transition: all var(--cr-transition);
 }
 
@@ -698,7 +701,7 @@
     border-radius: 50%;
     background: rgba(59, 130, 246, 0.1);
     color: var(--color-accent);
-    margin-bottom: 20px;
+    margin: 0 auto 20px;
 }
 
 .cr-path-developer .cr-path-icon-wrap {
@@ -714,6 +717,7 @@
 }
 
 .cr-path-card > p {
+    text-align: justify;
     font-size: 0.95rem;
     color: var(--cr-text-secondary);
     margin-bottom: 24px;
@@ -725,6 +729,7 @@
     list-style: none;
     text-align: left;
     margin-bottom: 28px;
+    flex: 1 1 auto;
 }
 
 .cr-path-list li {
@@ -744,6 +749,27 @@
 .cr-path-list li svg {
     flex-shrink: 0;
     color: var(--cr-success);
+}
+
+.cr-path-card .cr-btn {
+    min-height: 58px;
+    margin-top: auto;
+    padding-left: 20px;
+    padding-right: 20px;
+    white-space: normal;
+    line-height: 1.25;
+}
+
+.cr-path-developer .cr-btn {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-light));
+    border-color: rgba(212, 175, 55, 0.55);
+    color: #201707;
+    box-shadow: 0 12px 28px rgba(212, 175, 55, 0.18);
+}
+
+.cr-path-developer .cr-btn:hover {
+    border-color: rgba(245, 158, 11, 0.72);
+    box-shadow: 0 16px 36px rgba(212, 175, 55, 0.26);
 }
 
 /* ==========================================================================
@@ -1254,6 +1280,15 @@
     font-size: 1.85rem;
 }
 
+.cr-partner-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+    align-items: stretch;
+    max-width: 1040px;
+    margin: 20px auto 0;
+}
+
 .cr-partner-card {
     position: relative;
     isolation: isolate;
@@ -1261,6 +1296,7 @@
     flex-direction: column;
     align-items: center;
     width: min(100%, 560px);
+    min-height: 100%;
     margin: 20px auto 0;
     padding: 22px 28px;
     overflow: hidden;
@@ -1306,6 +1342,15 @@
     transform: translateY(-4px);
 }
 
+.cr-partner-grid .cr-partner-card {
+    width: 100%;
+    margin: 0;
+}
+
+.cr-partner-open-card {
+    border-color: rgba(212, 175, 55, 0.38);
+}
+
 .cr-partner-logo-link {
     display: inline-flex;
     align-items: center;
@@ -1338,6 +1383,17 @@
     max-width: min(100%, 280px);
     max-height: 72px;
     object-fit: contain;
+}
+
+.cr-partner-brand-mark {
+    width: min(100%, 320px);
+    min-height: 96px;
+    padding: 14px 22px;
+}
+
+.cr-partner-coinrex-logo {
+    max-width: min(100%, 230px);
+    max-height: 68px;
 }
 
 .cr-partner-description {
@@ -1375,6 +1431,13 @@
     align-items: center;
     justify-content: center;
     gap: 12px;
+    margin-top: auto;
+}
+
+.cr-partner-status {
+    color: var(--color-accent-soft);
+    background: rgba(212, 175, 55, 0.08);
+    border-color: rgba(212, 175, 55, 0.18);
 }
 
 .cr-partner-cta {
@@ -1384,6 +1447,16 @@
     justify-content: center;
     box-shadow: 0 10px 28px rgba(212, 175, 55, 0.16);
     font-size: 0.86rem;
+}
+
+.cr-partner-gold-cta {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-light));
+    color: #201707;
+    box-shadow: 0 12px 30px rgba(212, 175, 55, 0.2);
+}
+
+.cr-partner-gold-cta:hover {
+    box-shadow: 0 16px 38px rgba(212, 175, 55, 0.28);
 }
 /* ==========================================================================
    BLOG SECTION
@@ -1607,6 +1680,11 @@
     .cr-developer-grid {
         grid-template-columns: 1fr;
     }
+    .cr-partner-grid {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+    }
+
 
     .cr-partner-card {
         padding: 22px 26px;
@@ -1713,7 +1791,7 @@
     }
 
     .cr-partner-card {
-        margin-top: 16px;
+        margin-top: 0;
         padding: 20px 16px;
     }
 
