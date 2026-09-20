@@ -180,7 +180,7 @@ require_once __DIR__ . '/includes/header.php';
     <section class="wallet-trust-stripe">
         <div class="wallet-container">
             <div class="wallet-trust-box wallet-reveal">
-                <span class="wallet-trust-item"><img src="<?php echo htmlspecialchars(WALLET_ASSETS_URL . '/images/logo.png', ENT_QUOTES, 'UTF-8'); ?>" alt="RexLink"> Powered by RexLink</span>
+                <span class="wallet-trust-item"><img src="<?php echo htmlspecialchars(WALLET_ASSETS_URL . '/images/logo.png', ENT_QUOTES, 'UTF-8'); ?>" alt="RexLink"> Powered by CoinREX</span>
                 <span class="wallet-trust-item"><i class="fas fa-check-circle"></i> Non-Custodial</span>
                 <span class="wallet-trust-item"><i class="fas fa-check-circle"></i> Secure by Design</span>
                 <span class="wallet-trust-item"><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars(WALLET_SITE_NAME, ENT_QUOTES, 'UTF-8'); ?> Integrated</span>

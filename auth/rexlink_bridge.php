@@ -51,6 +51,9 @@ try {
     establishAuthenticatedSession($user, false);
     $_SESSION['rex_signer_login_session_id'] = (int) ($payload['rex_signer_session_id'] ?? 0);
     $_SESSION['rex_signer_login_wallet_address'] = (string) ($payload['wallet_address'] ?? '');
+    if (function_exists('isUserProfileComplete') && !isUserProfileComplete($user)) {
+        redirect(BASE_URL . '/public/profile.php?welcome=rexlink');
+    }
     redirect(BASE_URL . '/public/dashboard.php');
 } catch (Throwable $e) {
     setFlashMessage('auth_success', 'RexLink sign-in failed: ' . $e->getMessage());

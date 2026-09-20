@@ -16,83 +16,68 @@ try {
     $duration = max(5, min((int) coinrexFastInput('duration_minutes', 5), 60));
     $qr_ttl_minutes = 5;
     $qr_ttl_seconds = $qr_ttl_minutes * 60;
-    $force_new_pairing = filter_var(coinrexFastInput('force_new_pairing', false), FILTER_VALIDATE_BOOLEAN);
     $public_base_url = coinrexFastPublicBaseUrl();
     $api_base_url = coinrexFastRexlinkBaseUrl();
     $dapp_name = substr(trim((string) coinrexFastInput('dapp_name', 'CoinRex Review Eligibility')), 0, 80);
     $dapp_url = substr(trim((string) coinrexFastInput('dapp_url', $public_base_url)), 0, 255);
 
-    if ($force_new_pairing) {
-        $db->prepare("
-            UPDATE rex_signer_sessions
-            SET status = 'revoked',
-                revoked_at = NOW(),
-                revoke_reason = 'Replaced by fresh review eligibility pairing'
-            WHERE user_id = ?
-              AND status = 'active'
-        ")->execute([$user_id]);
+    $active_stmt = $db->prepare("
+        SELECT session_row.id, session_row.wallet_address, session_row.expires_at,
+               GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), session_row.expires_at)) AS remaining_seconds
+        FROM rex_signer_sessions session_row
+        INNER JOIN users account_row
+            ON account_row.id = session_row.user_id
+           AND LOWER(account_row.wallet_address) = LOWER(session_row.wallet_address)
+        WHERE session_row.user_id = ?
+          AND session_row.app_id = 'coinrex'
+          AND session_row.status = 'active'
+          AND session_row.expires_at > NOW()
+        ORDER BY session_row.id DESC
+        LIMIT 1
+    ");
+    $active_stmt->execute([$user_id]);
+    $active_session = $active_stmt->fetch();
+    if ($active_session && preg_match('/^0x[a-f0-9]{40}$/', strtolower((string) ($active_session['wallet_address'] ?? '')))) {
+        coinrexFastSuccess([
+            'message' => 'Active RexLink session found.',
+            'already_connected' => true,
+            'server_timing_ms' => (int) round((microtime(true) - $started) * 1000),
+            'session' => [
+                'id' => (int) ($active_session['id'] ?? 0),
+                'session_id' => (int) ($active_session['id'] ?? 0),
+                'wallet_address' => strtolower((string) ($active_session['wallet_address'] ?? '')),
+                'remaining_seconds' => max(0, (int) ($active_session['remaining_seconds'] ?? 0)),
+                'expires_at' => (string) ($active_session['expires_at'] ?? ''),
+            ],
+        ]);
+    }
 
-        $db->prepare("
-            UPDATE rex_signer_pairing_codes
-            SET status = 'expired'
-            WHERE user_id = ?
-              AND pairing_purpose = 'review_eligibility'
-              AND status = 'pending'
-        ")->execute([$user_id]);
-    } else {
-        $active_stmt = $db->prepare("
-            SELECT id, wallet_address, expires_at,
-                   GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds
-            FROM rex_signer_sessions
-            WHERE user_id = ?
-              AND status = 'active'
-              AND expires_at > NOW()
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-        $active_stmt->execute([$user_id]);
-        $active_session = $active_stmt->fetch();
-        if ($active_session && preg_match('/^0x[a-f0-9]{40}$/', strtolower((string) ($active_session['wallet_address'] ?? '')))) {
-            coinrexFastSuccess([
-                'message' => 'Active RexLink session found.',
-                'already_connected' => true,
-                'server_timing_ms' => (int) round((microtime(true) - $started) * 1000),
-                'session' => [
-                    'id' => (int) ($active_session['id'] ?? 0),
-                    'session_id' => (int) ($active_session['id'] ?? 0),
-                    'wallet_address' => strtolower((string) ($active_session['wallet_address'] ?? '')),
-                    'remaining_seconds' => max(0, (int) ($active_session['remaining_seconds'] ?? 0)),
-                    'expires_at' => (string) ($active_session['expires_at'] ?? ''),
-                ],
-            ]);
-        }
-
-        $pending_stmt = $db->prepare("
-            SELECT id, display_code, requested_duration_minutes, requested_networks_json, expires_at,
-                   GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 0) AS expires_in_seconds,
-                   UNIX_TIMESTAMP(expires_at) AS expires_at_unix
-            FROM rex_signer_pairing_codes
-            WHERE user_id = ?
-              AND pairing_purpose = 'review_eligibility'
-              AND status = 'pending'
-              AND expires_at > NOW()
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-        $pending_stmt->execute([$user_id]);
-        $pending = $pending_stmt->fetch();
-        if ($pending) {
-            $stored_networks = coinrexFastRequestedNetworkSlugs($pending['requested_networks_json'] ?? []);
-            $current_networks = array_column($pairing_networks, 'slug');
-            sort($stored_networks);
-            sort($current_networks);
-            if (
-                (int) ($pending['requested_duration_minutes'] ?? 0) !== $duration
-                || (int) ($pending['expires_in_seconds'] ?? 0) > $qr_ttl_seconds
-                || ($stored_networks && $stored_networks !== $current_networks)
-            ) {
-                $db->prepare("UPDATE rex_signer_pairing_codes SET status = 'expired' WHERE id = ?")->execute([(int) $pending['id']]);
-            } else {
+    $pending_stmt = $db->prepare("
+        SELECT id, display_code, requested_duration_minutes, requested_networks_json, expires_at,
+               GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 0) AS expires_in_seconds,
+               UNIX_TIMESTAMP(expires_at) AS expires_at_unix
+        FROM rex_signer_pairing_codes
+        WHERE user_id = ?
+          AND pairing_purpose = 'review_eligibility'
+          AND status = 'pending'
+          AND expires_at > NOW()
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $pending_stmt->execute([$user_id]);
+    $pending = $pending_stmt->fetch();
+    if ($pending) {
+        $stored_networks = coinrexFastRequestedNetworkSlugs($pending['requested_networks_json'] ?? []);
+        $current_networks = array_column($pairing_networks, 'slug');
+        sort($stored_networks);
+        sort($current_networks);
+        if (
+            (int) ($pending['requested_duration_minutes'] ?? 0) !== $duration
+            || (int) ($pending['expires_in_seconds'] ?? 0) > $qr_ttl_seconds
+            || ($stored_networks && $stored_networks !== $current_networks)
+        ) {
+            $db->prepare("UPDATE rex_signer_pairing_codes SET status = 'expired' WHERE id = ?")->execute([(int) $pending['id']]);
+        } else {
             $display_code = (string) $pending['display_code'];
             $expires_in_seconds = max(1, (int) ($pending['expires_in_seconds'] ?? 300));
             $expires_at_unix = isset($pending['expires_at_unix']) ? (int) $pending['expires_at_unix'] : null;
@@ -125,7 +110,6 @@ try {
                     'expires_at_unix' => $expires_at_unix,
                 ],
             ]);
-            }
         }
     }
 

@@ -291,24 +291,46 @@ const linkConfig = window.CoinRexLinkWalletConfig || {};
 
     function finishWalletLink(sessionId, wallet) {
         if (linkCompleted || !Number(sessionId || 0) || !String(wallet || '')) return;
-        // Pairing completion persists the wallet and session atomically. A second
-        // PHP save request only duplicates that work and can wait on PHP locks.
+        if (!persistUrl || !csrfToken) {
+            setStatus('Wallet session found, but CoinRex could not save it. Refresh and try again.', 'error');
+            if (primaryButton) {
+                primaryButton.hidden = false;
+                primaryButton.disabled = false;
+                primaryButton.textContent = 'Generate New QR';
+            }
+            return;
+        }
         linkCompleted = true;
         stopPolling();
         stopCountdown();
         if (redirectTimer) window.clearTimeout(redirectTimer);
         const walletAddress = String(wallet || '');
-        if (successMessage) {
-            successMessage.textContent = 'Wallet ' + shortAddress(walletAddress) + ' is now linked to your CoinRex account. Redirecting...';
-        }
-        if (successCountdown) {
-            successCountdown.textContent = 'RexLink session active.';
-        }
-        setStep('success');
-        setStatus('Wallet linked successfully.', 'success');
-        redirectTimer = window.setTimeout(function() {
-            window.location.href = redirectAfterLink || (browserBaseUrl + '/public/dashboard.php');
-        }, 900);
+        setStatus('Saving wallet to your CoinRex account...', '');
+        postJson(persistUrl, { session_id: Number(sessionId), csrf_token: csrfToken }, 8000)
+            .then(function(data) {
+                const savedWallet = String(data.wallet_address || walletAddress);
+                if (successMessage) {
+                    successMessage.textContent = 'Wallet ' + shortAddress(savedWallet) + ' is now linked to your CoinRex account. Redirecting...';
+                }
+                if (successCountdown) {
+                    successCountdown.textContent = 'RexLink session active.';
+                }
+                setStep('success');
+                setStatus('Wallet linked successfully.', 'success');
+                redirectTimer = window.setTimeout(function() {
+                    window.location.href = redirectAfterLink || (browserBaseUrl + '/public/dashboard.php');
+                }, 900);
+            })
+            .catch(function(error) {
+                linkCompleted = false;
+                setStep('link');
+                setStatus(error.message || 'CoinRex could not save this wallet. Please try again.', 'error');
+                if (primaryButton) {
+                    primaryButton.hidden = false;
+                    primaryButton.disabled = false;
+                    primaryButton.textContent = 'Generate New QR';
+                }
+            });
     }
 
     function pollLinkStatus() {

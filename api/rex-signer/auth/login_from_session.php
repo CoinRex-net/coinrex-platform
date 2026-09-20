@@ -106,6 +106,11 @@ try {
     $_SESSION['rex_signer_login_wallet_address'] = (string) ($pairing['session_wallet_address'] ?? '');
     unset($_SESSION['rex_signer_auth_pairing_id']);
 
+    $redirect_url = BASE_URL . '/public/dashboard.php';
+    if (function_exists('isUserProfileComplete') && !isUserProfileComplete($user)) {
+        $redirect_url = BASE_URL . '/public/profile.php?welcome=rexlink';
+    }
+
     apiSuccessResponse([
         'status' => 'authenticated',
         'message' => 'Signed in with RexLink.',
@@ -114,7 +119,7 @@ try {
         'session_expires_at' => (string) ($pairing['session_expires_at'] ?? ''),
         'session_remaining_seconds' => max(0, (int) ($pairing['session_remaining_seconds'] ?? 0)),
         'requested_duration_minutes' => (int) ($pairing['requested_duration_minutes'] ?? 10),
-        'redirect_url' => BASE_URL . '/public/dashboard.php',
+        'redirect_url' => $redirect_url,
     ]);
 } catch (Throwable $e) {
     apiErrorResponse(422, $e->getMessage());

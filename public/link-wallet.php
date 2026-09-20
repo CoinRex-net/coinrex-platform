@@ -38,85 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireAppCsrf((string) ($_POST['csrf_token'] ?? ''));
     $action = trim((string) ($_POST['action'] ?? ''));
     if ($action === 'reset_wallet') {
-        if (!$wallet_linked) {
-            setFlashMessage('dashboard_success', 'No linked wallet to reset.');
-            redirect(BASE_URL . '/public/dashboard.php');
-        }
-
-        // Revoke active RexLink sessions for this user
-        if (function_exists('tableExists') && tableExists('rex_signer_sessions')) {
-            try {
-                $sessions_stmt = $db->prepare("
-                    SELECT id
-                    FROM rex_signer_sessions
-                    WHERE user_id = ?
-                      AND status = 'active'
-                      AND expires_at > NOW()
-                ");
-                $sessions_stmt->execute([(int) $user['id']]);
-                $session_ids = array_map('intval', array_column($sessions_stmt->fetchAll(), 'id'));
-                if (!empty($session_ids)) {
-                    $placeholders = implode(',', array_fill(0, count($session_ids), '?'));
-                    $revoke = $db->prepare("
-                        UPDATE rex_signer_sessions
-                        SET status = 'revoked',
-                            revoked_at = NOW(),
-                            revoke_reason = 'Wallet reset by user'
-                        WHERE user_id = ?
-                          AND id IN ({$placeholders})
-                          AND status = 'active'
-                    ");
-                    $revoke->execute(array_merge([(int) $user['id']], $session_ids));
-                    if (function_exists('coinrexRealtimePublish')) {
-                        foreach ($session_ids as $session_id) {
-                            coinrexRealtimePublish('session.revoked', [
-                                'user_id' => (int) $user['id'],
-                                'session_id' => (int) $session_id,
-                                'status' => 'revoked',
-                                'reason' => 'Wallet reset by user',
-                            ]);
-                        }
-                    }
-                }
-            } catch (Throwable $e) {
-                // Non-fatal: continue clearing the wallet even if session cleanup fails.
-            }
-        }
-
-        // Determine how the user should keep signing in after wallet reset.
-        // - Email/hybrid users with an email → switch to 'email' provider so
-        //   they stay logged in & can still login later.
-        // - Pure RexSigner users (no email) → keep 'rex_signer'; they must
-        //   re-link a wallet to sign in again (no other identity exists).
-        $auth_provider = strtolower(trim((string) ($user['auth_provider'] ?? 'email')));
-        $user_email = trim((string) ($user['email'] ?? ''));
-        $email_verified = (int) ($user['email_verified'] ?? 0);
-        if (in_array($auth_provider, ['rex_signer', 'hybrid'], true) && $user_email !== '') {
-            $auth_provider = 'email';
-            // Ensure email_verified is 1 so userAuthIdentityVerified() passes
-            // for email auth (it requires email_verified === 1).
-            $email_verified = 1;
-        }
-
-        // Clear the wallet address from the account only.
-        $clear_wallet = $db->prepare("
-            UPDATE users
-            SET wallet_address = NULL,
-                wallet_verified_at = NULL,
-                auth_provider = ?,
-                email_verified = ?,
-                updated_at = NOW()
-            WHERE id = ?
-        ");
-        $clear_wallet->execute([$auth_provider, $email_verified, (int) $user['id']]);
-
-        unset($_SESSION['rex_signer_login_session_id'], $_SESSION['rex_signer_login_wallet_address']);
-
-        setFlashMessage('dashboard_success', 'Wallet has been reset. You can link a new wallet anytime.');
-        redirect(BASE_URL . '/public/dashboard.php');
+        setFlashMessage('dashboard_success', 'Wallet changes are handled by CoinRex Support. Please contact support if you need to change your linked wallet.');
+        redirect(BASE_URL . '/public/contact.php?subject=Wallet%20reset%20request');
     }
 }
-
 $page_title = 'Link Wallet - ' . SITE_NAME;
 
 $link_wallet_actor_token = linkWalletNodeActorToken((int) ($user['id'] ?? 0));
@@ -218,18 +143,10 @@ require_once __DIR__ . '/../includes/header.php';
 
             <div class="link-wallet-actions">
                 <?php if ($wallet_linked): ?>
-                    <button type="button" class="link-wallet-btn-link" id="linkWalletPairButton">
-                        <i class="fas fa-qrcode"></i>
-                        Connect Another Wallet
-                    </button>
-                    <form method="POST" class="link-wallet-reset-form" onsubmit="return confirm('Are you sure you want to reset your linked wallet? This will disconnect RexLink and require you to link a new wallet.');">
-                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($page_csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
-                        <input type="hidden" name="action" value="reset_wallet">
-                        <button type="submit" class="link-wallet-btn-reset">
-                            <i class="fas fa-rotate-left"></i>
-                            Reset Wallet
-                        </button>
-                    </form>
+                    <a class="link-wallet-btn-reset" href="<?php echo BASE_URL; ?>/public/contact.php?subject=Wallet%20reset%20request">
+                        <i class="fas fa-headset"></i>
+                        Contact Support to Change Wallet
+                    </a>
                 <?php else: ?>
                     <button type="button" class="link-wallet-btn-link" id="linkWalletPairButton">
                         <i class="fas fa-qrcode"></i>
@@ -237,7 +154,6 @@ require_once __DIR__ . '/../includes/header.php';
                     </button>
                 <?php endif; ?>
             </div>
-
             <div class="link-wallet-faq">
                 <div class="link-wallet-faq-item">
                     <i class="fas fa-mobile-screen-button"></i>

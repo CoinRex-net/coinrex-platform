@@ -1,4 +1,5 @@
 <?php
+define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
 require_once dirname(__DIR__) . '/_bootstrap.php';
 
 apiRequireMethod('GET');

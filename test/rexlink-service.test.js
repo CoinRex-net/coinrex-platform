@@ -118,12 +118,13 @@ function pairingCompletionServiceWithConnection(conn) {
   });
 }
 
-test('auth pairing clearly rejects a wallet that is not linked to any account', async () => {
-  let queryIndex = 0;
+test('auth pairing creates a passwordless account for a unique wallet', async () => {
+  const wallet = '0x1111111111111111111111111111111111111111';
+  let insertedUser = null;
+  let insertedSession = null;
   const conn = {
-    execute: async () => {
-      queryIndex += 1;
-      if (queryIndex === 1) {
+    execute: async (sql, params) => {
+      if (sql.includes('FROM rex_signer_pairing_codes')) {
         return [[{
           id: 41,
           user_id: null,
@@ -132,23 +133,47 @@ test('auth pairing clearly rejects a wallet that is not linked to any account', 
           requested_duration_minutes: 5,
         }]];
       }
+      if (sql.includes('SELECT * FROM users WHERE wallet_address')) return [[]];
+      if (sql.includes('SELECT id FROM users WHERE username')) return [[]];
+      if (sql.includes('SELECT id FROM users WHERE referral_code')) return [[]];
+      if (sql.includes('INSERT INTO users')) {
+        insertedUser = { sql, params };
+        return [{ insertId: 77 }];
+      }
+      if (sql.includes('SELECT id, wallet_address FROM users WHERE wallet_address')) return [[]];
+      if (sql.includes('SELECT id, wallet_address FROM users WHERE id')) {
+        return [[{ id: 77, wallet_address: wallet }]];
+      }
+      if (sql.includes('UPDATE users SET wallet_address')) return [{ affectedRows: 1 }];
+      if (sql.includes('UPDATE rex_signer_sessions SET status')) return [{ affectedRows: 0 }];
+      if (sql.includes('INSERT INTO rex_signer_sessions')) {
+        insertedSession = { sql, params };
+        return [{ insertId: 88 }];
+      }
+      if (sql.includes('UPDATE rex_signer_pairing_codes')) return [{ affectedRows: 1 }];
+      if (sql.includes('FROM rex_signer_sessions WHERE id')) {
+        return [[{ id: 88, user_id: 77, app_id: 'coinrex', wallet_address: wallet, status: 'active', remaining_seconds: 300 }]];
+      }
       return [[]];
     },
   };
   const service = pairingCompletionServiceWithConnection(conn);
+  const res = {};
 
-  await assert.rejects(
-    service.completePairing({
-      body: { code: '123456', wallet_address: '0x1111111111111111111111111111111111111111' },
-      headers: {},
-      ip: '127.0.0.1',
-    }, {}),
-    (error) => error.status === 403
-      && /not linked to any CoinRex account/.test(error.message)
-      && /email and password/.test(error.message)
-  );
+  await service.completePairing({
+    body: { code: '123456', wallet_address: wallet },
+    headers: {},
+    ip: '127.0.0.1',
+  }, res);
+
+  assert.equal(res.result.status, 201);
+  assert.equal(res.result.auth_user_created, true);
+  assert.equal(res.result.session.user_id, 77);
+  assert.equal(res.result.session.wallet_address, wallet);
+  assert.ok(insertedUser);
+  assert.ok(insertedSession);
+  assert.equal(insertedUser.params.at(-1), wallet);
 });
-
 test('claim pairing clearly rejects replacing a different wallet already linked to the account', async () => {
   let queryIndex = 0;
   const conn = {
@@ -182,7 +207,7 @@ test('claim pairing clearly rejects replacing a different wallet already linked 
     }, {}),
     (error) => error.status === 409
       && /different RexLink wallet is already linked/.test(error.message)
-      && /Disconnect the existing wallet/.test(error.message)
+      && /contact CoinRex Support/.test(error.message)
   );
 });
 

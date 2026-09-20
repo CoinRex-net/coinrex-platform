@@ -86,6 +86,11 @@ try {
         apiErrorResponse(422, 'RexLink did not return a valid wallet address.');
     }
 
+    $current_wallet_address = strtolower(trim((string) ($user['wallet_address'] ?? '')));
+    if ($current_wallet_address !== '' && $current_wallet_address !== $wallet_address) {
+        apiErrorResponse(409, 'Your CoinRex account already has a linked wallet. To change it, please contact CoinRex Support.');
+    }
+
     // Conflict check: the same wallet cannot belong to two CoinRex accounts.
     $conflict = $db->prepare("SELECT id FROM users WHERE wallet_address = ? AND id <> ? LIMIT 1");
     $conflict->execute([$wallet_address, $user_id]);

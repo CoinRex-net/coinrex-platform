@@ -1,4 +1,5 @@
 <?php
+define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/auth/_bootstrap.php';
 
@@ -43,14 +44,14 @@ try {
 
     $pairing_purpose = strtolower((string) ($pairing['pairing_purpose'] ?? 'claim'));
     $pairing_user_id = !empty($pairing['user_id']) ? (int) $pairing['user_id'] : null;
+    $auth_user_created = false;
     if ($pairing_purpose === 'auth' && $pairing_user_id === null) {
-        $auth_user_stmt = $db->prepare("SELECT * FROM users WHERE wallet_address = ? AND status = 'active' LIMIT 1");
-        $auth_user_stmt->execute([$wallet_address]);
-        $auth_user = $auth_user_stmt->fetch();
-        if (!$auth_user) {
-            $db->rollBack();
-            apiErrorResponse(403, 'This RexLink wallet is not linked to any CoinRex account. Sign in with email and password, link this exact wallet, then try RexLink sign-in again.');
-        }
+        [$auth_user, $auth_user_created] = rexSignerAuthFindOrCreateUser(
+            $db,
+            $wallet_address,
+            (string) ($pairing['device_fingerprint'] ?? ''),
+            (string) ($pairing['referral_code'] ?? '')
+        );
         $login_error = rexSignerAuthUserCanLogin($auth_user);
         if ($login_error !== '') {
             $db->rollBack();
@@ -82,7 +83,7 @@ try {
         $current_wallet_address = strtolower(trim((string) ($pairing_user['wallet_address'] ?? '')));
         if ($pairing_purpose === 'claim' && $current_wallet_address !== '' && $current_wallet_address !== $wallet_address) {
             $db->rollBack();
-            apiErrorResponse(409, 'A different RexLink wallet is already linked to this CoinRex account. Disconnect the existing wallet before linking this one.');
+            apiErrorResponse(409, 'A different RexLink wallet is already linked to this CoinRex account. To change it, please contact CoinRex Support.');
         }
 
         $wallet_update = $db->prepare("
@@ -222,6 +223,7 @@ try {
         'message' => 'RexLink paired successfully.',
         'session_token' => $session_token,
         'session' => $session_payload,
+        'auth_user_created' => $auth_user_created,
     ], 201);
 } catch (Throwable $e) {
     @file_put_contents(dirname(__DIR__, 2) . '/cache/rexlink-review-pairing.log', json_encode([

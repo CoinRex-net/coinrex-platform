@@ -194,6 +194,63 @@ function createPairingService({
     return rows[0] || null;
   }
 
+  function generatedWalletName(walletAddress) {
+    return `REX User ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
+  }
+
+  async function generatedWalletUsername(conn, walletAddress) {
+    const base = `rex${walletAddress.replace(/[^a-f0-9]/g, '').slice(0, 10)}`;
+    let username = base;
+    for (let counter = 1; counter < 1000; counter += 1) {
+      const [rows] = await conn.execute('SELECT id FROM users WHERE username = ? LIMIT 1', [username]);
+      if (!rows[0]) return username;
+      username = `${base}${counter}`;
+    }
+    throw new Error('Could not create a unique RexLink username. Please try again.');
+  }
+
+  async function generatedReferralCode(conn, walletAddress) {
+    for (let counter = 0; counter < 10; counter += 1) {
+      const code = `RX${sha256(`${walletAddress}:${Date.now()}:${counter}:${randomToken(8)}`).slice(0, 10).toUpperCase()}`;
+      const [rows] = await conn.execute('SELECT id FROM users WHERE referral_code = ? LIMIT 1', [code]);
+      if (!rows[0]) return code;
+    }
+    throw new Error('Could not create a unique referral code. Please try again.');
+  }
+
+  async function findOrCreateAuthWalletUser(conn, wallet, req) {
+    const [existingUsers] = await conn.execute('SELECT * FROM users WHERE wallet_address = ? LIMIT 1', [wallet]);
+    const existingUser = existingUsers[0];
+    if (existingUser) {
+      if (String(existingUser.status || '') !== 'active') {
+        const error = new Error(`Your account is ${existingUser.status || 'not active'}.`);
+        error.status = 403;
+        throw error;
+      }
+      if (existingUser.security_suspended) {
+        const error = new Error('Your account is suspended by security management.');
+        error.status = 403;
+        throw error;
+      }
+      if (['rex_signer', 'hybrid'].includes(String(existingUser.auth_provider || '').toLowerCase()) && !existingUser.wallet_verified_at) {
+        const error = new Error('This wallet account is not verified yet.');
+        error.status = 403;
+        throw error;
+      }
+      return { userId: Number(existingUser.id), created: false };
+    }
+
+    const username = await generatedWalletUsername(conn, wallet);
+    const referralCode = await generatedReferralCode(conn, wallet);
+    const fullName = generatedWalletName(wallet);
+    const [insert] = await conn.execute(
+      `INSERT INTO users
+       (full_name, email, password, auth_provider, username, referral_code, referred_by, rex_balance, total_rex_earned, signup_ip, user_agent, status, email_verified, wallet_address, wallet_verified_at)
+       VALUES (?, NULL, NULL, 'rex_signer', ?, ?, NULL, 0, 0, ?, ?, 'active', 0, ?, NOW())`,
+      [fullName, username, referralCode, req.ip || null, req.headers['user-agent'] || null, wallet]
+    );
+    return { userId: Number(insert.insertId), created: true };
+  }
   async function createPairing(req, res) {
     const startedAt = Date.now();
     maintenance.expireOldRows().catch(() => {});
@@ -295,19 +352,12 @@ function createPairingService({
       if (!pairing) throw new Error('Pairing code is invalid or expired.');
       let userId = pairing.user_id ? Number(pairing.user_id) : null;
       const purpose = String(pairing.pairing_purpose || 'claim');
+      let authUserCreated = false;
       if (purpose === 'auth' && !userId) {
-        const [users] = await conn.execute(
-          `SELECT id FROM users WHERE wallet_address = ? AND status = 'active' LIMIT 1`,
-          [wallet]
-        );
-        if (!users[0]) {
-          const error = new Error('This RexLink wallet is not linked to any CoinRex account. Sign in with email and password, link this exact wallet, then try RexLink sign-in again.');
-          error.status = 403;
-          throw error;
-        }
-        userId = Number(users[0].id);
-      }
-      if (!userId) throw new Error('Pairing owner could not be resolved.');
+        const authUser = await findOrCreateAuthWalletUser(conn, wallet, req);
+        userId = authUser.userId;
+        authUserCreated = authUser.created;
+      }      if (!userId) throw new Error('Pairing owner could not be resolved.');
       if (purpose !== 'review_eligibility') {
         const [owners] = await conn.execute('SELECT id, wallet_address FROM users WHERE wallet_address = ? AND id <> ? LIMIT 1', [wallet, userId]);
         if (owners[0]) {
@@ -320,7 +370,7 @@ function createPairingService({
         if (!user) throw new Error('Pairing owner could not be resolved.');
         const currentWallet = String(user.wallet_address || '').toLowerCase();
         if (purpose === 'claim' && currentWallet && currentWallet !== wallet) {
-          const error = new Error('A different RexLink wallet is already linked to this CoinRex account. Disconnect the existing wallet before linking this one.');
+          const error = new Error('A different RexLink wallet is already linked to this CoinRex account. To change it, please contact CoinRex Support.');
           error.status = 409;
           throw error;
         }
@@ -341,7 +391,7 @@ function createPairingService({
       );
       await conn.execute(`UPDATE rex_signer_pairing_codes SET status = 'completed', completed_at = NOW(), completed_session_id = ? WHERE id = ?`, [insert.insertId, pairing.id]);
       const [sessionRows] = await conn.execute(`SELECT *, GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS remaining_seconds FROM rex_signer_sessions WHERE id = ?`, [insert.insertId]);
-      return { token, session: sessionRows[0], userId, purpose, appId: pairing.app_id || 'coinrex' };
+      return { token, session: sessionRows[0], userId, purpose, appId: pairing.app_id || 'coinrex', authUserCreated };
     });
     if (result.purpose === 'review_eligibility') {
       realtime.publish('session.connected', { user_id: result.userId, session_id: result.session.id, status: 'active', wallet_address: wallet, session: sessionPayload(result.session) });
@@ -355,7 +405,7 @@ function createPairingService({
       }, 201);
     }
     realtime.publish('session.connected', { user_id: result.userId, session_id: result.session.id, status: 'active', wallet_address: wallet, session: sessionPayload(result.session) });
-    jsonOk(res, { message: 'RexLink paired successfully.', session_token: result.token, session: sessionPayload(result.session), pairing_purpose: result.purpose, app_id: result.appId, server_timing_ms: Date.now() - startedAt }, 201);
+    jsonOk(res, { message: 'RexLink paired successfully.', session_token: result.token, session: sessionPayload(result.session), pairing_purpose: result.purpose, app_id: result.appId, auth_user_created: result.authUserCreated, server_timing_ms: Date.now() - startedAt }, 201);
   }
 
   async function createReviewPairing(req, res) {
