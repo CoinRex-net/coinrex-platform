@@ -35,6 +35,9 @@ function boostHubCampaignAdminGet(string $action, PDO $db): void {
 }
 
 function boostHubCampaignAdminPost(string $action, PDO $db, array $admin): void {
+    if (!ensureBoostHubCampaignSchema($db)) {
+        throw new RuntimeException('BoostHub campaign database setup is unavailable. Apply database/migrations/2026_08_31_boosthub_partner_campaigns.sql.');
+    }
     if ($action === 'status') {
         $id = (int) ($_POST['id'] ?? 0);
         $status = trim((string) ($_POST['status'] ?? ''));

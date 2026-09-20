@@ -138,7 +138,10 @@ function proWeeklyStreakGetState(int $uid, PDO $db=null, ?int $now=null): array 
 }
 
 function proWeeklyStreakRequireEligibleUser(int $uid, PDO $db): array {
-    $stmt=$db->prepare('SELECT * FROM users WHERE id=? LIMIT 1 FOR UPDATE'); $stmt->execute([$uid]);
+    // Eligibility is read-only. Locking the user row here makes a box claim wait
+    // behind routine last_active/profile updates; the cycle row below is the
+    // correctness-critical lock that serializes check-ins and box claims.
+    $stmt=$db->prepare('SELECT * FROM users WHERE id=? LIMIT 1'); $stmt->execute([$uid]);
     $user=$stmt->fetch(); if(!$user) throw new RuntimeException('User not found.');
     if(!proWeeklyStreakUserIsEligible($user)) throw new DomainException('PRO or Expert access is required.');
     return $user;

@@ -7,7 +7,7 @@
  const cycle=q('proWeeklyCycle'),action=q('proWeeklyAction'),feedback=q('proWeeklyFeedback');
  const nextReward=q('proWeeklyNextReward'),countdown=q('proWeeklyCountdown');
  const modal=q('proWeeklyBoxModal'),reveal=q('proBoxReveal'),result=q('proBoxResult');
- let state=cfg.state||{},busy=false,timer=null,revealed=false;
+ let state=cfg.state||{},busy=false,timer=null,revealed=false,revealReady=false;
 
  if(card&&window.matchMedia('(pointer:fine)').matches){
   card.addEventListener('pointermove',event=>{
@@ -77,12 +77,17 @@
   }).catch(()=>{});
  }
  function openModal(){
+  revealReady=false;
   modal.hidden=false;document.body.style.overflow='hidden';
   if(!revealed){modal.classList.remove('is-opening','is-revealed');result.hidden=true;
    reveal.disabled=false;reveal.innerHTML='<i class="fas fa-wand-magic-sparkles"></i><span>Reveal Reward</span>';}
-  reveal.focus();
+  // Arm only after the opening click/key event has fully finished. Focusing the
+  // reveal button here could let that same activation claim the box implicitly.
+  window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>{
+   if(!modal.hidden&&!revealed){revealReady=true;reveal.disabled=false;}
+  }));
  }
- function closeModal(){modal.hidden=true;document.body.style.overflow='';}
+ function closeModal(){revealReady=false;modal.hidden=true;document.body.style.overflow='';}
  action.addEventListener('click',async()=>{
   if(action.dataset.action==='open_box'){openModal();return;}
   if(busy||action.disabled)return;busy=true;const original=action.innerHTML;action.disabled=true;
@@ -97,18 +102,23 @@
   finally{busy=false;}
  });
  reveal.addEventListener('click',async()=>{
-  if(revealed){closeModal();return;}if(busy)return;busy=true;reveal.disabled=true;
+  if(revealed){closeModal();return;}if(!revealReady||modal.hidden||busy)return;
+  revealReady=false;busy=true;reveal.disabled=true;
   reveal.innerHTML='<i class="fas fa-circle-notch fa-spin"></i><span>Opening securely...</span>';
   modal.classList.add('is-opening');
   try{
-   const data=await post('claim_box');
-   await new Promise(resolve=>setTimeout(resolve,600));
+   // Run the short reveal motion while the secure server claim is in flight.
+   // This avoids adding an artificial wait after the response has arrived.
+   const [data]=await Promise.all([
+    post('claim_box'),
+    new Promise(resolve=>setTimeout(resolve,180))
+   ]);
    state=data.state;revealed=true;modal.classList.remove('is-opening');modal.classList.add('is-revealed');
    q('proBoxReward').textContent=String(parseInt(data.reward,10));result.hidden=false;
    reveal.disabled=false;reveal.innerHTML='<i class="fas fa-check"></i><span>Continue</span>';
    updateBalance(data.balance);render();
   }catch(error){
-   modal.classList.remove('is-opening');reveal.disabled=false;
+   modal.classList.remove('is-opening');revealReady=true;reveal.disabled=false;
    reveal.innerHTML='<i class="fas fa-rotate-right"></i><span>Try Again</span>';
    feedback.textContent=error.message;
   }finally{busy=false;}

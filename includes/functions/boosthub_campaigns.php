@@ -5,6 +5,54 @@ function boostHubCampaignStatuses(): array {
     return ['draft', 'scheduled', 'active', 'paused', 'completed'];
 }
 
+/**
+ * Ensure campaign storage exists after a code-only deployment.
+ * Falls back cleanly when the database account cannot run DDL.
+ */
+function ensureBoostHubCampaignSchema(PDO $db = null): bool {
+    static $results = [];
+    $db = $db ?: getDBConnection();
+    $key = spl_object_id($db);
+    if (array_key_exists($key, $results)) { return $results[$key]; }
+
+    $results[$key] = false;
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS boosthub_campaigns (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            campaign_name VARCHAR(150) NOT NULL,
+            project_name VARCHAR(150) NOT NULL,
+            project_logo VARCHAR(500) NULL,
+            project_cover VARCHAR(500) NULL,
+            project_website VARCHAR(500) NULL,
+            short_description TEXT NULL,
+            start_at DATETIME NOT NULL,
+            end_at DATETIME NOT NULL,
+            max_participants INT UNSIGNED NOT NULL,
+            status ENUM('draft','scheduled','active','paused','completed') NOT NULL DEFAULT 'draft',
+            internal_notes TEXT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_campaign_availability(status,start_at,end_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $hasColumn = static function (string $table, string $column) use ($db): bool {
+            $stmt = $db->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?');
+            $stmt->execute([$table, $column]);
+            return (int) $stmt->fetchColumn() > 0;
+        };
+        if (!$hasColumn('mini_tasks', 'campaign_id')) {
+            $db->exec('ALTER TABLE mini_tasks ADD COLUMN campaign_id INT UNSIGNED NULL, ADD KEY idx_mini_tasks_campaign (campaign_id)');
+        }
+        if (!$hasColumn('boosthub_campaigns', 'project_cover')) {
+            $db->exec('ALTER TABLE boosthub_campaigns ADD COLUMN project_cover VARCHAR(500) NULL AFTER project_logo');
+        }
+        $results[$key] = $hasColumn('mini_tasks', 'campaign_id') && $hasColumn('boosthub_campaigns', 'id');
+    } catch (Throwable $e) {
+        error_log('BoostHub campaign schema unavailable: ' . $e->getMessage());
+    }
+    return $results[$key];
+}
+
 function boostHubCampaignTimezone(): DateTimeZone {
     static $timezone = null;
     if ($timezone instanceof DateTimeZone) { return $timezone; }
@@ -44,6 +92,7 @@ function boostHubCampaignClientDateTime(string $value): string {
 
 function boostHubCampaignParticipantCount(int $id, PDO $db = null): int {
     $db = $db ?: getDBConnection();
+    if (!ensureBoostHubCampaignSchema($db)) { return 0; }
     $sql = 'SELECT COUNT(DISTINCT l.user_id) FROM user_task_logs l JOIN mini_tasks t ON t.id=l.task_id WHERE t.campaign_id=:id AND l.status=\'completed\'';
     $q = $db->prepare($sql);
     $q->execute(['id' => $id]);
@@ -52,6 +101,7 @@ function boostHubCampaignParticipantCount(int $id, PDO $db = null): int {
 
 function boostHubCampaignUserIsParticipant(int $id, int $user, PDO $db = null): bool {
     $db = $db ?: getDBConnection();
+    if (!ensureBoostHubCampaignSchema($db)) { return false; }
     $sql = 'SELECT 1 FROM user_task_logs l JOIN mini_tasks t ON t.id=l.task_id WHERE t.campaign_id=:id AND l.user_id=:user AND l.status=\'completed\' LIMIT 1';
     $q = $db->prepare($sql);
     $q->execute(['id' => $id, 'user' => $user]);
@@ -76,6 +126,7 @@ function boostHubCampaignAssertParticipation(array $c, int $user, PDO $db = null
 
 function boostHubCampaignGet(int $id, PDO $db = null): ?array {
     $db = $db ?: getDBConnection();
+    if (!ensureBoostHubCampaignSchema($db)) { return null; }
     $q = $db->prepare('SELECT * FROM boosthub_campaigns WHERE id=:id LIMIT 1');
     $q->execute(['id' => $id]);
     return $q->fetch() ?: null;
@@ -83,6 +134,7 @@ function boostHubCampaignGet(int $id, PDO $db = null): ?array {
 
 function boostHubCampaignList(PDO $db = null, bool $selectable = false): array {
     $db = $db ?: getDBConnection();
+    if (!ensureBoostHubCampaignSchema($db)) { return []; }
     $where = $selectable ? 'WHERE c.status <> \'completed\'' : '';
     $sql = 'SELECT c.*,COUNT(DISTINCT t.id) task_count,COUNT(DISTINCT CASE WHEN l.status=\'completed\' THEN l.user_id END) approved_participants FROM boosthub_campaigns c LEFT JOIN mini_tasks t ON t.campaign_id=c.id AND t.task_group=\'boosthub\' LEFT JOIN user_task_logs l ON l.task_id=t.id '.$where.' GROUP BY c.id ORDER BY c.created_at DESC';
     return $db->query($sql)->fetchAll();
@@ -90,6 +142,7 @@ function boostHubCampaignList(PDO $db = null, bool $selectable = false): array {
 
 function boostHubCampaignMapForUser(int $user, PDO $db = null): array {
     $db = $db ?: getDBConnection();
+    if (!ensureBoostHubCampaignSchema($db)) { return []; }
     $approved = [];
     $q = $db->prepare('SELECT DISTINCT t.campaign_id FROM user_task_logs l JOIN mini_tasks t ON t.id=l.task_id WHERE l.user_id=:user AND l.status=\'completed\' AND t.campaign_id IS NOT NULL');
     $q->execute(['user' => $user]);
@@ -188,6 +241,9 @@ function boostHubPublicCampaignsAttachTasks(array $campaigns, int $user, PDO $db
 
 function boostHubStartCampaignTask(int $user, int $task, PDO $db = null): array {
     $db = $db ?: getDBConnection();
+    if (!ensureBoostHubCampaignSchema($db)) {
+        throw new RuntimeException('BoostHub campaigns are temporarily unavailable.');
+    }
     $db->beginTransaction();
     try {
         $sql = 'SELECT t.id task_id,t.title,c.* FROM mini_tasks t JOIN boosthub_campaigns c ON c.id=t.campaign_id WHERE t.id=:task AND t.task_group=\'boosthub\' AND t.is_active=1 LIMIT 1 FOR UPDATE';
@@ -265,6 +321,9 @@ function boostHubCampaignFormatAnalytics(array $campaign, array $s, array $tasks
 
 function reviewTaskHubSubmissionSafely(int $log, bool $approve, PDO $db = null, array $options = []): array {
     $db = $db ?: getDBConnection();
+    if (!ensureBoostHubCampaignSchema($db)) {
+        return reviewTaskHubSubmission($log, $approve, $db, $options);
+    }
 
     // These legacy schema guards may execute DDL. MySQL implicitly commits an
     // active transaction around DDL, so initialize them before taking the

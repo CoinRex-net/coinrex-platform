@@ -98,6 +98,79 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </form>
         </section>
+
+        <!-- Upload animation & preview -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const avatarDiv = document.querySelector('.profile-avatar-large');
+                const fileInput = document.getElementById('avatar');
+
+                if (!fileInput || !avatarDiv) return;
+
+                const avatarInitial = avatarDiv.querySelector('.profile-avatar-initial');
+
+                fileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    // Show uploading state
+                    avatarDiv.classList.add('uploading');
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            // Compress image - max 500px dimension, 80% quality for JPEG
+                            const maxDimension = 500;
+                            let width = img.width;
+                            let height = img.height;
+
+                            // Calculate new dimensions maintaining aspect ratio
+                            if (width > height) {
+                                if (width > maxDimension) {
+                                    height = (height * maxDimension) / width;
+                                    width = maxDimension;
+                                }
+                            } else {
+                                if (height > maxDimension) {
+                                    width = (width * maxDimension) / height;
+                                    height = maxDimension;
+                                }
+                            }
+
+                            // Draw to canvas and compress
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            // Get compressed data - use JPEG for photos, keep PNG for graphics
+                            const isPNG = file.type && file.type.startsWith('image/png');
+                            const quality = isPNG ? 1.0 : 0.8;
+                            const dataURL = canvas.toDataURL('image' + (isPNG ? 'png' : 'jpeg'), quality);
+
+                            // Update avatar background
+                            avatarDiv.style.backgroundImage = `url('${dataURL}')`;
+                            avatarDiv.classList.add('has-avatar-image');
+
+                            // Hide initials if present
+                            if (avatarInitial) {
+                                avatarInitial.style.display = 'none';
+                            }
+
+                            // Remove uploading state after short delay
+                            setTimeout(() => {
+                                avatarDiv.classList.remove('uploading');
+                            }, 500);
+                        };
+                        img.src = e.target.result;
+                    };
+
+                    reader.readAsDataURL(file);
+                });
+            });
+        </script>
     </div>
 </main>
 

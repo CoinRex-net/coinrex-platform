@@ -331,16 +331,22 @@ function adminRewardGetTopRexHolders(PDO $db, $limit = 10) {
 }
 
 function adminRewardGetTasks(PDO $db, $task_group, $mission_day = 0) {
+    $campaign_schema_ready = ensureBoostHubCampaignSchema($db);
+    $campaign_fields = $campaign_schema_ready
+        ? 'c.campaign_name, c.project_name,'
+        : 'NULL AS campaign_name, NULL AS project_name,';
+    $campaign_join = $campaign_schema_ready
+        ? 'LEFT JOIN boosthub_campaigns c ON c.id = mt.campaign_id'
+        : '';
     $sql = "
         SELECT
             mt.*,
-            c.campaign_name,
-            c.project_name,
+            {$campaign_fields}
             COALESCE(stats.completed_total, 0) AS completed_total,
             COALESCE(stats.completed_today, 0) AS completed_today,
             COALESCE(stats.blocked_total, 0) AS blocked_total
         FROM mini_tasks mt
-        LEFT JOIN boosthub_campaigns c ON c.id = mt.campaign_id
+        {$campaign_join}
         LEFT JOIN (
             SELECT
                 task_id,
@@ -399,6 +405,13 @@ function adminRewardGetTaskhubReviewRows(PDO $db) {
 }
 
 function adminRewardGetBoosthubReviewRows(PDO $db) {
+    $campaign_schema_ready = ensureBoostHubCampaignSchema($db);
+    $campaign_fields = $campaign_schema_ready
+        ? 'mt.campaign_id, c.campaign_name, c.project_name,'
+        : 'NULL AS campaign_id, NULL AS campaign_name, NULL AS project_name,';
+    $campaign_join = $campaign_schema_ready
+        ? 'LEFT JOIN boosthub_campaigns c ON c.id = mt.campaign_id'
+        : '';
     return $db->query("
         SELECT
             utl.id,
@@ -415,15 +428,13 @@ function adminRewardGetBoosthubReviewRows(PDO $db) {
             mt.task_link,
             mt.proof_notes,
             mt.reward,
-            mt.campaign_id,
-            c.campaign_name,
-            c.project_name,
+            {$campaign_fields}
             u.username,
             u.email
         FROM user_task_logs utl
         INNER JOIN mini_tasks mt ON mt.id = utl.task_id
         INNER JOIN users u ON u.id = utl.user_id
-        LEFT JOIN boosthub_campaigns c ON c.id = mt.campaign_id
+        {$campaign_join}
         WHERE mt.task_group = 'boosthub'
           AND utl.status = 'submitted'
         ORDER BY utl.id DESC

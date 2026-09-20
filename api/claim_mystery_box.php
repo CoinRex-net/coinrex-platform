@@ -12,6 +12,10 @@ try {
     [$user_id] = apiResolveAuthorizedUserId(null);
     $db = getDBConnection();
     ensureRewardClaimSchema($db);
+    $is_taskhub_test_mode = (
+        (defined('TESTING_MODE') && TESTING_MODE)
+        || (defined('LOCAL_TEST_MODE') && LOCAL_TEST_MODE)
+    );
 
     $user = getUserById((int) $user_id);
     if (!$user) {
@@ -88,7 +92,8 @@ try {
     }
 
     $mystery_available_at = !empty($mystery_log['task_available_at']) ? strtotime((string) $mystery_log['task_available_at']) : 0;
-    if ($mystery_available_at > time()) {
+    // Test mode intentionally bypasses TaskHub cooldowns, including mystery-box availability.
+    if (!$is_taskhub_test_mode && $mystery_available_at > time()) {
         throw new RuntimeException('Mystery box is locked until ' . date('Y-m-d H:i:s', $mystery_available_at) . '.');
     }
 

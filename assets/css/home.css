@@ -370,3 +370,6 @@
         flex-direction: column;
     }
 }
+
+.home-test-blog-image{display:block;aspect-ratio:16/9;margin-bottom:14px;overflow:hidden;border-radius:14px;border:1px solid rgba(148,163,184,.18);background:#0b1220}
+.home-test-blog-image img{width:100%;height:100%;display:block;object-fit:cover}
