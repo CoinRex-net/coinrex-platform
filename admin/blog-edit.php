@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cta_text = trim((string) ($_POST['cta_text'] ?? ''));
     $cta_url = trim((string) ($_POST['cta_url'] ?? ''));
     $cta_type = trim((string) ($_POST['cta_type'] ?? 'custom'));
+    $featured_image = (string) ($post['featured_image'] ?? '');
 
     // If content_md is provided, convert it to HTML
     if ($content_md !== '' && $content === '') {
@@ -37,24 +38,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = 'Title and content are required.';
         $message_type = 'error';
     } else {
-        $slug = blogUniqueSlug($db, $title, $id);
-        $published_at = $status === 'published' ? ($post['published_at'] ?: date('Y-m-d H:i:s')) : null;
-        $upd = $db->prepare("UPDATE blog_posts SET title=?,slug=?,excerpt=?,content=?,content_md=?,status=?,seo_title=?,seo_description=?,cta_text=?,cta_url=?,cta_type=?,published_at=?,updated_at=NOW() WHERE id=?");
-        $upd->execute([$title, $slug, $excerpt, $content, $content_md ?: null, $status, $seo_title ?: null, $seo_description ?: null, $cta_text ?: null, $cta_url ?: null, $cta_type ?: null, $published_at, $id]);
-
-        $db->prepare("DELETE FROM blog_post_categories WHERE post_id=?")->execute([$id]);
-        foreach ((array) ($_POST['categories'] ?? []) as $category_id) {
-            $catId = (int) $category_id;
-            if ($catId > 0) $db->prepare("INSERT IGNORE INTO blog_post_categories (post_id, category_id) VALUES (?, ?)")->execute([$id, $catId]);
-        }
-        $db->prepare("DELETE FROM blog_post_tags WHERE post_id=?")->execute([$id]);
-        foreach ((array) ($_POST['tags'] ?? []) as $tag_id) {
-            $tagId = (int) $tag_id;
-            if ($tagId > 0) $db->prepare("INSERT IGNORE INTO blog_post_tags (post_id, tag_id) VALUES (?, ?)")->execute([$id, $tagId]);
+        try {
+            if (!empty($_POST['remove_featured_image']) && $featured_image !== '') {
+                blogDeleteFeaturedImage($featured_image);
+                $featured_image = '';
+            }
+            $featured_image = blogUploadFeaturedImage($_FILES['featured_image'] ?? [], $featured_image);
+        } catch (Throwable $e) {
+            $message = $e->getMessage();
+            $message_type = 'error';
         }
 
-        header('Location: ' . ADMIN_BASE_URL . '/blog-edit.php?id=' . $id . '&saved=1');
-        exit();
+        if ($message_type !== 'error') {
+            $slug = blogUniqueSlug($db, $title, $id);
+            $published_at = $status === 'published' ? ($post['published_at'] ?: date('Y-m-d H:i:s')) : null;
+            $upd = $db->prepare("UPDATE blog_posts SET title=?,slug=?,excerpt=?,content=?,content_md=?,featured_image=?,status=?,seo_title=?,seo_description=?,cta_text=?,cta_url=?,cta_type=?,published_at=?,updated_at=NOW() WHERE id=?");
+            $upd->execute([$title, $slug, $excerpt, $content, $content_md ?: null, $featured_image ?: null, $status, $seo_title ?: null, $seo_description ?: null, $cta_text ?: null, $cta_url ?: null, $cta_type ?: null, $published_at, $id]);
+
+            $db->prepare("DELETE FROM blog_post_categories WHERE post_id=?")->execute([$id]);
+            foreach ((array) ($_POST['categories'] ?? []) as $category_id) {
+                $catId = (int) $category_id;
+                if ($catId > 0) $db->prepare("INSERT IGNORE INTO blog_post_categories (post_id, category_id) VALUES (?, ?)")->execute([$id, $catId]);
+            }
+            $db->prepare("DELETE FROM blog_post_tags WHERE post_id=?")->execute([$id]);
+            foreach ((array) ($_POST['tags'] ?? []) as $tag_id) {
+                $tagId = (int) $tag_id;
+                if ($tagId > 0) $db->prepare("INSERT IGNORE INTO blog_post_tags (post_id, tag_id) VALUES (?, ?)")->execute([$id, $tagId]);
+            }
+
+            header('Location: ' . ADMIN_BASE_URL . '/blog-edit.php?id=' . $id . '&saved=1');
+            exit();
+        }
     }
 }
 
@@ -68,11 +82,13 @@ $tags = $db->query("SELECT id,name FROM blog_tags ORDER BY name ASC")->fetchAll(
 $postCategoryIds = array_map('intval', array_column($db->query("SELECT category_id FROM blog_post_categories WHERE post_id=" . (int) $id)->fetchAll() ?: [], 'category_id'));
 $postTagIds = array_map('intval', array_column($db->query("SELECT tag_id FROM blog_post_tags WHERE post_id=" . (int) $id)->fetchAll() ?: [], 'tag_id'));
 $postContentMd = (string) ($post['content_md'] ?? '');
+$postFeaturedImage = (string) ($post['featured_image'] ?? '');
+$postFeaturedImageUrl = $postFeaturedImage !== '' ? blogFeaturedImageUrl($postFeaturedImage) : '';
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/suneditor@2.47.5/dist/css/suneditor.min.css">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/admin-blog-editor.css">
 <style>
-/* Dashboard container — ensures proper padding and width */
+/* Dashboard container â€” ensures proper padding and width */
 .dashboard-container {
   width: 100%;
   max-width: 100%;
@@ -86,7 +102,7 @@ $postContentMd = (string) ($post['content_md'] ?? '');
   background: #1e293b;
   border-bottom: 1px solid rgba(148,163,184,0.18);
 }
-/* Responsive grid — override inline style on small screens */
+/* Responsive grid â€” override inline style on small screens */
 @media (max-width: 1000px) {
   .blog-admin-grid {
     grid-template-columns: 1fr !important;
@@ -188,7 +204,7 @@ $postContentMd = (string) ($post['content_md'] ?? '');
 
     <div class="blog-admin-grid" style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;">
         <div class="dashboard-panel" style="margin:0;">
-            <form method="post" id="blogEditForm">
+            <form method="post" id="blogEditForm" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
 
                 <div class="split-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -198,6 +214,16 @@ $postContentMd = (string) ($post['content_md'] ?? '');
 
                 <label class="field-label">Excerpt</label>
                 <textarea class="input-pro" name="excerpt" style="min-height:90px;"><?php echo htmlspecialchars((string) $post['excerpt'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+
+                <label class="field-label">Post Image</label>
+                <?php if ($postFeaturedImageUrl !== ''): ?>
+                    <div class="blog-featured-preview">
+                        <img src="<?php echo htmlspecialchars($postFeaturedImageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="Current post image">
+                        <label class="blog-remove-image"><input type="checkbox" name="remove_featured_image" value="1"> Remove current image</label>
+                    </div>
+                <?php endif; ?>
+                <input class="input-pro" type="file" name="featured_image" accept="image/jpeg,image/png,image/webp">
+                <p style="color:#94a3b8;font-size:12px;margin:6px 0 12px;"><i class="fas fa-compress-alt"></i> Upload a JPG, PNG, or WebP to replace it. Images are compressed automatically.</p>
 
                 <label class="field-label">Main Content</label>
 
@@ -247,11 +273,11 @@ $postContentMd = (string) ($post['content_md'] ?? '');
                 </div>
             </div>
             <ul class="helper-list" style="list-style:none;padding:0;margin:12px 0 0;">
-                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">✓ Check readability on mobile paragraphs.</li>
-                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">✓ Ensure heading hierarchy is clean (H2/H3).</li>
-                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">✓ Add links where users should take action.</li>
-                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">✓ Keep SEO title crisp and human-friendly.</li>
-                <li style="padding:6px 0;color:#cbd5e1;font-size:13px;">✓ Use category + tags that match article intent.</li>
+                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">âœ“ Check readability on mobile paragraphs.</li>
+                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">âœ“ Ensure heading hierarchy is clean (H2/H3).</li>
+                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">âœ“ Add links where users should take action.</li>
+                <li style="padding:6px 0;border-bottom:1px solid rgba(148,163,184,0.1);color:#cbd5e1;font-size:13px;">âœ“ Keep SEO title crisp and human-friendly.</li>
+                <li style="padding:6px 0;color:#cbd5e1;font-size:13px;">âœ“ Use category + tags that match article intent.</li>
             </ul>
             <div style="margin-top:12px;padding:10px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08));border:1px solid rgba(99,102,241,0.15);border-radius:10px;color:#a5b4fc;font-size:12px;">
                 <i class="fas fa-palette"></i> Palette upgrade applied with Indigo/Violet/Teal accents for a premium dark editorial experience.

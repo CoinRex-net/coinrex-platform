@@ -103,3 +103,27 @@
   .blog-ad-infeed .ad-media{height:110px;max-height:110px}
   .blog-card,.blog-card-sponsored{min-height:210px}
 }
+.blog-card-image,
+.archive-item-image,
+.post-featured-image {
+  display: block;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,.16);
+  background: #0b1220;
+}
+.blog-card-image { aspect-ratio: 16 / 9; margin: -2px -2px 14px; }
+.blog-card-image img,
+.archive-item-image img,
+.post-featured-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.post-featured-image { aspect-ratio: 16 / 9; margin: 16px 0 22px; }
+.archive-item-image { aspect-ratio: 16 / 9; margin-bottom: 12px; }
+.archive-item { overflow: hidden; }
+@media (max-width:480px){
+  .blog-card-image,.archive-item-image,.post-featured-image{border-radius:10px}
+}

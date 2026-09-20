@@ -183,6 +183,7 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
     $coinrex_meta_description = trim((string) ($meta_description ?? ''));
     $coinrex_meta_keywords = trim((string) ($meta_keywords ?? ''));
     $coinrex_canonical_url = trim((string) ($canonical_url ?? ''));
+    $coinrex_meta_image = trim((string) ($meta_image ?? ''));
     $coinrex_page_title = $coinrex_page_title !== '' ? $coinrex_page_title : (SITE_NAME . ' - ' . SITE_TAGLINE);
     $coinrex_meta_description = $coinrex_meta_description !== ''
         ? $coinrex_meta_description
@@ -191,6 +192,9 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
         ? $coinrex_meta_keywords
         : t('meta.default_keywords');
     $coinrex_canonical_url = $coinrex_canonical_url !== '' ? $coinrex_canonical_url : coinrexCanonicalUrl();
+    $coinrex_meta_image = $coinrex_meta_image !== ''
+        ? (preg_match('#^https?://#i', $coinrex_meta_image) ? $coinrex_meta_image : coinrexSeoUrl($coinrex_meta_image))
+        : coinrexSeoUrl('/assets/images/logo.png');
     ?>
     <title><?php echo htmlspecialchars($coinrex_page_title, ENT_QUOTES, 'UTF-8'); ?></title>
     
@@ -205,11 +209,11 @@ $mobile_more_items = getManagedNavigationSlotItems('mobile_more', 'mobile_more',
     <meta property="og:description" content="<?php echo htmlspecialchars($coinrex_meta_description, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?php echo htmlspecialchars($coinrex_canonical_url, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:image" content="<?php echo htmlspecialchars(coinrexSeoUrl('/assets/images/logo.png'), ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:image" content="<?php echo htmlspecialchars($coinrex_meta_image, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="<?php echo htmlspecialchars($coinrex_page_title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="twitter:description" content="<?php echo htmlspecialchars($coinrex_meta_description, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta name="twitter:image" content="<?php echo htmlspecialchars(coinrexSeoUrl('/assets/images/logo.png'), ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:image" content="<?php echo htmlspecialchars($coinrex_meta_image, ENT_QUOTES, 'UTF-8'); ?>">
     
     <!-- Base URL for JS -->
     <meta name="base-url" content="<?php echo BASE_URL; ?>">

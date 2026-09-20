@@ -72,7 +72,13 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="blog-grid">
     <div class="blog-cards">
         <?php foreach ($posts as $idx => $post): ?>
+            <?php $postImageUrl = blogFeaturedImageUrl($post['featured_image'] ?? ''); ?>
             <article class="blog-card">
+                <?php if ($postImageUrl !== ''): ?>
+                    <a class="blog-card-image" href="<?php echo BASE_URL; ?>/blog-post.php/<?php echo urlencode((string) $post['slug']); ?>" aria-label="<?php echo htmlspecialchars((string) $post['title'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <img src="<?php echo htmlspecialchars($postImageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $post['title'], ENT_QUOTES, 'UTF-8'); ?>" loading="lazy">
+                    </a>
+                <?php endif; ?>
                 <h3 style="margin-top:0;"><a href="<?php echo BASE_URL; ?>/blog-post.php/<?php echo urlencode((string) $post['slug']); ?>"><?php echo htmlspecialchars((string) $post['title'], ENT_QUOTES, 'UTF-8'); ?></a></h3>
                 <p style="opacity:.8;"><?php echo htmlspecialchars((string) ($post['excerpt'] ?: mb_substr(strip_tags((string) $post['content']), 0, 130) . '...'), ENT_QUOTES, 'UTF-8'); ?></p>
                 <div class="blog-meta">

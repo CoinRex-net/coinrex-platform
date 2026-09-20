@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cta_text = trim((string) ($_POST['cta_text'] ?? ''));
     $cta_url = trim((string) ($_POST['cta_url'] ?? ''));
     $cta_type = trim((string) ($_POST['cta_type'] ?? 'custom'));
+    $featured_image = '';
 
     // If content_md is provided, convert it to HTML
     if ($content_md !== '' && $content === '') {
@@ -30,10 +31,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = 'Title and content are required.';
         $message_type = 'error';
     } else {
+        try {
+            $featured_image = blogUploadFeaturedImage($_FILES['featured_image'] ?? [], '');
+        } catch (Throwable $e) {
+            $message = $e->getMessage();
+            $message_type = 'error';
+        }
+    }
+
+    if ($message_type !== 'error') {
         $slug = blogUniqueSlug($db, $title);
         $published_at = $status === 'published' ? date('Y-m-d H:i:s') : null;
-        $stmt = $db->prepare("INSERT INTO blog_posts (title,slug,excerpt,content,content_md,author_admin_id,status,seo_title,seo_description,cta_text,cta_url,cta_type,published_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())");
-        $stmt->execute([$title, $slug, $excerpt, $content, $content_md ?: null, (int) ($current_admin['id'] ?? 0), $status, $seo_title ?: null, $seo_description ?: null, $cta_text ?: null, $cta_url ?: null, $cta_type ?: null, $published_at]);
+        $stmt = $db->prepare("INSERT INTO blog_posts (title,slug,excerpt,content,content_md,featured_image,author_admin_id,status,seo_title,seo_description,cta_text,cta_url,cta_type,published_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())");
+        $stmt->execute([$title, $slug, $excerpt, $content, $content_md ?: null, $featured_image ?: null, (int) ($current_admin['id'] ?? 0), $status, $seo_title ?: null, $seo_description ?: null, $cta_text ?: null, $cta_url ?: null, $cta_type ?: null, $published_at]);
         $post_id = (int) $db->lastInsertId();
 
         foreach ((array) ($_POST['categories'] ?? []) as $category_id) {
@@ -167,7 +177,7 @@ $tags = $db->query("SELECT id,name FROM blog_tags ORDER BY name ASC")->fetchAll(
 
     <div class="blog-admin-grid" style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;">
         <div class="dashboard-panel" style="margin:0;">
-            <form method="post" id="blogCreateForm">
+            <form method="post" id="blogCreateForm" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(adminCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
 
                 <div class="split-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -183,6 +193,10 @@ $tags = $db->query("SELECT id,name FROM blog_tags ORDER BY name ASC")->fetchAll(
 
                 <label class="field-label">Excerpt</label>
                 <textarea class="input-pro" name="excerpt" style="min-height:90px;" placeholder="Short summary shown on cards and search listings"></textarea>
+
+                <label class="field-label">Post Image</label>
+                <input class="input-pro" type="file" name="featured_image" accept="image/jpeg,image/png,image/webp">
+                <p style="color:#94a3b8;font-size:12px;margin:6px 0 12px;"><i class="fas fa-compress-alt"></i> JPG, PNG, or WebP. Images are compressed automatically on upload.</p>
 
                 <label class="field-label">Main Content</label>
 

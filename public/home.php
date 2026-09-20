@@ -352,7 +352,13 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <div class="home-test-blog-grid home-test-blog-grid-count-<?php echo (int) count($latest_blog_posts); ?>">
                 <?php foreach ($latest_blog_posts as $blog_post): ?>
+                    <?php $blogPostImageUrl = blogFeaturedImageUrl($blog_post['featured_image'] ?? ''); ?>
                     <article class="home-test-blog-card">
+                        <?php if ($blogPostImageUrl !== ''): ?>
+                            <a class="home-test-blog-image" href="<?php echo BASE_URL; ?>/blog-post.php/<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>" aria-label="<?php echo homeTestEsc((string) ($blog_post['title'] ?? 'Blog Post')); ?>">
+                                <img src="<?php echo htmlspecialchars($blogPostImageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo homeTestEsc((string) ($blog_post['title'] ?? 'Blog Post')); ?>" loading="lazy">
+                            </a>
+                        <?php endif; ?>
                         <span class="home-test-blog-date"><?php echo date('M d, Y', strtotime((string) ($blog_post['published_at'] ?: $blog_post['created_at']))); ?></span>
                         <h3><a href="<?php echo BASE_URL; ?>/blog-post.php/<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>"><?php echo homeTestEsc((string) ($blog_post['title'] ?? 'Blog Post')); ?></a></h3>
                         <p><?php echo homeTestEsc(homeTestExcerpt((string) ($blog_post['excerpt'] ?? ''), 120)); ?></p>

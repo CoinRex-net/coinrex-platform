@@ -129,6 +129,7 @@ if (!$isMarkdown) {
 }
 
 $postTitle = trim((string) ($post['title'] ?? 'CoinRex Blog'));
+$postFeaturedImageUrl = blogFeaturedImageUrl($post['featured_image'] ?? '');
 $postExcerpt = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($post['excerpt'] ?? $rawContent ?? ''))));
 $page_title = $postTitle . ' | CoinRex';
 $meta_description = $postExcerpt !== ''
@@ -263,7 +264,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     <div class="post-layout">
         <section class="post-main">
-            <a href="<?php echo BASE_URL; ?>/blog.php">← Back to Blog</a>
+            <a href="<?php echo BASE_URL; ?>/blog.php">â† Back to Blog</a>
             <h1><?php echo htmlspecialchars((string) $post['title'], ENT_QUOTES, 'UTF-8'); ?></h1>
             <p class="blog-meta">
                 <span>By <?php echo htmlspecialchars((string) ($post['author_name'] ?: 'CoinRex Team'), ENT_QUOTES, 'UTF-8'); ?></span>
@@ -272,6 +273,11 @@ require_once __DIR__ . '/../includes/header.php';
             </p>
             <?php if ($primaryCategory): ?>
                 <div style="margin:8px 0 14px;"><span class="chip"><?php echo htmlspecialchars((string) $primaryCategory['name'], ENT_QUOTES, 'UTF-8'); ?></span></div>
+            <?php endif; ?>
+            <?php if ($postFeaturedImageUrl !== ''): ?>
+                <figure class="post-featured-image">
+                    <img src="<?php echo htmlspecialchars($postFeaturedImageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars((string) $post['title'], ENT_QUOTES, 'UTF-8'); ?>" loading="eager">
+                </figure>
             <?php endif; ?>
             <article class="post-content <?php echo $isMarkdown ? 'markdown-body' : ''; ?>">
                 <?php echo $postContentHtml; ?>

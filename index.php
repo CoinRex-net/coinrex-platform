@@ -911,7 +911,13 @@ require_once __DIR__ . '/includes/header.php';
             
             <div class="cr-blog-grid cr-blog-grid-count-<?php echo (int) count($latest_blog_posts); ?>">
                 <?php foreach ($latest_blog_posts as $blog_post): ?>
+                    <?php $blogPostImageUrl = blogFeaturedImageUrl($blog_post['featured_image'] ?? ''); ?>
                     <article class="cr-blog-card">
+                        <?php if ($blogPostImageUrl !== ''): ?>
+                            <a class="cr-blog-card-image" href="<?php echo BASE_URL; ?>/public/blog-post.php/<?php echo urlencode((string) ($blog_post['slug'] ?? '')); ?>" aria-label="<?php echo homeEsc((string) ($blog_post['title'] ?? 'Blog Post')); ?>">
+                                <img src="<?php echo htmlspecialchars($blogPostImageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo homeEsc((string) ($blog_post['title'] ?? 'Blog Post')); ?>" loading="lazy">
+                            </a>
+                        <?php endif; ?>
                         <div class="cr-blog-meta-top">
                             <span>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

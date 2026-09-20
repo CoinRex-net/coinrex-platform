@@ -47,6 +47,114 @@ function blogReadTime($content) {
     return max(1, (int) ceil($words / 200));
 }
 
+function blogFeaturedImageUrl($path): string {
+    $path = trim((string) $path);
+    if ($path === '') {
+        return '';
+    }
+
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
+
+    return rtrim((string) BASE_URL, '/') . '/' . ltrim($path, '/');
+}
+
+function blogDeleteFeaturedImage(?string $path): void {
+    $path = trim((string) $path);
+    if ($path === '' || preg_match('#^https?://#i', $path)) {
+        return;
+    }
+
+    $absolute = realpath(BASE_PATH . '/' . ltrim($path, '/'));
+    $uploadRoot = realpath(BASE_PATH . '/uploads/blog');
+    if ($absolute && $uploadRoot && strpos($absolute, $uploadRoot) === 0 && is_file($absolute)) {
+        @unlink($absolute);
+    }
+}
+
+function blogUploadFeaturedImage(array $file, string $current = ''): string {
+    $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($error === UPLOAD_ERR_NO_FILE) {
+        return $current;
+    }
+
+    if ($error !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Post image upload failed. Please choose the image again.');
+    }
+
+    if ((int) ($file['size'] ?? 0) < 1 || (int) ($file['size'] ?? 0) > 8 * 1024 * 1024) {
+        throw new RuntimeException('Post image must be 8 MB or smaller.');
+    }
+
+    $temporary = (string) ($file['tmp_name'] ?? '');
+    if ($temporary === '' || !is_uploaded_file($temporary)) {
+        throw new RuntimeException('Invalid post image upload.');
+    }
+
+    $info = @getimagesize($temporary);
+    if (!$info || empty($info[0]) || empty($info[1])) {
+        throw new RuntimeException('Post image must be a valid JPG, PNG, or WebP image.');
+    }
+
+    $mime = (string) ($info['mime'] ?? '');
+    $loaders = [
+        'image/jpeg' => 'imagecreatefromjpeg',
+        'image/png' => 'imagecreatefrompng',
+        'image/webp' => 'imagecreatefromwebp',
+    ];
+    if (!isset($loaders[$mime]) || !function_exists($loaders[$mime])) {
+        throw new RuntimeException('Post image must be a JPG, PNG, or WebP image.');
+    }
+
+    $source = @$loaders[$mime]($temporary);
+    if (!$source) {
+        throw new RuntimeException('Post image could not be processed.');
+    }
+
+    $sourceWidth = (int) $info[0];
+    $sourceHeight = (int) $info[1];
+    $maxWidth = 1440;
+    $maxHeight = 900;
+    $ratio = min(1, $maxWidth / max(1, $sourceWidth), $maxHeight / max(1, $sourceHeight));
+    $targetWidth = max(1, (int) floor($sourceWidth * $ratio));
+    $targetHeight = max(1, (int) floor($sourceHeight * $ratio));
+
+    $target = imagecreatetruecolor($targetWidth, $targetHeight);
+    imagealphablending($target, true);
+    imagesavealpha($target, true);
+    $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+    imagefilledrectangle($target, 0, 0, $targetWidth, $targetHeight, $transparent);
+    imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+
+    $directory = BASE_PATH . '/uploads/blog/' . date('Y');
+    if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+        imagedestroy($source);
+        imagedestroy($target);
+        throw new RuntimeException('Post image storage is unavailable.');
+    }
+
+    $useWebp = function_exists('imagewebp');
+    $extension = $useWebp ? 'webp' : 'jpg';
+    $filename = 'blog_' . date('Ymd_His') . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+    $destination = $directory . '/' . $filename;
+    $saved = $useWebp
+        ? imagewebp($target, $destination, 82)
+        : imagejpeg($target, $destination, 82);
+
+    imagedestroy($source);
+    imagedestroy($target);
+
+    if (!$saved || !is_file($destination)) {
+        throw new RuntimeException('Post image could not be saved.');
+    }
+
+    if ($current !== '') {
+        blogDeleteFeaturedImage($current);
+    }
+
+    return '/uploads/blog/' . date('Y') . '/' . $filename;
+}
 function blogGetLatest($limit = 3) {
     if (!tableExists('blog_posts')) return [];
     $db = getDBConnection();

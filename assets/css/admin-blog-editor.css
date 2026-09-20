@@ -79,3 +79,7 @@
   .sun-editor .se-dialog input,
   .sun-editor .se-dialog select{font-size:13px!important}
 }
+.blog-featured-preview{display:grid;gap:10px;margin:8px 0 12px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:#0b1220}
+.blog-featured-preview img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;border:1px solid rgba(148,163,184,.16);display:block}
+.blog-remove-image{display:flex;align-items:center;gap:8px;color:#cbd5e1;font-size:13px;font-weight:600}
+.blog-remove-image input{width:auto;accent-color:#f59e0b}
