@@ -27,6 +27,8 @@ RewriteRule ^assets/ - [L]
 
 # RexLink mobile app probes the advertised API base before completing pairing.
 # Return JSON for the legacy API directory instead of LiteSpeed's directory 403.
+RewriteCond %{REQUEST_URI} ^/api/rex-signer/api/rex-signer/(.+)$ [NC]
+RewriteRule ^ /api/rex-signer/%1 [R=307,L]
 RewriteRule ^api/rex-signer/?$ api/rex-signer/networks.php [L,QSA]
 RewriteRule ^api/rex-signer/api/rex-signer/(.+)$ api/rex-signer/$1 [L,QSA]
 
