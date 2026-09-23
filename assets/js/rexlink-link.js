@@ -450,7 +450,13 @@ const linkConfig = window.CoinRexLinkWalletConfig || {};
             network_name: linkConfig.networkName || 'Polygon',
             chain_id: Number(linkConfig.chainId || 137),
         };
-        if (RexLink && typeof RexLink.createPairing === 'function' && linkConfig.webActorToken) {
+        return postJson(createPairingUrl, phpPayload, 8000).catch(function(phpError) {
+            if (window.console && typeof window.console.warn === 'function') {
+                window.console.warn('RexLink PHP create failed; trying v1 bridge fallback.', phpError);
+            }
+            if (!RexLink || typeof RexLink.createPairing !== 'function' || !linkConfig.webActorToken) {
+                throw phpError;
+            }
             return RexLink.createPairing({
                     purpose: 'claim',
                     durationMinutes: 5,
@@ -468,14 +474,8 @@ const linkConfig = window.CoinRexLinkWalletConfig || {};
                     return nodeData;
                 }
                 throw new Error('Pairing code could not be created.');
-            }).catch(function(nodeError) {
-                if (window.console && typeof window.console.warn === 'function') {
-                    window.console.warn('RexLink Node create failed; using same-origin fallback.', nodeError);
-                }
-                return postJson(createPairingUrl, phpPayload, phpFallbackTimeoutMs);
             });
-        }
-        return postJson(createPairingUrl, phpPayload, 2800);
+        });
     }
 
     function createPairing() {

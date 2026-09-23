@@ -524,31 +524,31 @@ document.addEventListener('DOMContentLoaded', function() {
             rexLinkPrimaryButton.textContent = 'Generating QR...';
         }
 
-        rexLinkAuthUsePhpFallback = false;
-        var nodePairingPromise = RexLink
-            ? RexLink.createPairing({
-                    purpose: 'auth',
-                    durationMinutes: 5,
-                    referralCode: rexLinkReferralCode,
-                    timeoutMs: 2600,
-                    meta: { device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '' },
-                })
-            : Promise.reject(new Error('RexLink Node SDK is unavailable.'));
-        var pairingPromise = nodePairingPromise.catch(function(nodeError) {
-            if (!rexLinkPhpCreateUrl) throw nodeError;
-            return rexAuthPostJson(rexLinkPhpCreateUrl, {
+        rexLinkAuthUsePhpFallback = true;
+        var phpPairingPromise = rexLinkPhpCreateUrl
+            ? rexAuthPostJson(rexLinkPhpCreateUrl, {
                 purpose: 'auth',
                 duration_minutes: 5,
                 referral_code: rexLinkReferralCode,
                 dapp_name: 'CoinRex',
                 dapp_url: window.location.origin,
                 device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '',
-            }, 3000).then(function(data) {
+            }, 8000)
+            : Promise.reject(new Error('RexLink PHP pairing endpoint is unavailable.'));
+        var pairingPromise = phpPairingPromise.catch(function(phpError) {
+            if (!RexLink || typeof RexLink.createPairing !== 'function') throw phpError;
+            rexLinkAuthUsePhpFallback = false;
+            return RexLink.createPairing({
+                purpose: 'auth',
+                durationMinutes: 5,
+                referralCode: rexLinkReferralCode,
+                timeoutMs: 5000,
+                meta: { device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '' },
+            }).catch(function(nodeError) {
                 rexLinkAuthUsePhpFallback = true;
-                return data;
+                throw nodeError;
             });
         });
-
         pairingPromise.then(function(data) {
             rexLinkAuthPairingId = Number(data.pairing_id || 0);
             if (rexLinkPairingCode) {
