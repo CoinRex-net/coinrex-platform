@@ -575,7 +575,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-sdk.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-sdk.js'); ?>"></script>
 <script>
 window.CoinRexAuthConfig = {
-    rexlinkApiBaseUrl: <?php echo json_encode(REXLINK_NODE_API_BASE_URL); ?>,
+    rexlinkApiBaseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     rexlinkPhpCreateUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/rex-signer/create_pairing.php'); ?>,
     rexlinkPhpStatusUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/rex-signer/auth/login_from_session.php'); ?>,
     rexlinkPhpQrUrl: window.location.origin + <?php echo json_encode(BASE_URI . '/api/rex-signer/pairing_qr.php'); ?>,

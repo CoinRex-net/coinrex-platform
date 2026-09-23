@@ -246,7 +246,7 @@ require_once __DIR__ . '/../includes/header.php';
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-pairing.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-pairing.js'); ?>"></script>
 <script>
 <?php
-$rexlink_link_api_base = defined('REXLINK_NODE_API_BASE_URL') && REXLINK_NODE_API_BASE_URL !== '' ? REXLINK_NODE_API_BASE_URL : BASE_URL;
+$rexlink_link_api_base = BASE_URL;
 $rexlink_link_persist_url = BASE_URL . '/api/link_wallet_session.php';
 ?>
 window.CoinRexLinkWalletConfig = {

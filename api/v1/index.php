@@ -4,6 +4,22 @@ require_once __DIR__ . '/_bootstrap.php';
 coinrexWidgetSendSecurityHeaders();
 
 $path = apiV1ResolvePath();
+$rexlink_proxy_prefixes = [
+    'pairing/',
+    'sessions',
+    'sessions/',
+    'realtime/',
+    'networks',
+    'assets',
+    'claims/',
+    'review/',
+];
+
+foreach ($rexlink_proxy_prefixes as $rexlink_proxy_prefix) {
+    if ($path === rtrim($rexlink_proxy_prefix, '/') || strpos($path, $rexlink_proxy_prefix) === 0) {
+        apiV1ProxyRexLinkRequest('/api/v1/' . $path);
+    }
+}
 if (!preg_match('#^project/([a-z0-9\-]+)/((?:rating|widget))$#i', $path, $matches)) {
     coinrexWidgetSendCorsHeaders('*');
     apiV1ErrorResponse(404, 'Endpoint not found.');
