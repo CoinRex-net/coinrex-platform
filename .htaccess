@@ -25,6 +25,11 @@ RewriteRule ^sitemap\.xml$ sitemap.php [L]
 # missing on production, the browser should receive a real 404, not HTML.
 RewriteRule ^assets/ - [L]
 
+# RexLink mobile app probes the advertised API base before completing pairing.
+# Return JSON for the legacy API directory instead of LiteSpeed's directory 403.
+RewriteRule ^api/rex-signer/?$ api/rex-signer/networks.php [L,QSA]
+RewriteRule ^api/rex-signer/api/rex-signer/(.+)$ api/rex-signer/$1 [L,QSA]
+
 RewriteRule ^blog-post\.php/what-is-blockchain-simple-guide-coinrex-beginners/?$ /blog-post.php/what-is-blockchain-a-simple-guide-for-coinrex-beginners [R=301,L]
 RewriteRule ^public/blog-post\.php/what-is-blockchain-simple-guide-coinrex-beginners/?$ /blog-post.php/what-is-blockchain-a-simple-guide-for-coinrex-beginners [R=301,L]
 
