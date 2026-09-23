@@ -85,7 +85,7 @@ try {
         $network_slug = (string) $network_row['slug'];
     }
     $public_base_url = defined('PUBLIC_BASE_URL') ? PUBLIC_BASE_URL : BASE_URL;
-    $pairing_api_base_url = $public_base_url;
+    $pairing_api_base_url = rtrim((string) $public_base_url, '/') . '/api/rex-signer';
     $build_qr_payload = static function ($display_code, $expires_at = '', $expires_in_seconds = null, $expires_at_unix = null) use ($db, $is_auth_pairing, $is_review_pairing, $pairing_purpose, $duration, $dapp_name, $dapp_url, $network_row, $pairing_networks, $requested_wallet_address, $public_base_url, $pairing_api_base_url) {
         $qr_purpose = $pairing_purpose;
         $contexts = $is_review_pairing
