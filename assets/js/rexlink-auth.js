@@ -487,6 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 image: rexLinkQrImage,
                 logoBadge: rexLinkQrLogoBadge,
                 fallbackUrl: rexLinkAuthUsePhpFallback ? rexLinkPhpQrUrl : '',
+                qrOptions: { margin: 1, errorCorrectionLevel: 'L' },
             }).then(function(rendered) {
                 if (!rendered) {
                     rexLinkSetStatus('QR could not load. Use the code below.', 'error');
@@ -500,6 +501,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 image: rexLinkQrImage,
                 logoBadge: rexLinkQrLogoBadge,
                 fallbackText: 'QR could not load. Use the code below.',
+                qrOptions: { margin: 1, errorCorrectionLevel: 'L' },
             }).then(function(rendered) {
                 if (!rendered) {
                     rexLinkSetStatus('QR could not load. Use the code below.', 'error');

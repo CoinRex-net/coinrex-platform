@@ -4,8 +4,8 @@
     const DEFAULT_QR_OPTIONS = {
         type: 'svg',
         width: 232,
-        margin: 2,
-        errorCorrectionLevel: 'M',
+        margin: 1,
+        errorCorrectionLevel: 'L',
         color: {
             dark: '#081120',
             light: '#ffffff',
@@ -20,13 +20,9 @@
         payload = payload && typeof payload === 'object' ? payload : {};
         defaults = defaults && typeof defaults === 'object' ? defaults : {};
         const apiBaseUrl = trimTrailingSlash(payload.api_base_url || payload.base_url || defaults.apiBaseUrl || defaults.baseUrl);
-        const baseUrl = trimTrailingSlash(payload.base_url || payload.api_base_url || defaults.baseUrl || apiBaseUrl);
-        // RexLink compact QR envelope v2. Short keys keep the QR modules large
-        // enough for fast mobile scanning. Rex Wallet expands this envelope and
-        // still accepts the original verbose payload for backwards compatibility.
+        // Keep scan payloads intentionally small so QR modules stay large on
+        // mobile screens. RexLink accepts these legacy keys and short aliases.
         const compact = {
-            // Minimum legacy discovery fields let already-installed Rex Wallet
-            // builds recognize the code and API while new builds use short keys.
             type: 'coinrex.rex_signer.pairing',
             code: payload.code || defaults.code || '',
             api_base_url: apiBaseUrl,
@@ -36,22 +32,8 @@
             c: payload.code || defaults.code || '',
             u: apiBaseUrl,
             a: payload.app_id || defaults.appId || 'coinrex',
-            m: payload.app_name || payload.dapp_name || defaults.appName || defaults.dappName || 'CoinRex',
-            o: payload.dapp_url || defaults.dappUrl || baseUrl || window.location.origin,
             p: payload.purpose || defaults.purpose || 'claim',
-            s: String(payload.network_scope || defaults.networkScope || 'multi').toLowerCase() === 'multi' ? 'm' : 'l',
-            d: Number(payload.requested_duration_minutes || defaults.durationMinutes || 10),
-            x: Number(payload.expires_at_unix || defaults.expiresAtUnix || 0),
         };
-
-        if (Array.isArray(payload.supported_networks)) {
-            compact.n = payload.supported_networks.map(function(network) {
-                return [String(network.slug || ''), Number(network.chain_id || network.chainId || 0)];
-            }).filter(function(network) {
-                return network[0] && network[1] > 0;
-            });
-        }
-
         if (payload.coinrex_purpose || defaults.coinrexPurpose) {
             compact.q = payload.coinrex_purpose || defaults.coinrexPurpose;
         }

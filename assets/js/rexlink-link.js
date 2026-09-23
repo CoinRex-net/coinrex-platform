@@ -255,6 +255,7 @@ const linkConfig = window.CoinRexLinkWalletConfig || {};
             RexLink.renderQR(payload, placeholder, {
                 image: qrImage,
                 logoBadge: logoBadge,
+                qrOptions: { margin: 1, errorCorrectionLevel: 'L' },
             }).then(function(rendered) {
                 if (!rendered) {
                     setStatus('QR could not load. Use the code below.', 'error');
@@ -269,6 +270,7 @@ const linkConfig = window.CoinRexLinkWalletConfig || {};
                 logoBadge: logoBadge,
                 fallbackUrl: rexlinkApiBaseUrl + '/api/v1/pairing/qr',
                 fallbackText: 'QR could not load. Use the code below.',
+                qrOptions: { margin: 1, errorCorrectionLevel: 'L' },
                 payloadDefaults: {
                     purpose: 'link',
                     apiBaseUrl: rexlinkApiBaseUrl,
