@@ -29,9 +29,9 @@ RewriteRule ^assets/ - [L]
 # Return JSON for the legacy API directory instead of LiteSpeed's directory 403.
 # Some RexLink v1 builds append Node v1 paths to the PHP API base from QR payloads.
 # Keep those compatibility routes internal so the app never receives HTML redirects/pages.
-RewriteRule ^api/rex-signer/api/v1/health/?$ api/rex-signer/index.php [L,QSA]
-RewriteRule ^api/rex-signer/api/v1/pairing/complete/?$ api/rex-signer/complete_pairing.php [L,QSA]
-RewriteRule ^api/rex-signer/api/v1/pairing/cancel/?$ api/rex-signer/cancel_pairing.php [L,QSA]
+RewriteRule ^api/rex-signer/api/v1/health/?$ api/rex-signer/api/v1/health.php [L,QSA]
+RewriteRule ^api/rex-signer/api/v1/pairing/complete/?$ api/rex-signer/api/v1/pairing/complete.php [L,QSA]
+RewriteRule ^api/rex-signer/api/v1/pairing/cancel/?$ api/rex-signer/api/v1/pairing/cancel.php [L,QSA]
 RewriteRule ^api/rex-signer/?$ api/rex-signer/networks.php [L,QSA]
 RewriteRule ^api/rex-signer/api/rex-signer/(.+)$ api/rex-signer/$1 [L,QSA]
 
