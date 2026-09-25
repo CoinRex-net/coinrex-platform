@@ -572,6 +572,57 @@ require_once dirname(__DIR__) . '/includes/header.php';
 
 <script src="<?php echo ASSETS_URL; ?>/js/qrcode-browser.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/qrcode-browser.js'); ?>"></script>
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-pairing.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-pairing.js'); ?>"></script>
+<script>
+(function() {
+    const pairing = window.CoinRexPairing;
+    if (!pairing || pairing.__scanLightQr || typeof pairing.renderQr !== 'function') {
+        return;
+    }
+    const originalRenderQr = pairing.renderQr;
+    const trimTrailingSlash = pairing.trimTrailingSlash || function(value) {
+        return String(value || '').replace(/\/+$/, '');
+    };
+    function compactPayload(payload, defaults) {
+        payload = payload && typeof payload === 'object' ? payload : {};
+        defaults = defaults && typeof defaults === 'object' ? defaults : {};
+        const apiBaseUrl = trimTrailingSlash(payload.api_base_url || payload.base_url || defaults.apiBaseUrl || defaults.baseUrl || window.location.origin);
+        const purpose = payload.purpose || defaults.purpose || 'claim';
+        const code = payload.code || defaults.code || '';
+        const compact = {
+            type: 'coinrex.rex_signer.pairing',
+            code: code,
+            api_base_url: apiBaseUrl,
+            purpose: purpose,
+            t: 'rl',
+            v: Number(payload.version || defaults.version || 2),
+            c: code,
+            u: apiBaseUrl,
+            a: payload.app_id || defaults.appId || 'coinrex',
+            p: purpose,
+        };
+        if (payload.coinrex_purpose || defaults.coinrexPurpose) {
+            compact.q = payload.coinrex_purpose || defaults.coinrexPurpose;
+        }
+        if (payload.requested_wallet_address || defaults.requestedWalletAddress) {
+            compact.w = String(payload.requested_wallet_address || defaults.requestedWalletAddress).toLowerCase();
+        }
+        return compact;
+    }
+    pairing.compactPayload = compactPayload;
+    pairing.qrText = function(payload, defaults) {
+        return JSON.stringify(compactPayload(payload, defaults));
+    };
+    pairing.renderQr = function(payload, options) {
+        options = Object.assign({}, options || {});
+        if (!options.text) {
+            options.text = pairing.qrText(payload, options.payloadDefaults || {});
+        }
+        options.qrOptions = Object.assign({ margin: 1, errorCorrectionLevel: 'L' }, options.qrOptions || {});
+        return originalRenderQr.call(pairing, payload, options);
+    };
+    pairing.__scanLightQr = true;
+})();
+</script>
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-sdk.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-sdk.js'); ?>"></script>
 <script>
 window.CoinRexAuthConfig = {
