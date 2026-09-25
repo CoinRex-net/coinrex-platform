@@ -672,6 +672,8 @@ const userNotificationsList = document.getElementById('userNotificationsList');
     let realtimeSocket = null;
     let realtimePingTimer = null;
     let expiryDispatched = false;
+    let sessionFetchGeneration = 0;
+    let disconnectRequested = false;
     window.CoinRexActiveRexLinkSession = window.CoinRexActiveRexLinkSession || null;
 
     function formatRexLinkTime(seconds) {
@@ -728,6 +730,7 @@ const userNotificationsList = document.getElementById('userNotificationsList');
     }
 
     function fetchRexLinkSession() {
+        const fetchGeneration = ++sessionFetchGeneration;
         return fetch(sessionsEndpoint, {
             credentials: 'include',
             headers: { 'Accept': 'application/json' },
@@ -735,6 +738,9 @@ const userNotificationsList = document.getElementById('userNotificationsList');
         }).then(function(response) {
             return response.json();
         }).then(function(data) {
+            if (fetchGeneration !== sessionFetchGeneration || disconnectRequested) {
+                return data;
+            }
             if (!data || data.success !== true) {
                 throw new Error((data && data.message) || 'Could not load RexLink session.');
             }
@@ -744,16 +750,20 @@ const userNotificationsList = document.getElementById('userNotificationsList');
                 : 0;
         if (nextRemaining > 0) {
                 expiryDispatched = false;
-                remainingSeconds = nextRemaining;
-                activeSessionId = Number(currentSession.id || currentSession.session_id || 0);
-                activeExpiresAtMs = Number(currentSession.expires_at_unix || 0) > 0
-                    ? Number(currentSession.expires_at_unix) * 1000
-                    : Date.now() + nextRemaining * 1000;
+                const nextSessionId = Number(currentSession.id || currentSession.session_id || 0);
+                // Server responses contain a relative duration and can arrive out
+                // of order. Pin one browser deadline for the active session so
+                // polling can never make the countdown move backwards.
+                if (activeSessionId !== nextSessionId || activeExpiresAtMs <= 0) {
+                    activeSessionId = nextSessionId;
+                    activeExpiresAtMs = Date.now() + nextRemaining * 1000;
+                }
+                remainingSeconds = Math.max(0, Math.ceil((activeExpiresAtMs - Date.now()) / 1000));
                 window.CoinRexActiveRexLinkSession = Object.assign({}, currentSession, {
                     id: activeSessionId,
                     session_id: activeSessionId,
                     status: 'active',
-                    remaining_seconds: nextRemaining,
+                    remaining_seconds: remainingSeconds,
                 });
                 window.dispatchEvent(new CustomEvent('rexlink:session-active', {
                     detail: window.CoinRexActiveRexLinkSession,
@@ -782,13 +792,18 @@ const userNotificationsList = document.getElementById('userNotificationsList');
         if (chipDisconnect) {
             chipDisconnect.disabled = true;
         }
+        const sessionId = activeSessionId;
+        disconnectRequested = true;
+        sessionFetchGeneration += 1;
+        hideRexLinkChip(false);
+        window.dispatchEvent(new CustomEvent('rexlink:session-disconnected'));
         return fetch(revokeEndpoint, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             cache: 'no-store',
             body: JSON.stringify({
-                session_id: activeSessionId,
+                session_id: sessionId,
                 reason: 'Disconnected from CoinRex universal footer',
             }),
         }).then(function(response) {
@@ -798,8 +813,6 @@ const userNotificationsList = document.getElementById('userNotificationsList');
                 if (!response.ok || !data || data.success !== true) {
                     throw new Error((data && data.message) || 'Could not disconnect RexLink.');
                 }
-                hideRexLinkChip(false);
-                window.dispatchEvent(new CustomEvent('rexlink:session-disconnected'));
                 return data;
             });
         }).finally(function() {
@@ -836,6 +849,7 @@ const userNotificationsList = document.getElementById('userNotificationsList');
                 const type = String(event && event.type || '');
                 if (!type || type === 'realtime.ready' || type === 'pong') return;
                 if (type === 'session.connected') {
+                    disconnectRequested = false;
                     fetchRexLinkSession();
                     return;
                 }
@@ -861,9 +875,7 @@ const userNotificationsList = document.getElementById('userNotificationsList');
         }
     }, 2000);
     chipDisconnect?.addEventListener('click', function() {
-        disconnectRexLinkSession().catch(function() {
-            fetchRexLinkSession();
-        });
+        disconnectRexLinkSession().catch(function() {});
     });
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible') {
