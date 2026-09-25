@@ -1697,166 +1697,6 @@
     }
 }
 
-/* Mobile */
-@media (max-width: 640px) {
-    .cr-home section {
-        padding: 48px 0;
-    }
-    
-    .cr-hero {
-        padding: 60px 0 40px;
-        min-height: auto;
-    }
-    
-    .cr-hero-title {
-        font-size: 1.75rem;
-    }
-    
-    .cr-hero-desc {
-        font-size: 1rem;
-    }
-    
-    .cr-hero-actions {
-        flex-direction: column;
-    }
-    
-    .cr-hero-actions .cr-btn {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .cr-hero-stats {
-        flex-wrap: wrap;
-        gap: 12px;
-        justify-content: center;
-        padding: 14px;
-    }
-
-    .cr-hero-stat {
-        min-width: calc(50% - 8px);
-    }
-    
-    .cr-hero-stat-divider {
-        display: none;
-    }
-    
-    .cr-hero-visual {
-        margin-top: 40px;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        height: auto;
-        min-height: 0;
-    }
-
-    .card-1,
-    .card-2,
-    .card-3 {
-        position: relative;
-        width: 100%;
-        margin-bottom: 0;
-        top: auto;
-        bottom: auto;
-        left: auto;
-        right: auto;
-    }
-    
-    .cr-explanation-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .cr-section-title {
-        font-size: 1.5rem;
-    }
-    
-    .cr-signals-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-    }
-    
-    .cr-signal-number {
-        font-size: 1.5rem;
-    }
-    
-    .cr-earning-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .cr-home .cr-partner {
-        padding: 40px 0;
-    }
-
-    .cr-partner .cr-section-title {
-        font-size: 1.45rem;
-    }
-
-    .cr-partner-card {
-        margin-top: 0;
-        padding: 20px 16px;
-    }
-
-    .cr-partner-logo-link {
-        padding: 9px 14px;
-    }
-
-    .cr-partner-logo {
-        max-width: min(100%, 230px);
-        max-height: 64px;
-    }
-
-    .cr-partner-description {
-        margin-top: 12px;
-        font-size: 0.84rem;
-        line-height: 1.5;
-    }
-
-    .cr-partner-actions {
-        width: 100%;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .cr-partner-cta {
-        width: 100%;
-        min-width: 0;
-        justify-content: center;
-    }
-    
-    .cr-blog-grid,
-    .cr-blog-grid.cr-blog-grid-count-2,
-    .cr-blog-grid.cr-blog-grid-count-3 {
-        grid-template-columns: 1fr;
-    }
-    
-    .cr-cta-box {
-        padding: 32px 20px;
-    }
-    
-    .cr-cta-box h2 {
-        font-size: 1.5rem;
-    }
-    
-    .cr-cta-actions {
-        flex-direction: column;
-    }
-    
-    .cr-cta-actions .cr-btn {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .cr-tabs {
-        max-width: 100%;
-        width: 100%;
-    }
-    
-    .cr-tab {
-        flex: 1;
-        text-align: center;
-        font-size: 0.8rem;
-        padding: 10px 12px;
-    }
-}
 
 /* ==========================================================================
    ACCESSIBILITY: REDUCED MOTION
@@ -1890,4 +1730,254 @@
     height: 100%;
     display: block;
     object-fit: cover;
+}
+
+/* ==========================================================================
+   BOOSTHUB LANDING POPUP
+   ========================================================================== */
+body.cr-popup-open {
+    overflow: hidden;
+}
+
+.cr-boosthub-popup[hidden] {
+    display: none !important;
+}
+
+.cr-boosthub-popup {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 22px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--cr-transition);
+}
+
+.cr-boosthub-popup.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cr-boosthub-popup-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.78);
+    backdrop-filter: blur(10px);
+}
+
+.cr-boosthub-popup-dialog {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    width: min(94vw, 980px);
+    max-height: min(88vh, 680px);
+    overflow: hidden;
+    /* theme.css reserves a scrollbar gutter on every element; the dialog never
+       scrolls itself, so the reserved strip only created dead space. */
+    scrollbar-gutter: auto;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: var(--cr-radius-xl);
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(17, 24, 39, 0.98));
+    box-shadow: 0 26px 80px rgba(0, 0, 0, 0.55), 0 0 50px rgba(29, 78, 216, 0.16);
+    transform: translateY(16px) scale(0.97);
+    transition: transform var(--cr-transition);
+}
+
+/* Settled state of the open animation: it must reset the entering transform,
+   otherwise the dialog stays shifted down and scaled forever. */
+.cr-boosthub-popup.is-visible .cr-boosthub-popup-dialog {
+    transform: translateY(0) scale(1);
+}
+
+/* Campaigns saved without a banner collapse to a single copy column. */
+.cr-boosthub-popup-dialog:not(:has(.cr-boosthub-popup-media)) {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(92vw, 680px);
+}
+
+.cr-boosthub-popup-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 3;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(226, 232, 240, 0.18);
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.76);
+    color: #f8fafc;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: background var(--cr-transition), transform var(--cr-transition), border-color var(--cr-transition);
+}
+
+.cr-boosthub-popup-close:hover {
+    background: rgba(30, 41, 59, 0.94);
+    border-color: rgba(250, 204, 21, 0.42);
+    transform: translateY(-1px);
+}
+
+.cr-boosthub-popup-media {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+    background: #0b1220;
+}
+
+.cr-boosthub-popup-media img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+}
+
+/* Copy column: it scrolls on its own, so a long message can never push the
+   CTA row outside the dialog. */
+.cr-boosthub-popup-body {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: clamp(22px, 2.4vw, 34px);
+}
+
+/* Centre short copy vertically, but never clip it once the body scrolls:
+   auto margins collapse to zero as soon as the content overflows. */
+.cr-boosthub-popup-body > :first-child {
+    margin-top: auto;
+}
+
+.cr-boosthub-popup-body > :last-child {
+    margin-bottom: auto;
+}
+
+.cr-boosthub-popup-kicker {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid rgba(250, 204, 21, 0.2);
+    border-radius: 999px;
+    background: rgba(250, 204, 21, 0.1);
+    color: var(--color-accent-soft);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.cr-boosthub-popup h2 {
+    margin: 0;
+    color: #f8fafc;
+    font-size: clamp(1.5rem, 2.3vw, 2.15rem);
+    line-height: 1.12;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+}
+
+.cr-boosthub-popup p {
+    margin: 0;
+    color: var(--cr-text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.cr-boosthub-popup-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.cr-boosthub-popup-actions .cr-btn {
+    flex: 0 0 auto;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+}
+
+/* Mobile: bottom sheet with an independently scrolling copy area. */
+@media (max-width: 640px) {
+    .cr-boosthub-popup {
+        padding: 7px;
+        align-items: center;
+        justify-items: stretch;
+    }
+
+    .cr-boosthub-popup-dialog {
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100vh - 14px);
+        max-height: calc(100dvh - 14px);
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        border-radius: 18px;
+        transform: translateY(18px);
+    }
+
+    .cr-boosthub-popup.is-visible .cr-boosthub-popup-dialog {
+        transform: translateY(0);
+    }
+
+    .cr-boosthub-popup-media {
+        max-height: 36vh;
+        max-height: 36dvh;
+    }
+
+    .cr-boosthub-popup-body {
+        padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .cr-boosthub-popup-body > :first-child {
+        margin-top: 0;
+    }
+
+    .cr-boosthub-popup-body > :last-child {
+        margin-bottom: 0;
+    }
+
+    .cr-boosthub-popup h2 {
+        font-size: 1.35rem;
+        line-height: 1.14;
+    }
+
+    .cr-boosthub-popup p {
+        font-size: 0.86rem;
+        line-height: 1.48;
+    }
+
+    .cr-boosthub-popup-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .cr-boosthub-popup-actions .cr-btn {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    .cr-boosthub-popup-close {
+        top: 10px;
+        right: 10px;
+    }
 }

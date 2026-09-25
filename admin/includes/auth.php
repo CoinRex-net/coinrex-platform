@@ -199,6 +199,7 @@ function requireAdminPageAccess($active_page) {
         'taskhub-review' => 'moderate_tasks',
         'boosthub-management' => 'moderate_tasks',
         'boosthub-campaigns' => 'moderate_tasks',
+        'boosthub-popup' => 'moderate_tasks',
         'boosthub-evidence' => 'moderate_tasks',
         'boosthub' => 'moderate_tasks',
         'blog' => 'manage_blog',

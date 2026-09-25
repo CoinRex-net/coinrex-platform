@@ -50,6 +50,8 @@
    var parsed = new URL(url, window.location.origin);
    var marker = parsed.pathname.indexOf('/assets/uploads/campaign-');
    if (marker >= 0) return prefix + parsed.pathname.slice(marker);
+   marker = parsed.pathname.indexOf('/assets/uploads/campaign-popups/');
+   if (marker >= 0) return prefix + parsed.pathname.slice(marker);
   } catch (error) {
    return url;
   }
@@ -90,6 +92,7 @@
     if (!form.elements[key]) return;
     var value = c[key] == null ? '' : c[key];
     if (key === 'start_at' || key === 'end_at') value = campaignLocalInputValue(value);
+    if (form.elements[key].type === 'checkbox') { form.elements[key].checked = value === true || value === 1 || value === '1'; return; }
     form.elements[key].value = value;
    });
   } else {
@@ -100,6 +103,7 @@
    form.elements.end_at.value = localDateTime(end);
    form.elements.max_participants.value = '100';
    form.elements.status.value = 'draft';
+
   }
   updateLogoPreview(c && c.project_logo ? c.project_logo : '');
   updateCoverPreview(c && c.project_cover ? c.project_cover : '');

@@ -46,7 +46,23 @@ function ensureBoostHubCampaignSchema(PDO $db = null): bool {
         if (!$hasColumn('boosthub_campaigns', 'project_cover')) {
             $db->exec('ALTER TABLE boosthub_campaigns ADD COLUMN project_cover VARCHAR(500) NULL AFTER project_logo');
         }
-        $results[$key] = $hasColumn('mini_tasks', 'campaign_id') && $hasColumn('boosthub_campaigns', 'id');
+        $popupColumns = [
+            'landing_popup_enabled' => "TINYINT(1) NOT NULL DEFAULT 0 AFTER short_description",
+            'landing_popup_version' => "VARCHAR(80) NOT NULL DEFAULT 'v1' AFTER landing_popup_enabled",
+            'landing_popup_title' => "VARCHAR(180) NULL AFTER landing_popup_version",
+            'landing_popup_message' => "TEXT NULL AFTER landing_popup_title",
+            'landing_popup_cta_label' => "VARCHAR(80) NULL AFTER landing_popup_message",
+            'landing_popup_cta_url' => "VARCHAR(500) NULL AFTER landing_popup_cta_label",
+            'landing_popup_banner' => "VARCHAR(500) NULL AFTER landing_popup_cta_url",
+        ];
+        foreach ($popupColumns as $column => $definition) {
+            if (!$hasColumn('boosthub_campaigns', $column)) {
+                $db->exec('ALTER TABLE boosthub_campaigns ADD COLUMN ' . $column . ' ' . $definition);
+            }
+        }
+        $results[$key] = $hasColumn('mini_tasks', 'campaign_id')
+            && $hasColumn('boosthub_campaigns', 'id')
+            && $hasColumn('boosthub_campaigns', 'landing_popup_enabled');
     } catch (Throwable $e) {
         error_log('BoostHub campaign schema unavailable: ' . $e->getMessage());
     }
@@ -165,7 +181,7 @@ function boostHubCampaignPublicMediaUrl(string $value): string {
     if ($value === '') { return ''; }
     $path = (string) (parse_url($value, PHP_URL_PATH) ?? '');
     $candidate = ltrim($path !== '' ? $path : $value, '/');
-    if (preg_match('~(?:^|/)(assets/uploads/campaign-(?:logos|covers)/[A-Za-z0-9._-]+)$~', $candidate, $match)) {
+    if (preg_match('~(?:^|/)(assets/uploads/campaign-(?:logos|covers|popups)/[A-Za-z0-9._-]+)$~', $candidate, $match)) {
         return rtrim(BASE_URL, '/') . '/' . $match[1];
     }
     return $value;
@@ -239,6 +255,100 @@ function boostHubPublicCampaignsAttachTasks(array $campaigns, int $user, PDO $db
     return array_values($campaigns);
 }
 
+function ensureBoostHubLandingPopupSchema(PDO $db = null): bool {
+    static $results = [];
+    $db = $db ?: getDBConnection();
+    $key = spl_object_id($db);
+    if (array_key_exists($key, $results)) { return $results[$key]; }
+    $results[$key] = false;
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS boosthub_landing_popup_settings (
+            id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
+            is_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            campaign_id INT UNSIGNED NULL,
+            popup_version VARCHAR(80) NOT NULL DEFAULT 'v1',
+            popup_title VARCHAR(180) NULL,
+            popup_message TEXT NULL,
+            popup_cta_label VARCHAR(80) NULL,
+            popup_cta_url VARCHAR(500) NULL,
+            popup_banner VARCHAR(500) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_popup_campaign (campaign_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $hasColumn = static function (string $table, string $column) use ($db): bool {
+            $stmt = $db->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?');
+            $stmt->execute([$table, $column]);
+            return (int) $stmt->fetchColumn() > 0;
+        };
+        if (!$hasColumn('boosthub_landing_popup_settings', 'popup_badge_label')) {
+            $db->exec('ALTER TABLE boosthub_landing_popup_settings ADD COLUMN popup_badge_label VARCHAR(80) NULL AFTER popup_version');
+        }
+        $db->exec("INSERT IGNORE INTO boosthub_landing_popup_settings (id, popup_version) VALUES (1, 'v1')");
+        $results[$key] = true;
+    } catch (Throwable $e) {
+        error_log('BoostHub landing popup schema unavailable: ' . $e->getMessage());
+    }
+    return $results[$key];
+}
+
+function boostHubLandingPopupCampaign(PDO $db = null): ?array {
+    $db = $db ?: getDBConnection();
+    if (ensureBoostHubLandingPopupSchema($db)) {
+        $sql = 'SELECT s.*,c.campaign_name,c.project_name,c.project_cover,c.short_description
+                FROM boosthub_landing_popup_settings s
+                LEFT JOIN boosthub_campaigns c ON c.id=s.campaign_id
+                WHERE s.id=1 AND s.is_enabled=1
+                LIMIT 1';
+        $settings = $db->query($sql)->fetch();
+        if ($settings) {
+            $title = trim((string) ($settings['popup_title'] ?? ''));
+            $message = trim((string) ($settings['popup_message'] ?? ''));
+            $ctaLabel = trim((string) ($settings['popup_cta_label'] ?? ''));
+            $ctaUrl = trim((string) ($settings['popup_cta_url'] ?? ''));
+            $banner = trim((string) ($settings['popup_banner'] ?? ''));
+            return [
+                'id' => (int) ($settings['campaign_id'] ?? 0),
+                'storage_id' => 'global',
+                'version' => trim((string) ($settings['popup_version'] ?? '')) ?: 'v1',
+                'title' => $title !== '' ? $title : (string) ($settings['campaign_name'] ?? 'BoostHub campaign'),
+                'message' => $message !== '' ? $message : (string) ($settings['short_description'] ?? 'Explore the latest BoostHub campaign and earn rewards by completing partner tasks.'),
+                'cta_label' => $ctaLabel !== '' ? $ctaLabel : 'Open BoostHub',
+                'cta_url' => $ctaUrl !== '' ? $ctaUrl : rtrim(BASE_URL, '/') . '/public/boosthub.php#campaigns',
+                'banner' => boostHubCampaignPublicMediaUrl($banner !== '' ? $banner : (string) ($settings['project_cover'] ?? '')),
+                'project_name' => (string) ($settings['project_name'] ?? ''),
+            ];
+        }
+    }
+
+    if (!ensureBoostHubCampaignSchema($db)) { return null; }
+    $sql = "SELECT * FROM boosthub_campaigns
+            WHERE landing_popup_enabled = 1
+              AND status IN ('active','scheduled')
+              AND end_at >= NOW()
+            ORDER BY
+              CASE WHEN status = 'active' AND start_at <= NOW() THEN 0 ELSE 1 END,
+              start_at ASC,
+              id DESC
+            LIMIT 1";
+    $campaign = $db->query($sql)->fetch();
+    if (!$campaign) { return null; }
+    $title = trim((string) ($campaign['landing_popup_title'] ?? ''));
+    $message = trim((string) ($campaign['landing_popup_message'] ?? ''));
+    $ctaLabel = trim((string) ($campaign['landing_popup_cta_label'] ?? ''));
+    $ctaUrl = trim((string) ($campaign['landing_popup_cta_url'] ?? ''));
+    return [
+        'id' => (int) $campaign['id'],
+        'storage_id' => (string) (int) $campaign['id'],
+        'version' => trim((string) ($campaign['landing_popup_version'] ?? '')) ?: 'v1',
+        'title' => $title !== '' ? $title : (string) ($campaign['campaign_name'] ?? 'BoostHub campaign'),
+        'message' => $message !== '' ? $message : (string) ($campaign['short_description'] ?? 'Explore the latest BoostHub campaign and earn rewards by completing partner tasks.'),
+        'cta_label' => $ctaLabel !== '' ? $ctaLabel : 'Open BoostHub',
+        'cta_url' => $ctaUrl !== '' ? $ctaUrl : rtrim(BASE_URL, '/') . '/public/boosthub.php#campaigns',
+        'banner' => boostHubCampaignPublicMediaUrl(trim((string) ($campaign['landing_popup_banner'] ?? '')) ?: trim((string) ($campaign['project_cover'] ?? ''))),
+        'project_name' => (string) ($campaign['project_name'] ?? ''),
+    ];
+}
 function boostHubStartCampaignTask(int $user, int $task, PDO $db = null): array {
     $db = $db ?: getDBConnection();
     if (!ensureBoostHubCampaignSchema($db)) {

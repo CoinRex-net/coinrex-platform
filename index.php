@@ -183,6 +183,12 @@ $hero_review_snippet_source = trim((string) ($hero_review['review_title'] ?? '')
     ? $hero_review['review_title']
     : ($hero_review['review_content'] ?? '');
 $latest_blog_posts = function_exists('blogGetLatest') ? blogGetLatest(3) : [];
+$landing_popup_campaign = null;
+try {
+    $landing_popup_campaign = function_exists('boostHubLandingPopupCampaign') ? boostHubLandingPopupCampaign($db ?? null) : null;
+} catch (Throwable $e) {
+    $landing_popup_campaign = null;
+}
 
 $page_title = 'CoinRex - A Web3 Trust Layer';
 $meta_description = 'CoinRex is a Web3 trust layer for proof-backed crypto project reviews, user rewards, and transparent project discovery.';
@@ -985,9 +991,68 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </section>
 
+    <?php if (!empty($landing_popup_campaign)): ?>
+    <div class="cr-boosthub-popup" id="boosthubLandingPopup" hidden data-campaign-id="<?php echo homeEsc($landing_popup_campaign['storage_id'] ?? (string) (int) $landing_popup_campaign['id']); ?>" data-popup-version="<?php echo homeEsc($landing_popup_campaign['version']); ?>" role="presentation">
+        <div class="cr-boosthub-popup-backdrop" data-boosthub-popup-close></div>
+        <section class="cr-boosthub-popup-dialog" role="dialog" aria-modal="true" aria-labelledby="boosthubLandingPopupTitle" aria-describedby="boosthubLandingPopupMessage">
+            <button type="button" class="cr-boosthub-popup-close" data-boosthub-popup-close aria-label="Close BoostHub campaign popup">&times;</button>
+            <?php if (!empty($landing_popup_campaign['banner'])): ?>
+                <div class="cr-boosthub-popup-media">
+                    <img src="<?php echo homeEsc($landing_popup_campaign['banner']); ?>" alt="<?php echo homeEsc($landing_popup_campaign['project_name'] ?: 'BoostHub campaign'); ?> banner" loading="eager">
+                </div>
+            <?php endif; ?>
+            <div class="cr-boosthub-popup-body">
+                <?php if (trim((string) ($landing_popup_campaign['badge_label'] ?? '')) !== ''): ?><span class="cr-boosthub-popup-kicker"><?php echo homeEsc($landing_popup_campaign['badge_label']); ?></span><?php endif; ?>
+                <h2 id="boosthubLandingPopupTitle"><?php echo homeEsc($landing_popup_campaign['title']); ?></h2>
+                <p id="boosthubLandingPopupMessage"><?php echo nl2br(homeEsc($landing_popup_campaign['message'])); ?></p>
+                <div class="cr-boosthub-popup-actions">
+                    <a class="cr-btn cr-btn-primary cr-btn-lg" href="<?php echo homeEsc($landing_popup_campaign['cta_url']); ?>" data-boosthub-popup-cta><?php echo homeEsc($landing_popup_campaign['cta_label']); ?></a>
+                    <button type="button" class="cr-btn cr-btn-secondary" data-boosthub-popup-close>Maybe later</button>
+                </div>
+            </div>
+        </section>
+    </div>
+    <?php endif; ?>
 </main>
 
 <script>
+    // BoostHub campaign popup
+    (function() {
+        const popup = document.getElementById('boosthubLandingPopup');
+        if (!popup) return;
+        const campaignId = popup.getAttribute('data-campaign-id') || '0';
+        const version = popup.getAttribute('data-popup-version') || 'v1';
+        const storageKey = `coinrex_boosthub_popup_seen_${campaignId}_${version}`;
+        const canStore = (() => {
+            try { localStorage.setItem('__coinrex_popup_test', '1'); localStorage.removeItem('__coinrex_popup_test'); return true; }
+            catch (error) { return false; }
+        })();
+        if (canStore && localStorage.getItem(storageKey)) return;
+
+        const markSeen = () => {
+            if (!canStore) return;
+            try { localStorage.setItem(storageKey, '1'); } catch (error) {}
+        };
+        const closePopup = () => {
+            markSeen();
+            popup.hidden = true;
+            popup.classList.remove('is-visible');
+            document.body.classList.remove('cr-popup-open');
+        };
+        const openPopup = () => {
+            popup.hidden = false;
+            document.body.classList.add('cr-popup-open');
+            requestAnimationFrame(() => popup.classList.add('is-visible'));
+        };
+
+        popup.querySelectorAll('[data-boosthub-popup-close]').forEach(el => el.addEventListener('click', closePopup));
+        const cta = popup.querySelector('[data-boosthub-popup-cta]');
+        if (cta) cta.addEventListener('click', markSeen);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !popup.hidden) closePopup();
+        });
+        setTimeout(openPopup, 650);
+    })();
     // Tab switching for How It Works
     document.querySelectorAll('.cr-tab').forEach(tab => {
         tab.addEventListener('click', function() {

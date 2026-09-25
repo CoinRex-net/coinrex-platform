@@ -61,6 +61,8 @@ function boostHubCampaignAdminSave(PDO $db, array $admin): void {
     $logo = boostHubCampaignAdminLogoUpload($_FILES['project_logo_file'] ?? null, $logo);
     $cover = trim((string) ($_POST['project_cover'] ?? ''));
     $cover = boostHubCampaignAdminCoverUpload($_FILES['project_cover_file'] ?? null, $cover);
+    $popupBanner = trim((string) ($_POST['landing_popup_banner'] ?? ''));
+    $popupBanner = boostHubCampaignAdminPopupBannerUpload($_FILES['landing_popup_banner_file'] ?? null, $popupBanner);
     $start = boostHubCampaignAdminDateTime((string) ($_POST['start_at'] ?? ''));
     $end = boostHubCampaignAdminDateTime((string) ($_POST['end_at'] ?? ''));
     $max = (int) ($_POST['max_participants'] ?? 0);
@@ -68,13 +70,19 @@ function boostHubCampaignAdminSave(PDO $db, array $admin): void {
     if ($name === '' || $project === '' || !$start || !$end || $max < 1) { throw new RuntimeException('Name, project, dates, and capacity are required.'); }
     if (strtotime($end) < strtotime($start)) { throw new RuntimeException('Campaign end must be after its start.'); }
     if (!in_array($status, boostHubCampaignStatuses(), true)) { throw new RuntimeException('Invalid campaign status.'); }
-    foreach ([$website, $logo, $cover] as $url) {
+    $popupCtaUrl = trim((string) ($_POST['landing_popup_cta_url'] ?? ''));
+    foreach ([$website, $logo, $cover, $popupBanner, $popupCtaUrl] as $url) {
         $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
         if ($url !== '' && (!filter_var($url, FILTER_VALIDATE_URL) || !in_array($scheme, ['http', 'https'], true))) {
-            throw new RuntimeException('Website, logo, and cover must use valid HTTP(S) URLs.');
+            throw new RuntimeException('Website, media, and popup CTA must use valid HTTP(S) URLs.');
         }
     }
-    boostHubCampaignAdminPersist($db, $admin, $id, compact('name','project','website','logo','cover','start','end','max','status'));
+    $popupEnabled = !empty($_POST['landing_popup_enabled']) ? 1 : 0;
+    $popupVersion = trim((string) ($_POST['landing_popup_version'] ?? 'v1')) ?: 'v1';
+    $popupTitle = trim((string) ($_POST['landing_popup_title'] ?? ''));
+    $popupMessage = trim((string) ($_POST['landing_popup_message'] ?? ''));
+    $popupCtaLabel = trim((string) ($_POST['landing_popup_cta_label'] ?? ''));
+    boostHubCampaignAdminPersist($db, $admin, $id, compact('name','project','website','logo','cover','start','end','max','status','popupEnabled','popupVersion','popupTitle','popupMessage','popupCtaLabel','popupCtaUrl','popupBanner'));
 }
 
 function boostHubCampaignAdminDateTime(string $value): string {
@@ -110,6 +118,34 @@ function boostHubCampaignAdminLogoUpload(?array $file, string $current): string 
     return rtrim(ASSETS_URL, '/') . '/uploads/campaign-logos/' . $filename;
 }
 
+function boostHubCampaignAdminPopupBannerUpload(?array $file, string $current): string {
+    $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($error === UPLOAD_ERR_NO_FILE) { return $current; }
+    if ($error !== UPLOAD_ERR_OK) { throw new RuntimeException('The popup banner upload did not complete. Please choose the file again.'); }
+    if ((int) ($file['size'] ?? 0) < 1 || (int) $file['size'] > 5 * 1024 * 1024) {
+        throw new RuntimeException('Popup banner must be 5 MB or smaller.');
+    }
+    $temporary = (string) ($file['tmp_name'] ?? '');
+    if ($temporary === '' || !is_uploaded_file($temporary)) { throw new RuntimeException('Invalid popup banner upload.'); }
+
+    $mime = (string) (new finfo(FILEINFO_MIME_TYPE))->file($temporary);
+    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (!isset($extensions[$mime])) { throw new RuntimeException('Popup banner must be a JPG, PNG, or WebP image.'); }
+    $dimensions = @getimagesize($temporary);
+    if (!$dimensions || $dimensions[0] < 1 || $dimensions[1] < 1 || $dimensions[0] > 6000 || $dimensions[1] > 6000) {
+        throw new RuntimeException('Popup banner dimensions must be between 1 and 6000 pixels.');
+    }
+
+    $directory = dirname(__DIR__, 2) . '/assets/uploads/campaign-popups';
+    if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+        throw new RuntimeException('Popup banner storage is not available.');
+    }
+    $filename = 'popup_' . bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+    if (!move_uploaded_file($temporary, $directory . '/' . $filename)) {
+        throw new RuntimeException('Popup banner could not be saved.');
+    }
+    return rtrim(ASSETS_URL, '/') . '/uploads/campaign-popups/' . $filename;
+}
 function boostHubCampaignAdminCoverUpload(?array $file, string $current): string {
     $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($error === UPLOAD_ERR_NO_FILE) { return $current; }
@@ -143,10 +179,10 @@ function boostHubCampaignAdminPersist(PDO $db, array $admin, int $id, array $v):
     $v['description'] = trim((string) ($_POST['short_description'] ?? ''));
     $v['notes'] = trim((string) ($_POST['internal_notes'] ?? ''));
     if ($id > 0) {
-        $sql = 'UPDATE boosthub_campaigns SET campaign_name=:name,project_name=:project,project_logo=:logo,project_cover=:cover,project_website=:website,short_description=:description,start_at=:start,end_at=:end,max_participants=:max,status=:status,internal_notes=:notes WHERE id=:id';
+        $sql = 'UPDATE boosthub_campaigns SET campaign_name=:name,project_name=:project,project_logo=:logo,project_cover=:cover,project_website=:website,short_description=:description,landing_popup_enabled=:popupEnabled,landing_popup_version=:popupVersion,landing_popup_title=:popupTitle,landing_popup_message=:popupMessage,landing_popup_cta_label=:popupCtaLabel,landing_popup_cta_url=:popupCtaUrl,landing_popup_banner=:popupBanner,start_at=:start,end_at=:end,max_participants=:max,status=:status,internal_notes=:notes WHERE id=:id';
         $v['id'] = $id;
     } else {
-        $sql = 'INSERT INTO boosthub_campaigns(campaign_name,project_name,project_logo,project_cover,project_website,short_description,start_at,end_at,max_participants,status,internal_notes) VALUES(:name,:project,:logo,:cover,:website,:description,:start,:end,:max,:status,:notes)';
+        $sql = 'INSERT INTO boosthub_campaigns(campaign_name,project_name,project_logo,project_cover,project_website,short_description,landing_popup_enabled,landing_popup_version,landing_popup_title,landing_popup_message,landing_popup_cta_label,landing_popup_cta_url,landing_popup_banner,start_at,end_at,max_participants,status,internal_notes) VALUES(:name,:project,:logo,:cover,:website,:description,:popupEnabled,:popupVersion,:popupTitle,:popupMessage,:popupCtaLabel,:popupCtaUrl,:popupBanner,:start,:end,:max,:status,:notes)';
     }
     $db->prepare($sql)->execute($v);
     $id = $id ?: (int) $db->lastInsertId();
