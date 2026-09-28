@@ -5,12 +5,12 @@
 
 .link-wallet-main {
     min-height: calc(100vh - 72px);
-    padding: 28px 0 56px;
-    background: var(--theme-public-page-bg);
+    padding: 36px 0 64px;
+    background: var(--color-bg-main);
 }
 
 .link-wallet-shell {
-    max-width: 860px;
+    max-width: 960px;
     margin: 0 auto;
     padding: 0 24px;
 }
@@ -19,7 +19,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
     color: var(--color-text-soft-muted);
     font-size: 0.85rem;
     font-weight: 700;
@@ -36,15 +36,15 @@
    ============================================= */
 .link-wallet-hero {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 20px;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+    gap: 32px;
     align-items: center;
-    padding: 24px 28px;
-    margin-bottom: 16px;
-    border-radius: 22px;
+    padding: 32px;
+    margin-bottom: 20px;
+    border-radius: 20px;
     background: var(--color-bg-card);
-    border: 1px solid rgba(148, 163, 184, 0.08);
-    box-shadow: 0 18px 40px rgba(2, 8, 23, 0.18);
+    border: 1px solid var(--color-border-card);
+    box-shadow: var(--shadow-card);
 }
 
 .link-wallet-tag {
@@ -53,8 +53,8 @@
     gap: 7px;
     padding: 5px 12px;
     border-radius: 999px;
-    background: rgba(29, 78, 216, 0.16);
-    border: 1px solid rgba(29, 78, 216, 0.3);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-card);
     color: var(--color-primary-light);
     font-size: 0.72rem;
     font-weight: 800;
@@ -66,7 +66,7 @@
 .link-wallet-hero h1 {
     margin: 0 0 6px;
     color: var(--color-text-heading);
-    font-size: 1.55rem;
+    font-size: clamp(1.65rem, 3vw, 2rem);
     font-weight: 800;
     line-height: 1.2;
 }
@@ -74,18 +74,18 @@
 .link-wallet-hero p {
     margin: 0;
     color: var(--color-text-soft-muted);
-    font-size: 0.86rem;
-    line-height: 1.5;
-    max-width: 500px;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    max-width: 580px;
 }
 
 .link-wallet-status-box {
-    min-width: 200px;
-    padding: 14px 16px;
-    border-radius: 16px;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(148, 163, 184, 0.1);
-    text-align: right;
+    min-width: 0;
+    padding: 18px;
+    border-radius: 14px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-card);
+    text-align: left;
 }
 
 .link-wallet-status-box > span {
@@ -101,7 +101,7 @@
 .link-wallet-status-text {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 8px;
     color: var(--color-text-heading);
     font-size: 1rem;
@@ -140,15 +140,15 @@
    WALLET CARD
    ============================================= */
 .link-wallet-card {
-    padding: 24px;
-    border-radius: 22px;
+    padding: 30px;
+    border-radius: 20px;
     background: var(--color-bg-card);
     border: 1px solid var(--color-border-card);
     box-shadow: var(--shadow-card);
 }
 
 .link-wallet-card.is-linked {
-    border-color: rgba(34, 197, 94, 0.18);
+    border-color: rgba(34, 197, 94, 0.32);
 }
 
 .link-wallet-card-head {
@@ -178,6 +178,24 @@
     color: var(--color-primary-light);
     background: rgba(59, 130, 246, 0.12);
     border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.link-wallet-card.is-linked .link-wallet-card-head {
+    align-items: center;
+    padding-bottom: 22px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--color-border-card);
+}
+
+.link-wallet-card.is-linked .link-wallet-card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+    font-size: 1.25rem;
+}
+
+.link-wallet-card.is-linked .link-wallet-card-title strong {
+    font-size: 1.12rem;
 }
 
 .link-wallet-card.is-linked .link-wallet-card-icon {
@@ -225,7 +243,7 @@
    WALLET ADDRESS ROW
    ============================================= */
 .link-wallet-address-row {
-    margin-bottom: 12px;
+    margin-bottom: 18px;
 }
 
 .link-wallet-address-label {
@@ -243,18 +261,20 @@
     align-items: center;
     gap: 8px;
     width: 100%;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: rgba(2, 6, 23, 0.5);
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    padding: 16px;
+    min-height: 72px;
+    border-radius: 12px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-card);
 }
 
 .link-wallet-address {
     flex: 1;
     min-width: 0;
     font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 0.9rem;
-    color: var(--color-accent-soft);
+    font-size: clamp(0.78rem, 1.7vw, 0.94rem);
+    line-height: 1.65;
+    color: var(--color-text-secondary);
     word-break: break-all;
     overflow-wrap: anywhere;
     user-select: all;
@@ -264,12 +284,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
     border-radius: 10px;
     border: 1px solid rgba(148, 163, 184, 0.15);
-    background: rgba(29, 78, 216, 0.14);
+    background: var(--color-bg-elevated);
     color: var(--color-primary-light);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -295,7 +315,10 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    margin: 0 0 16px;
+    margin: 0 0 22px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--color-bg-secondary);
     color: var(--color-text-soft-muted);
     font-size: 0.78rem;
     font-weight: 700;
@@ -315,11 +338,11 @@
     align-items: center;
     text-align: center;
     gap: 8px;
-    padding: 28px 20px;
-    margin-bottom: 16px;
-    border-radius: 16px;
-    border: 1px dashed rgba(148, 163, 184, 0.22);
-    background: rgba(15, 23, 42, 0.35);
+    padding: 30px 24px;
+    margin-bottom: 20px;
+    border-radius: 14px;
+    border: 1px solid var(--color-border-card);
+    background: var(--color-bg-secondary);
 }
 
 .link-wallet-empty-icon {
@@ -347,6 +370,8 @@
    ============================================= */
 .link-wallet-actions {
     display: flex;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border-card);
     gap: 12px;
     flex-wrap: wrap;
 }
@@ -357,20 +382,28 @@
     gap: 8px;
     padding: 12px 24px;
     border-radius: 14px;
-    border: 1px solid rgba(96, 165, 250, 0.25);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    min-height: 48px;
+    border: 1px solid var(--color-primary);
+    background: var(--color-primary);
     color: var(--color-text-inverse);
     font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 8px 20px rgba(29, 78, 216, 0.28);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .link-wallet-btn-link:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(29, 78, 216, 0.35);
-    filter: brightness(1.08);
+    background: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+    box-shadow: 0 6px 18px rgba(29, 78, 216, 0.2);
+}
+
+.link-wallet-back:focus-visible,
+.link-wallet-btn-link:focus-visible,
+.link-wallet-btn-reset:focus-visible,
+.link-wallet-copy:focus-visible {
+    outline: 2px solid var(--color-primary-light);
+    outline-offset: 3px;
 }
 
 .link-wallet-reset-form {
@@ -382,20 +415,25 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 20px;
-    border-radius: 14px;
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    background: rgba(239, 68, 68, 0.1);
-    color: #fca5a5;
-    font-size: 0.88rem;
-    font-weight: 700;
+    min-height: 48px;
+    padding: 12px 22px;
+    border-radius: 12px;
+    border: 1px solid var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-size: 0.92rem;
+    font-weight: 800;
+    text-decoration: none;
     cursor: pointer;
-    transition: all 0.2s ease;
+    box-shadow: 0 6px 16px rgba(29, 78, 216, 0.24);
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .link-wallet-btn-reset:hover {
-    background: rgba(239, 68, 68, 0.18);
-    border-color: rgba(239, 68, 68, 0.35);
+    background: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+    box-shadow: 0 8px 20px rgba(29, 78, 216, 0.32);
+    transform: translateY(-1px);
 }
 
 /* =============================================
@@ -404,17 +442,19 @@
 .link-wallet-faq {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 22px;
+    gap: 14px;
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid var(--color-border-card);
 }
 
 .link-wallet-faq-item {
     display: flex;
     gap: 12px;
-    padding: 14px;
-    border-radius: 14px;
-    background: rgba(15, 23, 42, 0.45);
-    border: 1px solid rgba(148, 163, 184, 0.08);
+    padding: 18px;
+    border-radius: 12px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-card);
 }
 
 .link-wallet-faq-item > i {
@@ -445,11 +485,11 @@
 @media (max-width: 768px) {
     .link-wallet-hero {
         grid-template-columns: 1fr;
-        padding: 20px;
+        gap: 22px;
+        padding: 24px;
     }
 
     .link-wallet-status-box {
-        text-align: left;
         min-width: 0;
     }
 
@@ -463,17 +503,40 @@
 }
 
 @media (max-width: 480px) {
+    .link-wallet-main {
+        padding: 24px 0 44px;
+    }
+
     .link-wallet-shell {
         padding: 0 16px;
     }
 
+    .link-wallet-hero {
+        padding: 20px;
+        gap: 18px;
+        border-radius: 16px;
+    }
+
+    .link-wallet-hero h1 {
+        font-size: 1.5rem;
+    }
+
     .link-wallet-card {
-        padding: 18px;
+        padding: 20px;
+        border-radius: 16px;
     }
 
     .link-wallet-card-head {
         flex-direction: column;
         gap: 12px;
+    }
+
+    .link-wallet-card.is-linked .link-wallet-card-head {
+        align-items: flex-start;
+    }
+
+    .link-wallet-address-box {
+        padding: 12px;
     }
 
     .link-wallet-actions {
@@ -486,5 +549,24 @@
     .link-wallet-reset-form {
         width: 100%;
         justify-content: center;
+    }
+
+    .link-wallet-btn-link,
+    .link-wallet-btn-reset {
+        min-height: 48px;
+        padding-right: 14px;
+        padding-left: 14px;
+        text-align: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .link-wallet-back,
+    .link-wallet-copy,
+    .link-wallet-btn-link,
+    .link-wallet-btn-reset,
+    .link-wallet-status-dot.is-linked {
+        animation: none;
+        transition: none;
     }
 }
