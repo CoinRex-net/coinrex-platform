@@ -1695,8 +1695,8 @@
         letter-spacing: 0.05em;
     }
     .sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__media {
-        height: clamp(140px, 42vw, 190px);
-        object-fit: cover;
+        height: clamp(44px, 15vw, 56px);
+        object-fit: fill;
         object-position: center;
     }
 }
@@ -1728,4 +1728,22 @@
 .sponsor-spotlight--boosthub.sponsor-spotlight--media,
 .sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__link {
     scrollbar-gutter: auto !important;
+}
+
+/* Keep the sponsorship pill in its own row above media. */
+.sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__badge {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: 1;
+    display: inline-flex;
+    width: fit-content;
+    max-width: calc(100% - 24px);
+    margin: 10px 12px 8px;
+}
+@media (max-width: 640px) {
+    .sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__badge {
+        max-width: calc(100% - 16px);
+        margin: 8px 8px 6px;
+    }
 }
