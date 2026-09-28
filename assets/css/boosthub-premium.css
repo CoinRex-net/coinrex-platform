@@ -1621,19 +1621,111 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
+    max-width: calc(100% - 36px);
     margin: 14px 18px 0;
+    padding: 6px 10px;
+    border: 1px solid rgba(250, 204, 21, 0.24);
+    border-radius: 999px;
+    background: rgba(250, 204, 21, 0.08);
     color: #facc15;
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 .sponsor-spotlight--boosthub .sponsor-spotlight__copy strong { color: #f8fafc; font-size: 1rem; }
 .sponsor-spotlight--boosthub .sponsor-spotlight__copy p { margin: 6px 0 0; color: #cbd5e1; font-size: 0.78rem; line-height: 1.55; }
 .sponsor-spotlight--boosthub .sponsor-spotlight__cta { flex: 0 0 auto; color: #0f172a; background: #facc15; border-radius: 999px; padding: 10px 14px; font-size: 0.76rem; font-weight: 900; }
-.sponsor-spotlight--boosthub .sponsor-spotlight__media { display: block; width: 100%; max-height: 180px; object-fit: cover; }
+.sponsor-spotlight--boosthub .sponsor-spotlight__media { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; object-position: center; }
 .sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__link { padding: 0; }
 @media (max-width: 640px) {
     .sponsor-spotlight--boosthub .sponsor-spotlight__link { align-items: flex-start; flex-direction: column; }
     .sponsor-spotlight--boosthub .sponsor-spotlight__cta { width: 100%; text-align: center; }
+    .sponsor-spotlight--boosthub .sponsor-spotlight__badge { max-width: calc(100% - 24px); margin: 12px 12px 0; font-size: 0.64rem; letter-spacing: 0.06em; }
+    .sponsor-spotlight--boosthub .sponsor-spotlight__media { max-height: 240px; }
+}
+
+/* Media spotlight layout: compact overlay badge and readable mobile crop. */
+.sponsor-spotlight--boosthub {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    box-sizing: border-box;
+}
+.sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__badge {
+    position: absolute;
+    z-index: 2;
+    top: 12px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    margin: 0;
+    background: rgba(15, 23, 42, 0.84);
+    box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__link {
+    display: block;
+    width: 100%;
+    padding: 0;
+    overflow: hidden;
+    line-height: 0;
+}
+.sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__media {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    object-fit: cover;
+    object-position: center;
+}
+@media (max-width: 640px) {
+    .sponsor-spotlight--boosthub { border-radius: 14px; }
+    .sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__badge {
+        top: 8px;
+        left: 8px;
+        max-width: calc(100% - 16px);
+        margin: 0;
+        padding: 5px 8px;
+        font-size: 0.6rem;
+        letter-spacing: 0.05em;
+    }
+    .sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__media {
+        height: clamp(140px, 42vw, 190px);
+        object-fit: cover;
+        object-position: center;
+    }
+}
+
+/* Lock media to both card edges; neutralize inherited link/image box spacing. */
+.sponsor-spotlight--boosthub.sponsor-spotlight--media {
+    padding: 0 !important;
+}
+.sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__link {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+.sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__media {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+/* Global theme reserves a 10px gutter on every overflow container. */
+.sponsor-spotlight--boosthub.sponsor-spotlight--media,
+.sponsor-spotlight--boosthub.sponsor-spotlight--media .sponsor-spotlight__link {
+    scrollbar-gutter: auto !important;
 }

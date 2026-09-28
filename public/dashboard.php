@@ -375,6 +375,7 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/dashboard.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/dashboard.css'); ?>">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/rexhub-spotlight.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/rexhub-spotlight.css'); ?>">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/pro-weekly-streak.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/pro-weekly-streak.css'); ?>">
 <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/engagement.css?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/css/engagement.css'); ?>">
 

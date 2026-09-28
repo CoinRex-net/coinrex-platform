@@ -1,0 +1,197 @@
+/* RexHub dashboard sponsor spotlight, isolated from shared hub styles. */
+.sponsor-spotlight--dashboard-rexhub {
+    position: relative;
+    display: block;
+    width: 100%;
+    margin: 0 0 20px;
+    overflow: hidden;
+    border: 1px solid rgba(52, 211, 153, 0.24);
+    border-radius: 16px;
+    background: #071711;
+    box-shadow: 0 14px 34px rgba(2, 6, 23, 0.2);
+}
+
+.sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__badge {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 24px);
+    margin: 10px 12px;
+    padding: 5px 9px;
+    border: 1px solid rgba(110, 231, 183, 0.32);
+    border-radius: 999px;
+    background: rgba(6, 78, 59, 0.9);
+    color: #a7f3d0;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__copy {
+    min-width: 0;
+}
+
+.sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__copy strong {
+    color: var(--color-text-heading, #f8fafc);
+    font-size: 0.96rem;
+}
+
+.sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__copy p {
+    margin: 5px 0 0;
+    color: var(--color-text-soft-muted, #aab8ca);
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__cta {
+    flex: 0 0 auto;
+    padding: 9px 13px;
+    border-radius: 999px;
+    background: #6ee7b7;
+    color: #052e2b;
+    font-size: 0.74rem;
+    font-weight: 900;
+}
+
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__link {
+    display: block;
+    width: 100%;
+    padding: 0;
+    line-height: 0;
+}
+
+.sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__media {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    object-fit: contain !important;
+    object-position: center !important;
+}
+
+@media (max-width: 640px) {
+    .sponsor-spotlight--dashboard-rexhub {
+        margin-bottom: 16px;
+        border-radius: 12px;
+    }
+
+    .sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__badge {
+        margin: 7px 8px;
+        padding: 4px 8px;
+        font-size: 9px;
+        letter-spacing: 0.06em;
+    }
+
+    .sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__link {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .sponsor-spotlight--dashboard-rexhub .sponsor-spotlight__cta {
+        width: 100%;
+        text-align: center;
+    }
+
+    .sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__link {
+        padding: 0;
+    }
+}
+/* Media spotlight layout: compact overlay badge and readable mobile crop. */
+.sponsor-spotlight--dashboard-rexhub {
+    isolation: isolate;
+    box-sizing: border-box;
+}
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__badge {
+    position: absolute;
+    z-index: 2;
+    top: 12px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    margin: 0;
+    background: rgba(6, 50, 39, 0.86);
+    box-shadow: 0 6px 18px rgba(2, 6, 23, 0.3);
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__link {
+    display: block;
+    width: 100%;
+    padding: 0;
+    overflow: hidden;
+    line-height: 0;
+}
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__media {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    object-fit: cover !important;
+    object-position: center !important;
+}
+@media (max-width: 640px) {
+    .sponsor-spotlight--dashboard-rexhub { border-radius: 14px; }
+    .sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__badge {
+        top: 8px;
+        left: 8px;
+        max-width: calc(100% - 16px);
+        margin: 0;
+        padding: 5px 8px;
+        font-size: 9px;
+        letter-spacing: 0.05em;
+    }
+    .sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__media {
+        height: clamp(140px, 42vw, 190px) !important;
+        object-fit: cover !important;
+        object-position: center !important;
+    }
+}
+
+/* Lock media to both card edges; neutralize inherited link/image box spacing. */
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media {
+    padding: 0 !important;
+}
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__link {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__media {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+/* Global theme reserves a 10px gutter on every overflow container. */
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media,
+.sponsor-spotlight--dashboard-rexhub.sponsor-spotlight--media .sponsor-spotlight__link {
+    scrollbar-gutter: auto !important;
+}

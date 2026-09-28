@@ -36,3 +36,90 @@
     .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__link { align-items: flex-start; flex-direction: column; }
     .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__cta { width: 100%; text-align: center; }
 }
+/* Media spotlight layout: compact overlay badge and readable mobile crop. */
+.taskhub-premium .sponsor-spotlight--learnhub {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    box-sizing: border-box;
+}
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__badge {
+    position: absolute;
+    z-index: 2;
+    top: 12px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    margin: 0;
+    padding: 6px 10px;
+    border: 1px solid rgba(147, 197, 253, 0.42);
+    border-radius: 999px;
+    background: rgba(7, 18, 37, 0.82);
+    box-shadow: 0 6px 18px rgba(2, 6, 23, 0.28);
+    font-size: 0.68rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__link {
+    display: block;
+    width: 100%;
+    padding: 0;
+    overflow: hidden;
+    line-height: 0;
+}
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__media {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    object-fit: cover;
+    object-position: center;
+}
+@media (max-width: 640px) {
+    .taskhub-premium .sponsor-spotlight--learnhub { border-radius: 14px; }
+    .taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__badge {
+        top: 8px;
+        left: 8px;
+        max-width: calc(100% - 16px);
+        padding: 5px 8px;
+        font-size: 0.6rem;
+        letter-spacing: 0.05em;
+    }
+    .taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__media {
+        height: clamp(140px, 42vw, 190px);
+        object-fit: cover;
+        object-position: center;
+    }
+}
+
+/* Lock media to both card edges; neutralize inherited link/image box spacing. */
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media {
+    padding: 0 !important;
+}
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__link {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__media {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+/* Global theme reserves a 10px gutter on every overflow container. */
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media,
+.taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__link {
+    scrollbar-gutter: auto !important;
+}

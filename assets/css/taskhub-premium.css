@@ -8966,21 +8966,30 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
+    max-width: calc(100% - 36px);
     margin: 14px 18px 0;
+    padding: 6px 10px;
+    border: 1px solid rgba(45, 140, 255, 0.24);
+    border-radius: 999px;
+    background: rgba(45, 140, 255, 0.08);
     color: #93c5fd;
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__copy strong { color: #f8fafc; font-size: 1rem; }
 .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__copy p { margin: 6px 0 0; color: #cbd5e1; font-size: 0.78rem; line-height: 1.55; }
 .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__cta { flex: 0 0 auto; color: #ffffff; background: linear-gradient(135deg, #2563eb, #0891b2); border-radius: 999px; padding: 10px 14px; font-size: 0.76rem; font-weight: 900; }
-.taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__media { display: block; width: 100%; max-height: 180px; object-fit: cover; }
+.taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__media { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; object-position: center; }
 .taskhub-premium .sponsor-spotlight--learnhub.sponsor-spotlight--media .sponsor-spotlight__link { padding: 0; }
 @media (max-width: 640px) {
     .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__link { align-items: flex-start; flex-direction: column; }
     .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__cta { width: 100%; text-align: center; }
+    .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__badge { max-width: calc(100% - 24px); margin: 12px 12px 0; font-size: 0.64rem; letter-spacing: 0.06em; }
+    .taskhub-premium .sponsor-spotlight--learnhub .sponsor-spotlight__media { max-height: 240px; }
 }
 
 
