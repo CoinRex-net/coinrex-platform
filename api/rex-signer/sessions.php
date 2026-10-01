@@ -1,4 +1,6 @@
 <?php
+define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
+define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
 require_once __DIR__ . '/_bootstrap.php';
 
 try {
@@ -26,6 +28,7 @@ try {
         $actor = rexSignerGetActor($db, [
             'skip_schema' => true,
             'skip_maintenance' => true,
+            'skip_user_sync' => true,
         ]);
         if (!empty($actor['session'])) {
             $session_state = (string) ($actor['session']['status'] ?? 'active');

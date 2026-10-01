@@ -1,4 +1,6 @@
 <?php
+define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
+define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
 /**
  * Persist a paired RexLink wallet onto the logged-in CoinRex account.
  *
@@ -22,7 +24,7 @@ try {
         apiErrorResponse(401, 'Authentication required.');
     }
 
-    $user = getCurrentUser();
+    $user = getUserById((int) ($_SESSION['user_id'] ?? 0));
     $user_id = (int) ($user['id'] ?? 0);
     if ($user_id <= 0) {
         apiErrorResponse(401, 'Authentication required.');
@@ -37,6 +39,9 @@ try {
         apiErrorResponse(403, 'Invalid CSRF token.');
     }
 
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
     $db = getDBConnection();
     $session_id = (int) ($body['session_id'] ?? 0);
 

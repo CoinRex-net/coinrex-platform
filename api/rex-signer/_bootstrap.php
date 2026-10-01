@@ -5,9 +5,13 @@
  */
 
 $rex_signer_endpoint = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-if (in_array($rex_signer_endpoint, ['create_pairing.php', 'pairing_qr.php', 'login_from_session.php', 'sessions.php', 'realtime_auth.php'], true)) {
-    define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
-    define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
+if (in_array($rex_signer_endpoint, ['create_pairing.php', 'complete_pairing.php', 'link_wallet_pairing_status.php', 'pairing_qr.php', 'login_from_session.php', 'sessions.php', 'realtime_auth.php'], true)) {
+    if (!defined('COINREX_SKIP_REWARD_SCHEMA_INIT')) {
+        define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
+    }
+    if (!defined('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT')) {
+        define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
+    }
 }
 
 require_once dirname(__DIR__) . '/_bootstrap.php';
@@ -848,6 +852,19 @@ function rexSignerGetActor(PDO $db = null, array $options = []) {
         ];
     }
 
+    // Frequent browser status requests need identity, not level/reward sync.
+    // Keep the normal login validity checks before reading the account.
+    if (!empty($options['skip_user_sync']) && isLoggedIn()) {
+        $web_user = getUserById((int) ($_SESSION['user_id'] ?? 0));
+        if ($web_user) {
+            return [
+                'type' => 'web_user',
+                'user_id' => (int) $web_user['id'],
+                'session_id' => null,
+                'user' => $web_user,
+            ];
+        }
+    }
     $actor = apiGetAuthenticatedUser();
     if ($actor['type'] === 'user') {
         return [

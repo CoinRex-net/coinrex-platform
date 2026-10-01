@@ -1,5 +1,6 @@
 <?php
 define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
+define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/auth/_bootstrap.php';
 
@@ -200,24 +201,30 @@ try {
         ], 201);
     }
 
-    foreach ($replaced_session_ids as $replaced_session_id) {
-        if ($replaced_session_id > 0) {
-            coinrexRealtimePublish('session.revoked', [
-                'user_id' => $pairing_user_id,
-                'session_id' => $replaced_session_id,
-                'status' => 'revoked',
-                'reason' => 'Replaced by a new RexLink session',
-            ]);
+    // The link-wallet page polls the committed pairing row directly. Do not
+    // hold the mobile completion response behind optional realtime delivery;
+    // an unavailable realtime service otherwise makes RexLink report a false
+    // connection failure even though the database transaction succeeded.
+    if ($pairing_purpose !== 'claim') {
+        foreach ($replaced_session_ids as $replaced_session_id) {
+            if ($replaced_session_id > 0) {
+                coinrexRealtimePublish('session.revoked', [
+                    'user_id' => $pairing_user_id,
+                    'session_id' => $replaced_session_id,
+                    'status' => 'revoked',
+                    'reason' => 'Replaced by a new RexLink session',
+                ]);
+            }
         }
-    }
 
-    coinrexRealtimePublish('session.connected', [
-        'user_id' => $pairing_user_id,
-        'session_id' => $session_id,
-        'status' => 'active',
-        'wallet_address' => $wallet_address,
-        'session' => $session_payload,
-    ]);
+        coinrexRealtimePublish('session.connected', [
+            'user_id' => $pairing_user_id,
+            'session_id' => $session_id,
+            'status' => 'active',
+            'wallet_address' => $wallet_address,
+            'session' => $session_payload,
+        ]);
+    }
 
     apiSuccessResponse([
         'message' => 'RexLink paired successfully.',

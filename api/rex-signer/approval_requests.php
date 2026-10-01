@@ -1,9 +1,14 @@
 <?php
+define('COINREX_SKIP_REWARD_SCHEMA_INIT', true);
+define('COINREX_SKIP_REX_SIGNER_SCHEMA_INIT', true);
 require_once __DIR__ . '/_bootstrap.php';
 
 try {
     $db = getDBConnection();
-    $actor = rexSignerRequireUserActor($db);
+    $actor = rexSignerRequireUserActor($db, [
+        'skip_schema' => true,
+        'skip_maintenance' => true,
+    ]);
 
     rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 

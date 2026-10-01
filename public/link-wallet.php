@@ -246,11 +246,12 @@ require_once __DIR__ . '/../includes/header.php';
 <script src="<?php echo ASSETS_URL; ?>/js/rexlink-pairing.js?v=<?php echo (int) @filemtime(dirname(__DIR__) . '/assets/js/rexlink-pairing.js'); ?>"></script>
 <script>
 <?php
-$rexlink_link_api_base = BASE_URL;
+$rexlink_link_api_base = REXLINK_NODE_API_BASE_URL;
 $rexlink_link_persist_url = BASE_URL . '/api/link_wallet_session.php';
 ?>
 window.CoinRexLinkWalletConfig = {
     rexlinkApiBaseUrl: <?php echo json_encode($rexlink_link_api_base); ?>,
+    qrApiBaseUrl: <?php echo json_encode(REXLINK_NODE_API_BASE_URL); ?>,
     baseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     browserBaseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     redirectAfterLink: window.location.origin + <?php echo json_encode(BASE_URI . '/public/dashboard.php?wallet=linked'); ?>,
