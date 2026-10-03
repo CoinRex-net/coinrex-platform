@@ -9,6 +9,16 @@ apiRequireMethod('POST');
 try {
     $complete_pairing_started_at = microtime(true);
     $db = getDBConnection();
+
+    // Passwordless auth can create a CoinRex user and award its registration
+    // rewards while the pairing transaction is open. Prime every schema used
+    // by that path before beginTransaction(): MySQL DDL (including CREATE
+    // TABLE IF NOT EXISTS) implicitly commits an active transaction, which
+    // otherwise makes the final commit fail with "There is no active
+    // transaction" on auth.php pairings.
+    ensureRewardClaimSchema($db);
+    ensureEarlyAirdropSchema($db);
+
     rexSignerExpireOldRows($db, ['publish_session_expired_events' => false]);
 
     $code = rexSignerNormalizePairCode(rexSignerInput('code', ''));
