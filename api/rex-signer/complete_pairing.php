@@ -49,6 +49,60 @@ try {
     $pairing = $stmt->fetch();
 
     if (!$pairing) {
+        $completed_stmt = $db->prepare("
+            SELECT pairing.*,
+                   session_row.id AS session_id,
+                   session_row.user_id AS session_user_id,
+                   session_row.wallet_address AS session_wallet_address,
+                   session_row.status AS session_status,
+                   session_row.expires_at AS session_expires_at,
+                   GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), session_row.expires_at)) AS remaining_seconds,
+                   UNIX_TIMESTAMP(session_row.expires_at) AS expires_at_unix
+            FROM rex_signer_pairing_codes pairing
+            INNER JOIN rex_signer_sessions session_row
+                ON session_row.id = pairing.completed_session_id
+            WHERE pairing.code_hash = ?
+              AND pairing.status = 'completed'
+              AND session_row.wallet_address = ?
+              AND session_row.status = 'active'
+              AND session_row.expires_at > NOW()
+            ORDER BY pairing.completed_at DESC, pairing.id DESC
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $completed_stmt->execute([rexSignerHashSecret($code), $wallet_address]);
+        $completed_pairing = $completed_stmt->fetch();
+        if ($completed_pairing) {
+            $session_token = rexSignerRandomToken(32);
+            $refresh_session = $db->prepare("
+                UPDATE rex_signer_sessions
+                SET session_token_hash = ?,
+                    last_seen_at = NOW()
+                WHERE id = ?
+            ");
+            $refresh_session->execute([
+                rexSignerHashSecret($session_token),
+                (int) $completed_pairing['session_id'],
+            ]);
+            $session_payload = rexSignerSessionPayload([
+                'id' => (int) $completed_pairing['session_id'],
+                'user_id' => (int) $completed_pairing['session_user_id'],
+                'pairing_code_id' => (int) $completed_pairing['id'],
+                'wallet_address' => (string) $completed_pairing['session_wallet_address'],
+                'status' => (string) $completed_pairing['session_status'],
+                'expires_at' => (string) $completed_pairing['session_expires_at'],
+                'remaining_seconds' => (int) $completed_pairing['remaining_seconds'],
+                'expires_at_unix' => (int) $completed_pairing['expires_at_unix'],
+            ]);
+            $db->commit();
+            apiSuccessResponse([
+                'message' => 'RexLink paired successfully.',
+                'session_token' => $session_token,
+                'session' => $session_payload,
+                'auth_user_created' => false,
+                'already_completed' => true,
+            ], 200);
+        }
         $db->rollBack();
         apiErrorResponse(404, 'Pairing code is invalid or expired.');
     }
