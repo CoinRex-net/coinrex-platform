@@ -383,12 +383,13 @@ test('browser QR compaction preserves PHP pairing protocol v1', () => {
     version: 1,
     code: '123456',
     purpose: 'auth',
-    api_base_url: 'https://coinrex.xyz',
+    api_base_url: 'https://coinrex.xyz/api/rex-signer',
     trust_context: { verified: true },
   }, {});
 
   assert.equal(compact.v, 1);
   assert.equal(compact.u, 'https://coinrex.xyz');
+  assert.equal(compact.api_base_url, 'https://coinrex.xyz');
   assert.equal(compact.p, 'auth');
 });
 

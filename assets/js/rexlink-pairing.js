@@ -15,11 +15,16 @@
     function trimTrailingSlash(value) {
         return String(value || '').replace(/\/+$/, '');
     }
+    function pairingApiRoot(value) {
+        return trimTrailingSlash(value)
+            .replace(/\/api\/(?:rex-signer|v1)$/i, '');
+    }
+
 
     function compactPayload(payload, defaults) {
         payload = payload && typeof payload === 'object' ? payload : {};
         defaults = defaults && typeof defaults === 'object' ? defaults : {};
-        const apiBaseUrl = trimTrailingSlash(payload.api_base_url || payload.base_url || defaults.apiBaseUrl || defaults.baseUrl);
+        const apiBaseUrl = pairingApiRoot(payload.api_base_url || payload.base_url || defaults.apiBaseUrl || defaults.baseUrl);
         // Keep scan payloads intentionally small so QR modules stay large on
         // mobile screens. RexLink accepts these legacy keys and short aliases.
         const compact = {
@@ -34,6 +39,17 @@
             a: payload.app_id || defaults.appId || 'coinrex',
             p: payload.purpose || defaults.purpose || 'claim',
         };
+        const supportedNetworks = Array.isArray(payload.supported_networks)
+            ? payload.supported_networks
+            : (Array.isArray(defaults.supportedNetworks) ? defaults.supportedNetworks : []);
+        if ((payload.network_scope || defaults.networkScope) === 'multi') {
+            compact.s = 'm';
+            compact.n = supportedNetworks.map(function(network) {
+                return [String(network.slug || ''), Number(network.chain_id || network.chainId || 0)];
+            }).filter(function(network) {
+                return network[0] && network[1] > 0;
+            });
+        }
         if (payload.coinrex_purpose || defaults.coinrexPurpose) {
             compact.q = payload.coinrex_purpose || defaults.coinrexPurpose;
         }
@@ -237,5 +253,6 @@
         setCopyButton: setCopyButton,
         shortAddress: shortAddress,
         trimTrailingSlash: trimTrailingSlash,
+        pairingApiRoot: pairingApiRoot,
     };
 })(window);

@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (RexLink && typeof RexLink.init === 'function') {
         RexLink.init({
-            apiBaseUrl: String(cfg.rexlinkApiBaseUrl || (window.location.protocol + '//' + window.location.hostname + ':18083')),
+            apiBaseUrl: String(cfg.rexlinkApiBaseUrl || window.location.origin),
             appId: 'coinrex',
             transport: 'auto',
             requestTimeoutMs: 2600,
@@ -537,20 +537,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '',
             }, 8000)
             : Promise.reject(new Error('RexLink PHP pairing endpoint is unavailable.'));
-        var pairingPromise = phpPairingPromise.catch(function(phpError) {
-            if (!RexLink || typeof RexLink.createPairing !== 'function') throw phpError;
-            rexLinkAuthUsePhpFallback = false;
-            return RexLink.createPairing({
-                purpose: 'auth',
-                durationMinutes: 5,
-                referralCode: rexLinkReferralCode,
-                timeoutMs: 5000,
-                meta: { device_fingerprint: deviceFingerprintField ? deviceFingerprintField.value : '' },
-            }).catch(function(nodeError) {
-                rexLinkAuthUsePhpFallback = true;
-                throw nodeError;
-            });
-        });
+        var pairingPromise = phpPairingPromise;
         pairingPromise.then(function(data) {
             rexLinkAuthPairingId = Number(data.pairing_id || 0);
             if (rexLinkPairingCode) {
