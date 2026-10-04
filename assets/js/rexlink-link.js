@@ -269,16 +269,14 @@ const linkConfig = window.CoinRexLinkWalletConfig || {};
 
     function renderQrPayload(payload) {
         if (!placeholder || !payload) return;
-        // The app appends /api/rex-signer/<endpoint> for completion and polling.
-        // Keep the server host/subdirectory, but strip the endpoint prefix.
         payload = Object.assign({}, payload);
         const serverRoot = String(payload.api_base_url || payload.base_url || phpApiBaseUrl)
-            .replace(/\/+$/, '').replace(/\/api\/rex-signer$/i, '');
+            .replace(/\/+$/, '');
         payload.api_base_url = serverRoot;
         payload.base_url = serverRoot;
         payload.u = serverRoot;
-        // Keep the transport URL returned by create_pairing.php. Version 1 QR
-        // payloads complete against the PHP RexLink API, just like auth.php.
+        // Keep the transport URL returned by create_pairing.php. Installed
+        // RexLink builds expect the legacy /api/rex-signer API base in QR data.
         const qrApiBaseUrl = String(payload.api_base_url || payload.base_url || linkConfig.qrApiBaseUrl || rexlinkApiBaseUrl).replace(/\/+$/, '');
         if (RexLink && typeof RexLink.renderQR === 'function') {
             RexLink.renderQR(payload, placeholder, {

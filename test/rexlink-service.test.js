@@ -375,7 +375,7 @@ test('browser QR compaction produces a small multi-network v2 envelope', () => {
   assert.equal(compact.endpoints, undefined);
 });
 
-test('browser QR compaction preserves PHP pairing protocol v1', () => {
+test('browser QR compaction preserves legacy PHP RexLink API base for installed APKs', () => {
   const source = fs.readFileSync(require.resolve('../assets/js/rexlink-pairing.js'), 'utf8');
   const window = { location: { origin: 'https://coinrex.xyz' } };
   vm.runInNewContext(source, { window, navigator: {}, document: {} });
@@ -388,8 +388,8 @@ test('browser QR compaction preserves PHP pairing protocol v1', () => {
   }, {});
 
   assert.equal(compact.v, 1);
-  assert.equal(compact.u, 'https://coinrex.xyz');
-  assert.equal(compact.api_base_url, 'https://coinrex.xyz');
+  assert.equal(compact.u, 'https://coinrex.xyz/api/rex-signer');
+  assert.equal(compact.api_base_url, 'https://coinrex.xyz/api/rex-signer');
   assert.equal(compact.p, 'auth');
 });
 

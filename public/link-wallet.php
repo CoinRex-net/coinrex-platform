@@ -251,7 +251,7 @@ $rexlink_link_persist_url = BASE_URL . '/api/link_wallet_session.php';
 ?>
 window.CoinRexLinkWalletConfig = {
     rexlinkApiBaseUrl: <?php echo json_encode($rexlink_link_api_base); ?>,
-    qrApiBaseUrl: <?php echo json_encode(BASE_URL); ?>,
+    qrApiBaseUrl: <?php echo json_encode(rtrim(BASE_URL, '/') . '/api/rex-signer'); ?>,
     baseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     browserBaseUrl: window.location.origin + <?php echo json_encode(BASE_URI); ?>,
     redirectAfterLink: window.location.origin + <?php echo json_encode(BASE_URI . '/public/dashboard.php?wallet=linked'); ?>,

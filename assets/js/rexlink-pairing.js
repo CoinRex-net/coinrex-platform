@@ -16,8 +16,7 @@
         return String(value || '').replace(/\/+$/, '');
     }
     function pairingApiRoot(value) {
-        return trimTrailingSlash(value)
-            .replace(/\/api\/(?:rex-signer|v1)$/i, '');
+        return trimTrailingSlash(value);
     }
 
 
