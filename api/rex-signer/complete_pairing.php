@@ -40,7 +40,7 @@ try {
         SELECT *
         FROM rex_signer_pairing_codes
         WHERE code_hash = ?
-          AND status = 'pending'
+          AND status IN ('pending', 'revoked')
           AND expires_at > NOW()
         LIMIT 1
         FOR UPDATE
