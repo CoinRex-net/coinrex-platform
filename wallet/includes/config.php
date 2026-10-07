@@ -136,7 +136,7 @@ function walletDownloadCount(): int
 // ── Download availability (temporary kill-switch) ─────────────
 // Set to false to disable every "Download APK" button across the
 // wallet platform. Flip back to true to re-enable downloads.
-define('WALLET_DOWNLOADS_ENABLED', false);
+define('WALLET_DOWNLOADS_ENABLED', true);
 
 /**
  * Render the platform's primary "Download APK" button.
