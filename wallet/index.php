@@ -11,6 +11,7 @@ $meta_description = 'Download ' . WALLET_NAME . ' — the secure, non-custodial 
 $meta_keywords = 'RexLink, CoinRex wallet, crypto wallet, Web3 wallet, non-custodial wallet, Android APK, download RexLink';
 
 $apkInfo   = walletApkInfo();
+$apkVersion = $apkInfo['version'];
 $totalDl   = walletDownloadCount();
 
 require_once __DIR__ . '/includes/header.php';
@@ -39,7 +40,7 @@ require_once __DIR__ . '/includes/header.php';
                         <a class="wallet-btn-secondary" href="#how-it-works"><i class="fas fa-arrow-down"></i> How it works</a>
                     </div>
                     <div class="wallet-hero-meta">
-                        <span class="wallet-hero-meta-item"><i class="fas fa-tag"></i> v<?php echo htmlspecialchars(WALLET_APK_VERSION, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="wallet-hero-meta-item"><i class="fas fa-tag"></i> v<?php echo htmlspecialchars($apkVersion, ENT_QUOTES, 'UTF-8'); ?></span>
                         <span class="wallet-hero-meta-item"><span class="wallet-rating-stars">★★★★★</span> 4.8</span>
                         <span class="wallet-hero-meta-item"><i class="fas fa-mobile-screen-button"></i> Android 8.0+</span>
                         <span class="wallet-hero-meta-item"><i class="fas fa-shield-halved"></i> Non-Custodial</span>
@@ -155,10 +156,10 @@ require_once __DIR__ . '/includes/header.php';
                     <img src="<?php echo htmlspecialchars(WALLET_ASSETS_URL . '/images/logo.png', ENT_QUOTES, 'UTF-8'); ?>" alt="RexLink" onerror="this.style.display='none';">
                 </div>
                 <div class="wallet-download-info">
-                    <h3>RexLink v<?php echo htmlspecialchars(WALLET_APK_VERSION, ENT_QUOTES, 'UTF-8'); ?></h3>
+                    <h3>RexLink v<?php echo htmlspecialchars($apkVersion, ENT_QUOTES, 'UTF-8'); ?></h3>
                     <p>Extension-free Web3 access for Android. Non-custodial, secure, and ready for CoinRex.</p>
                     <div class="wallet-download-meta">
-                        <span><i class="fas fa-tag"></i> v<?php echo htmlspecialchars(WALLET_APK_VERSION, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span><i class="fas fa-tag"></i> v<?php echo htmlspecialchars($apkVersion, ENT_QUOTES, 'UTF-8'); ?></span>
                         <span><i class="fas fa-mobile-screen-button"></i> Android 8.0+</span>
                         <span><i class="fas fa-database"></i> <?php echo $apkInfo['exists'] ? $apkInfo['size_mb'] . ' MB' : '—'; ?></span>
                         <span><i class="fas fa-shield-halved"></i> Signed by <?php echo htmlspecialchars(WALLET_SITE_NAME, ENT_QUOTES, 'UTF-8'); ?></span>

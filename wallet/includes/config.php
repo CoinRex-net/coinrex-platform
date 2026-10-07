@@ -54,7 +54,7 @@ define('WALLET_BASE_URL', $walletEnvBase !== ''
     ? rtrim($walletEnvBase, '/')
     : ($walletScheme . '://' . $walletHost . $walletBasePath));
 define('WALLET_ASSETS_URL', WALLET_BASE_URL . '/assets');
-define('WALLET_APK_URL', WALLET_BASE_URL . '/apk/RexLink.apk');
+define('WALLET_APK_URL', WALLET_BASE_URL . '/download.php');
 
 // ── Main coinrex.xyz site (nav "CoinRex/" link) ──────────────────
 define('WALLET_MAIN_SITE_URL', rtrim(trim((string) (getenv('COINREX_MAIN_SITE_URL') ?: 'https://coinrex.xyz')), '/'));
@@ -65,11 +65,12 @@ define('WALLET_SITE_NAME', 'CoinRex');
 define('WALLET_TAGLINE', 'Extension Free Web3 Access');
 define('WALLET_SUPPORT_EMAIL', 'support@coinrex.xyz');
 define('WALLET_ADMIN_EMAIL', 'admin@coinrex.xyz');
-define('WALLET_APK_VERSION', '1.0.0');
+define('WALLET_APK_VERSION', '1.0.0'); // Fallback for the legacy unversioned APK.
 define('WALLET_PACKAGE_NAME', 'com.coinrex.rexlink');
 
 // ── APK file ──────────────────────────────────────────────────────
-define('WALLET_APK_PATH', WALLET_ROOT . '/apk/RexLink.apk');
+define('WALLET_APK_DIR', WALLET_ROOT . '/apk');
+define('WALLET_APK_PATH', WALLET_APK_DIR . '/RexLink.apk'); // Legacy fallback.
 
 // ── Database (shared with the main app so download counts line up) ─
 define('WALLET_DB_HOST', trim((string) (getenv('COINREX_DB_HOST') ?: '')) ?: 'localhost');
@@ -170,14 +171,47 @@ function walletNavDownloadCta(string $class = 'wallet-nav-cta'): string
  */
 function walletApkInfo(): array
 {
-    $exists = is_file(WALLET_APK_PATH);
+    $files = glob(WALLET_APK_DIR . '/*.apk') ?: [];
+    $versionedFiles = [];
+
+    foreach ($files as $file) {
+        $filename = basename($file);
+        if (preg_match('/(?:^|[^0-9])v?(\\d+(?:\\.\\d+){1,3})(?=[^0-9]|$)/i', $filename, $matches)) {
+            $versionedFiles[] = [
+                'path' => $file,
+                'version' => $matches[1],
+                'filename' => $filename,
+            ];
+        }
+    }
+
+    usort($versionedFiles, static function (array $a, array $b): int {
+        $versionOrder = version_compare($b['version'], $a['version']);
+        return $versionOrder !== 0 ? $versionOrder : strcasecmp($a['filename'], $b['filename']);
+    });
+
+    if ($versionedFiles !== []) {
+        $selected = $versionedFiles[0];
+    } elseif (is_file(WALLET_APK_PATH)) {
+        $selected = [
+            'path' => WALLET_APK_PATH,
+            'version' => WALLET_APK_VERSION,
+            'filename' => basename(WALLET_APK_PATH),
+        ];
+    } else {
+        $selected = ['path' => '', 'version' => WALLET_APK_VERSION, 'filename' => ''];
+    }
+
+    $exists = $selected['path'] !== '' && is_file($selected['path']);
     $sizeMb = 0;
     if ($exists) {
-        $sizeMb = round(filesize(WALLET_APK_PATH) / (1024 * 1024), 1);
+        $sizeMb = round(filesize($selected['path']) / (1024 * 1024), 1);
     }
     return [
         'exists' => $exists,
         'size_mb' => $sizeMb,
-        'path' => WALLET_APK_PATH,
+        'path' => $selected['path'],
+        'filename' => $selected['filename'],
+        'version' => $selected['version'],
     ];
 }

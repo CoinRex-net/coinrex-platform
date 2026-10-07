@@ -47,7 +47,7 @@ if ($db !== null) {
 }
 
 // ── Stream the file ──
-$file = WALLET_APK_PATH;
+$file = $apkInfo['path'];
 $size = (int) filesize($file);
 
 // Support HTTP Range requests (resumable downloads).
@@ -75,7 +75,8 @@ if (isset($_SERVER['HTTP_RANGE'])) {
 $length = $end - $start + 1;
 
 header('Content-Type: application/vnd.android.package-archive');
-header('Content-Disposition: attachment; filename="RexLink.apk"');
+$downloadFilename = 'RexLink-v' . preg_replace('/[^0-9.]/', '', $apkInfo['version']) . '.apk';
+header('Content-Disposition: attachment; filename="' . $downloadFilename . '"');
 header('Content-Length: ' . $length);
 header('Accept-Ranges: bytes');
 header('X-Content-Type-Options: nosniff');
