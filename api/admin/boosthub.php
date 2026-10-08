@@ -9,6 +9,16 @@
 // shared bootstrap or admin helpers, before the request handler can run.
 ob_start();
 header('Content-Type: application/json; charset=utf-8');
+function boostHubJsonResponse(array $payload): void
+{
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        http_response_code(500);
+        $json = '{"success":false,"error":"Unable to encode BoostHub API response."}';
+    }
+    echo $json;
+}
+
 register_shutdown_function(static function (): void {
     $error = error_get_last();
     $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
@@ -23,7 +33,7 @@ register_shutdown_function(static function (): void {
         http_response_code(500);
         header('Content-Type: application/json; charset=utf-8');
     }
-    echo json_encode(['success' => false, 'error' => 'BoostHub API initialization failed. Check the PHP error log.']);
+    boostHubJsonResponse(['success' => false, 'error' => 'BoostHub API initialization failed. Check the PHP error log.']);
 });
 
 require_once __DIR__ . '/../_bootstrap.php';
@@ -34,14 +44,14 @@ require_once dirname(__DIR__, 2) . '/admin/includes/reward_admin.php';
 if (!adminGuardIsLoggedIn() || !canCurrentAdmin('moderate_tasks')) {
     http_response_code(401);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['success' => false, 'error' => 'Authentication and moderate_tasks permission required']);
+    boostHubJsonResponse(['success' => false, 'error' => 'Authentication and moderate_tasks permission required']);
     exit;
 }
 $current_admin = getCurrentAdmin();
 if (!$current_admin) {
     http_response_code(401);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    boostHubJsonResponse(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }
 
@@ -61,7 +71,7 @@ try {
             if ($campaign_id > 0) {
                 $rows = array_values(array_filter($rows, static fn(array $row): bool => (int) ($row['campaign_id'] ?? 0) === $campaign_id));
             }
-            echo json_encode(['success' => true, 'data' => $rows]);
+            boostHubJsonResponse(['success' => true, 'data' => $rows]);
             exit;
         }
 
@@ -74,7 +84,7 @@ try {
             $user_id = max(0, (int) ($_GET['user_id'] ?? 0));
 
             $result = adminRewardGetBoosthubAllEvidence($db, $task_category, $status_filter, $page, $perPage, $user_id);
-            echo json_encode([
+            boostHubJsonResponse([
                 'success' => true,
                 'data' => $result['rows'],
                 'total' => $result['total'],
@@ -99,7 +109,7 @@ try {
             }));
         }
 
-        echo json_encode(['success' => true, 'data' => $task_rows]);
+        boostHubJsonResponse(['success' => true, 'data' => $task_rows]);
         exit;
     }
 
@@ -159,7 +169,7 @@ try {
                     $task_category, $task_link, $completion_steps, $proof_notes, $cta_label, $campaign_id, $task_id
                 ]);
                 logAdminActivity((int) $current_admin['id'], 'mini_task_update', 'mini_task', (string) $task_id, json_encode(['title' => $title], JSON_UNESCAPED_UNICODE));
-                echo json_encode(['success' => true, 'message' => 'Task updated.']);
+                boostHubJsonResponse(['success' => true, 'message' => 'Task updated.']);
             } else {
                 // Create
                 $stmt = $db->prepare("
@@ -174,7 +184,7 @@ try {
                 ]);
                 $new_id = (int) $db->lastInsertId();
                 logAdminActivity((int) $current_admin['id'], 'mini_task_create', 'mini_task', (string) $new_id, json_encode(['title' => $title], JSON_UNESCAPED_UNICODE));
-                echo json_encode(['success' => true, 'message' => 'Task created.', 'id' => $new_id]);
+                boostHubJsonResponse(['success' => true, 'message' => 'Task created.', 'id' => $new_id]);
             }
             exit;
         }
@@ -194,7 +204,7 @@ try {
             $stmt->execute([$new_active, $task_id]);
             logAdminActivity((int) $current_admin['id'], 'mini_task_toggle', 'mini_task', (string) $task_id, json_encode(['is_active' => $new_active], JSON_UNESCAPED_UNICODE));
 
-            echo json_encode(['success' => true, 'message' => $new_active ? 'Task activated.' : 'Task deactivated.', 'is_active' => $new_active]);
+            boostHubJsonResponse(['success' => true, 'message' => $new_active ? 'Task activated.' : 'Task deactivated.', 'is_active' => $new_active]);
             exit;
         }
 
@@ -206,7 +216,7 @@ try {
             $stmt = $db->prepare("DELETE FROM mini_tasks WHERE id = ? AND task_group = 'boosthub'");
             $stmt->execute([$task_id]);
             logAdminActivity((int) $current_admin['id'], 'mini_task_delete', 'mini_task', (string) $task_id, '');
-            echo json_encode(['success' => true, 'message' => 'Task deleted.']);
+            boostHubJsonResponse(['success' => true, 'message' => 'Task deleted.']);
             exit;
         }
 
@@ -218,7 +228,7 @@ try {
             $stmt = $db->prepare("DELETE FROM user_task_logs WHERE id = ?");
             $stmt->execute([$log_id]);
             logAdminActivity((int) $current_admin['id'], 'evidence_delete', 'user_task_log', (string) $log_id, '');
-            echo json_encode(['success' => true, 'message' => 'Evidence deleted.']);
+            boostHubJsonResponse(['success' => true, 'message' => 'Evidence deleted.']);
             exit;
         }
 
@@ -243,7 +253,7 @@ try {
                 $message = !empty($result['approved']) ? ($label . ' submission approved.') : ($label . ' submission rejected.');
             }
 
-            echo json_encode(['success' => true, 'message' => $message]);
+            boostHubJsonResponse(['success' => true, 'message' => $message]);
             exit;
         }
 
@@ -257,5 +267,5 @@ try {
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    boostHubJsonResponse(['success' => false, 'error' => $e->getMessage()]);
 }
