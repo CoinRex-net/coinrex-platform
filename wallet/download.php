@@ -42,7 +42,8 @@ if ($db !== null) {
             ':ref' => substr((string) ($_SERVER['HTTP_REFERER'] ?? ''), 0, 500),
         ]);
     } catch (Throwable $e) {
-        // Ignore — a DB hiccup must not break the file download.
+        error_log('RexLink wallet download tracking failed: ' . $e->getMessage());
+        // A database issue must not interrupt the APK download.
     }
 }
 

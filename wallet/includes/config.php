@@ -16,6 +16,54 @@ $walletHost   = trim((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
 
 define('WALLET_ROOT', dirname(__DIR__));
 
+// The main app keeps production database credentials in the project-root
+// .env file, which is intentionally excluded from deployments. Load it here
+// too because the wallet platform can run without the main app bootstrap.
+if (!function_exists('walletLoadEnvFile')) {
+    function walletLoadEnvFile(string $path): void
+    {
+        if (!is_readable($path)) {
+            return;
+        }
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            return;
+        }
+
+        foreach ($lines as $line) {
+            $line = trim((string) $line);
+            if ($line === '' || strpos($line, '#') === 0) {
+                continue;
+            }
+
+            $separator = strpos($line, '=');
+            if ($separator === false) {
+                continue;
+            }
+
+            $key = trim(substr($line, 0, $separator));
+            $value = trim(substr($line, $separator + 1));
+            if ($key === '' || getenv($key) !== false) {
+                continue;
+            }
+
+            $length = strlen($value);
+            if ($length >= 2 && (($value[0] === '"' && $value[$length - 1] === '"') || ($value[0] === "'" && $value[$length - 1] === "'"))) {
+                $value = substr($value, 1, -1);
+            }
+
+            putenv($key . '=' . $value);
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+}
+
+$walletProjectRoot = dirname(WALLET_ROOT);
+walletLoadEnvFile($walletProjectRoot . '/.env');
+walletLoadEnvFile($walletProjectRoot . '/.env.local');
+
 // Build the base URL so assets, images, and internal links always resolve
 // correctly regardless of deployment:
 //   1. COINREX_WALLET_BASE_URL env var (explicit, recommended on production)
@@ -112,6 +160,7 @@ function walletDb(): ?PDO
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
     } catch (Throwable $e) {
+        error_log('RexLink wallet database connection failed: ' . $e->getMessage());
         $pdo = false;
     }
 
@@ -130,6 +179,7 @@ function walletDownloadCount(): int
     try {
         return (int) ($db->query('SELECT COUNT(*) FROM rexlink_downloads')->fetchColumn() ?: 0);
     } catch (Throwable $e) {
+        error_log('RexLink wallet download count query failed: ' . $e->getMessage());
         return 0;
     }
 }
