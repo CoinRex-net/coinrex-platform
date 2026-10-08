@@ -12,6 +12,22 @@
     var reviews = [];
     var taskCategories = {};
 
+    function parseApiResponse(response) {
+        return response.text().then(function (body) {
+            var payload;
+            try {
+                payload = body ? JSON.parse(body) : null;
+            } catch (error) {
+                throw new Error('BoostHub API returned an invalid response (HTTP ' + response.status + ').');
+            }
+            if (!response.ok) {
+                throw new Error((payload && (payload.error || payload.message)) || ('BoostHub API request failed (HTTP ' + response.status + ').'));
+            }
+            if (!payload) throw new Error('BoostHub API returned an empty response.');
+            return payload;
+        });
+    }
+
     // ─── DOM refs ────────────────────────────────────────────────
     var taskListContainer = document.getElementById('boosthubTaskList');
     var taskCountEl = document.getElementById('boosthubTaskCount');
@@ -202,8 +218,8 @@
 
         var url = API_BASE + '?task_category=' + encodeURIComponent(category);
 
-        fetch(url)
-            .then(function (r) { return r.json(); })
+        fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+            .then(parseApiResponse)
             .then(function (res) {
                 if (!res.success) throw new Error(res.error || 'Failed to load');
                 tasks = res.data || [];
@@ -484,8 +500,8 @@
         if (!reviewContainer) return;
 
         var campaignId = campaignFilter ? campaignFilter.value : '0';
-        fetch(API_BASE + '?action=reviews&campaign_id=' + encodeURIComponent(campaignId))
-            .then(function (r) { return r.json(); })
+        fetch(API_BASE + '?action=reviews&campaign_id=' + encodeURIComponent(campaignId), { credentials: 'same-origin', cache: 'no-store' })
+            .then(parseApiResponse)
             .then(function (res) {
                 if (!res.success) throw new Error(res.error || 'Failed to load reviews');
                 reviews = res.data || [];

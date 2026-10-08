@@ -4,6 +4,28 @@
  * Handles: list tasks, create/update task, delete task, toggle active, review submissions
  */
 
+// Keep warnings or partial output from corrupting the JSON response. The
+// shutdown handler also covers fatal errors that occur while loading the
+// shared bootstrap or admin helpers, before the request handler can run.
+ob_start();
+header('Content-Type: application/json; charset=utf-8');
+register_shutdown_function(static function (): void {
+    $error = error_get_last();
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+    if (!$error || !in_array($error['type'], $fatalTypes, true)) {
+        return;
+    }
+
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode(['success' => false, 'error' => 'BoostHub API initialization failed. Check the PHP error log.']);
+});
+
 require_once __DIR__ . '/../_bootstrap.php';
 require_once dirname(__DIR__, 2) . '/admin/includes/config.php';
 require_once dirname(__DIR__, 2) . '/admin/includes/reward_admin.php';
@@ -23,12 +45,10 @@ if (!$current_admin) {
     exit;
 }
 
-$db = getDBConnection();
 $method = $_SERVER['REQUEST_METHOD'];
 
-header('Content-Type: application/json; charset=utf-8');
-
 try {
+    $db = getDBConnection();
 
     // ─── GET: List tasks or reviews ───────────────────────────────
     if ($method === 'GET') {
@@ -234,5 +254,8 @@ try {
 
 } catch (Throwable $e) {
     http_response_code(400);
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
